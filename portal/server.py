@@ -1,6 +1,7 @@
 """Minimal read-only HTTP API for the raw-data portal (stdlib only, local demo).
 
     GET /health
+    GET /ui                    browser UI (sign-in, preview, downloads, access log; see ``portal.web``)
     GET /api/v1/<dataset>[?dealer=D1001][&since=YYYY-MM-DD][&format=csv][&scope=standard|contact]
 
 ``dataset`` is contracts, claims, cancellations or remittances. Callers authenticate with the
@@ -21,6 +22,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from portal import audit, query
+from portal.web import WebUI
 
 log = logging.getLogger("portal.server")
 
@@ -28,6 +30,7 @@ log = logging.getLogger("portal.server")
 def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
     lock = threading.Lock()
     conn = query.connect(db_path)
+    ui = WebUI(db_path, conn, lock)
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "RawDataPortal/1.0"
@@ -50,6 +53,8 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
             url = urlparse(self.path)
             if url.path == "/health":
                 return self._send(HTTPStatus.OK, b'{"status": "ok"}')
+            if ui.handles(url.path):
+                return ui.dispatch(self, "GET")
             parts = url.path.strip("/").split("/")
             if len(parts) != 3 or parts[:2] != ["api", "v1"] or parts[2] not in query.DATASETS:
                 return self._error(HTTPStatus.NOT_FOUND, "not found")
@@ -79,6 +84,11 @@ def make_handler(db_path: Path) -> type[BaseHTTPRequestHandler]:
                     "scope": data_scope,
                     "rows": len(df), "data": json.loads(df.to_json(orient="records", date_format="iso"))}
             return self._send(HTTPStatus.OK, json.dumps(body).encode())
+
+        def do_POST(self) -> None:  # noqa: N802 - http.server naming (UI forms only; the API is read-only)
+            if ui.handles(urlparse(self.path).path):
+                return ui.dispatch(self, "POST")
+            return self._error(HTTPStatus.METHOD_NOT_ALLOWED, "method not allowed")
 
     return Handler
 

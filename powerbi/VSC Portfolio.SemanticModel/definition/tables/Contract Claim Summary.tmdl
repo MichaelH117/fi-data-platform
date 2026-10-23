@@ -1,0 +1,78 @@
+table 'Contract Claim Summary'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: contract_key
+
+	column 'Claims Reported'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: claims_reported
+
+	column 'Claim Count'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: claim_count
+
+	column 'Claims Denied'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: claims_denied
+
+	column 'Paid To Date'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: paid_to_date
+
+	column 'Incurred To Date'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: incurred_to_date
+
+	column 'First Loss Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: first_loss_date
+
+	column 'First Claim Days'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: first_claim_days
+
+	column 'Is Early Claim 30'
+		dataType: boolean
+		sourceColumn: is_early_claim_30
+
+	column 'Is Early Claim 60'
+		dataType: boolean
+		sourceColumn: is_early_claim_60
+
+	column 'Is Early Claim 90'
+		dataType: boolean
+		sourceColumn: is_early_claim_90
+
+	column 'Is Early Claim 120'
+		dataType: boolean
+		sourceColumn: is_early_claim_120
+
+	column 'Is Early Claim 150'
+		dataType: boolean
+		sourceColumn: is_early_claim_150
+
+	column 'Is Early Claim 180'
+		dataType: boolean
+		sourceColumn: is_early_claim_180
+
+	partition 'Contract Claim Summary' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_contract_claim_summary"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract_claim_summary
+	annotation table_kind = dim

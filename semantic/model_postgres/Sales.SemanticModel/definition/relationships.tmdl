@@ -1,0 +1,179 @@
+relationship 'Gross Premium.contract_key -> Contract'
+	fromColumn: 'Gross Premium'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Gross Premium.contract_key -> Contract Terms'
+	fromColumn: 'Gross Premium'.'Contract Key'
+	toColumn: 'Contract Terms'.'Contract Key'
+
+relationship 'Gross Premium.contract_key -> Contract Finance'
+	fromColumn: 'Gross Premium'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Gross Premium.contract_key -> Contract Vehicle'
+	fromColumn: 'Gross Premium'.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Gross Premium.posting_period_key -> Posting Period'
+	fromColumn: 'Gross Premium'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Gross Premium.dealer_key -> Dealer'
+	fromColumn: 'Gross Premium'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Gross Premium.product_key -> Product'
+	fromColumn: 'Gross Premium'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Gross Premium.tenant_key -> Tenant'
+	fromColumn: 'Gross Premium'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Cancellation.contract_key -> Contract'
+	fromColumn: Cancellation.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Cancellation.contract_key -> Contract Terms'
+	fromColumn: Cancellation.'Contract Key'
+	toColumn: 'Contract Terms'.'Contract Key'
+
+relationship 'Cancellation.contract_key -> Contract Finance'
+	fromColumn: Cancellation.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Cancellation.contract_key -> Contract Vehicle'
+	fromColumn: Cancellation.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Cancellation.dealer_key -> Dealer'
+	fromColumn: Cancellation.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Cancellation.product_key -> Product'
+	fromColumn: Cancellation.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Cancellation.tenant_key -> Tenant'
+	fromColumn: Cancellation.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Cancellation.posting_period_key -> Posting Period'
+	fromColumn: Cancellation.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Cash Transaction.contract_key -> Contract'
+	fromColumn: 'Cash Transaction'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Cash Transaction.contract_key -> Contract Terms'
+	fromColumn: 'Cash Transaction'.'Contract Key'
+	toColumn: 'Contract Terms'.'Contract Key'
+
+relationship 'Cash Transaction.contract_key -> Contract Finance'
+	fromColumn: 'Cash Transaction'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Cash Transaction.contract_key -> Contract Vehicle'
+	fromColumn: 'Cash Transaction'.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Cash Transaction.dealer_key -> Dealer'
+	fromColumn: 'Cash Transaction'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Cash Transaction.product_key -> Product'
+	fromColumn: 'Cash Transaction'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Cash Transaction.tenant_key -> Tenant'
+	fromColumn: 'Cash Transaction'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Cash Transaction.posting_period_key -> Posting Period'
+	fromColumn: 'Cash Transaction'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Commission.contract_key -> Contract'
+	fromColumn: Commission.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Commission.contract_key -> Contract Terms'
+	fromColumn: Commission.'Contract Key'
+	toColumn: 'Contract Terms'.'Contract Key'
+
+relationship 'Commission.contract_key -> Contract Finance'
+	fromColumn: Commission.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Commission.contract_key -> Contract Vehicle'
+	fromColumn: Commission.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Commission.dealer_key -> Dealer'
+	fromColumn: Commission.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Commission.product_key -> Product'
+	fromColumn: Commission.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Commission.tenant_key -> Tenant'
+	fromColumn: Commission.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Commission.agent_key -> Agent'
+	fromColumn: Commission.'Agent Key'
+	toColumn: Agent.'Agent Key'
+
+relationship 'Commission.posting_period_key -> Posting Period'
+	fromColumn: Commission.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Contract Month.contract_key -> Contract'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Contract Month.contract_key -> Contract Terms'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: 'Contract Terms'.'Contract Key'
+
+relationship 'Contract Month.contract_key -> Contract Finance'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Contract Month.contract_key -> Contract Vehicle'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Contract Month.dealer_key -> Dealer'
+	fromColumn: 'Contract Month'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Contract Month.product_key -> Product'
+	fromColumn: 'Contract Month'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Contract Month.tenant_key -> Tenant'
+	fromColumn: 'Contract Month'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Contract Month.posting_period_key -> Posting Period'
+	fromColumn: 'Contract Month'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Dealer Scorecard.tenant_key -> Tenant'
+	fromColumn: 'Dealer Scorecard'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Dealer Scorecard.dealer_key -> Dealer'
+	fromColumn: 'Dealer Scorecard'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Dealer Scorecard.month_key -> Posting Period'
+	fromColumn: 'Dealer Scorecard'.'Month Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Dealer.dealer_group_key -> Dealer Group'
+	fromColumn: Dealer.'Dealer Group Key'
+	toColumn: 'Dealer Group'.'Dealer Group Key'

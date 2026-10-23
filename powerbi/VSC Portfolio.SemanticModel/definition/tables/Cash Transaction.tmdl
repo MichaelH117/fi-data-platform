@@ -1,0 +1,122 @@
+table 'Cash Transaction'
+
+	column 'Cash Txn Key'
+		dataType: string
+		isHidden
+		sourceColumn: cash_txn_key
+
+	column 'Cash Txn ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: cash_txn_id
+
+	column 'Remit Batch ID'
+		dataType: string
+		isHidden
+		sourceColumn: remit_batch_id
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Remit Status'
+		dataType: string
+		sourceColumn: remit_status
+
+	column 'Remit Source'
+		dataType: string
+		sourceColumn: remit_source
+
+	column 'Entered At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: entered_at
+
+	column 'Sent At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: sent_at
+
+	column 'Received At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: received_at
+
+	column 'Posted At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posted_at
+
+	column 'Posted Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posted_date_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column 'Contract Entered Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: contract_entered_date
+
+	column Amount
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: amount
+
+	column 'Remit Age Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: remit_age_days
+
+	column 'Is Late'
+		dataType: boolean
+		sourceColumn: is_late
+
+	column 'Late Fee'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: late_fee
+
+	partition 'Cash Transaction' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_cash_transaction"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_cash_transaction
+	annotation table_kind = fact

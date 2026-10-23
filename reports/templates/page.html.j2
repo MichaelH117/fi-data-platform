@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ page.title }} · VSC Portfolio Reports</title>
 <meta name="description" content="{{ page.lede }}">
-<script>try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<script>document.documentElement.className += " js"; try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="stylesheet" href="{{ root }}assets/site.css">
 <script src="{{ root }}assets/plotly.min.js"></script>
 </head>
@@ -30,31 +30,60 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="{{ root }}index.html"><span class="brand-mark" aria-hidden="true"></span>VSC Portfolio Reports</a>
-    <nav aria-label="Reports">
-      {% for href, label in nav %}
-      <a href="{{ root }}{{ href }}"{% if href == active %} aria-current="page"{% endif %}>{{ label }}</a>
-      {% endfor %}
-    </nav>
-    <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><span aria-hidden="true">◐</span></button>
-  </div>
+  <button class="nav-toggle" type="button" aria-controls="sidebar" aria-expanded="false"><span class="nav-toggle-bars" aria-hidden="true"></span><span class="nav-toggle-text">Menu</span></button>
+  <a class="brand" href="{{ root }}{{ start if nav_top else 'index.html' }}"><span class="brand-mark" aria-hidden="true"></span>VSC Portfolio Reports</a>
+  <span class="topbar-meta">Synthetic data &middot; as of {{ as_of.strftime('%b %d, %Y') }}</span>
+  <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor"/></svg></button>
 </header>
-<main id="main">
+<div class="shell">
+<aside class="sidebar" id="sidebar">
+  <nav aria-label="Reports">
+    {% if nav_top %}
+    <ul class="nav-list nav-top">
+      {% for href, label in nav_top %}
+      <li><a href="{{ root }}{{ href }}"{% if href == active %} aria-current="page"{% endif %}><span class="nav-star" aria-hidden="true"></span>{{ label }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% for group, items in nav_sections %}
+    <div class="nav-group">
+      <p class="nav-heading" id="nav-g{{ loop.index }}">{{ group }}</p>
+      <ul class="nav-list" aria-labelledby="nav-g{{ loop.index }}">
+        {% for href, label in items %}
+        <li><a href="{{ root }}{{ href }}"{% if href == active %} aria-current="page"{% endif %}>{{ label }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </nav>
+</aside>
+<div class="content">
+<main id="main" tabindex="-1">
   <div class="page-head">
-    {% if page.nav %}<p class="crumb"><a href="{{ root }}{{ page.nav }}">← {{ page.crumb or 'All dealers' }}</a></p>{% endif %}
+    {% if page.nav %}<p class="crumb"><a href="{{ root }}{{ page.nav }}">&larr; {{ page.crumb or 'All dealers' }}</a></p>{% endif %}
     <h1>{{ page.title }}</h1>
     <p class="lede">{{ page.lede }}</p>
+    {% if page.path == 'index.html' and nav_top %}<p class="callout">New here? <a href="{{ root }}{{ start }}">Start here</a> for a two-minute tour of the site and what it proves.</p>{% endif %}
   </div>
 
   {% if page.kpis %}
   <section class="kpis" aria-label="Key figures">
     {% for k in page.kpis %}
-    <div class="kpi">
+    {% set spark = sparkline(k.spark) if k.spark else '' %}
+    <div class="kpi{% if spark %} has-spark{% endif %}">
+      {% if k.sub %}
+      <details class="kpi-info">
+        <summary title="{{ k.sub }}"><span class="kpi-label">{{ k.label }}</span><span class="visually-hidden">: show definition</span><span class="kpi-i" aria-hidden="true">i</span></summary>
+        <p class="kpi-sub">{{ k.sub }}</p>
+      </details>
+      {% else %}
       <p class="kpi-label">{{ k.label }}</p>
+      {% endif %}
       <p class="kpi-value">{{ k.value }}</p>
-      {% if k.status %}<p class="status status-{{ k.status }}"><span class="status-icon" aria-hidden="true"></span>{{ {'good': 'On track', 'warning': 'Watch', 'critical': 'Action needed'}[k.status] }}</p>{% endif %}
-      {% if k.sub %}<p class="kpi-sub">{{ k.sub }}</p>{% endif %}
+      <div class="kpi-foot">
+        {% if k.status %}<p class="status status-{{ k.status }}"><span class="status-icon" aria-hidden="true"></span>{{ {'good': 'On track', 'warning': 'Watch', 'critical': 'Action needed'}[k.status] }}</p>{% endif %}
+        {{ spark }}
+      </div>
     </div>
     {% endfor %}
   </section>
@@ -64,7 +93,8 @@
   {% for s in page.sections %}
     <section class="card{% if s.wide %} wide{% endif %}" aria-labelledby="s{{ loop.index }}">
       <h2 id="s{{ loop.index }}">{{ s.title }}</h2>
-      <p class="what">{{ s.caption }}</p>
+      {% if s.caption %}<p class="what">{{ s.caption }}</p>{% endif %}
+      {% if s.html %}<div class="prose">{{ chart(s.html) }}</div>{% endif %}
       {% if s.chart %}
         {{ chart(s.chart) }}
         {% if s.rows %}
@@ -82,6 +112,8 @@
   <p>Synthetic data for a portfolio project. Data as of {{ as_of.strftime('%b %d, %Y') }}; complete months through {{ last_month }}.
   Metric definitions: docs/METRICS.md. Built by <code>python -m reports</code>.</p>
 </footer>
+</div>
+</div>
 <script src="{{ root }}assets/site.js"></script>
 </body>
 </html>

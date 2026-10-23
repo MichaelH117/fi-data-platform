@@ -1,0 +1,101 @@
+table 'Contract Finance'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: contract_key
+
+	column 'Purchase Price'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: purchase_price
+
+	column 'Coverage Cost'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: coverage_cost
+
+	column 'Retail Price'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: retail_price
+
+	column 'Dealer Markup'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: dealer_markup
+
+	column MSRP
+		dataType: double
+		summarizeBy: none
+		sourceColumn: msrp
+
+	column 'Finance Type'
+		dataType: string
+		sourceColumn: finance_type
+
+	column 'Finance Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: finance_amount
+
+	column APR
+		dataType: double
+		summarizeBy: none
+		sourceColumn: apr
+
+	column 'Lienholder Code'
+		dataType: string
+		sourceColumn: lienholder_code
+
+	column 'Lienholder Name'
+		dataType: string
+		sourceColumn: lienholder_name
+
+	column 'Admin Fee'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: admin_fee
+
+	column 'Reserve Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: reserve_amount
+
+	column Commission
+		dataType: double
+		summarizeBy: none
+		sourceColumn: commission
+
+	column 'Insurer Fee'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: insurer_fee
+
+	column 'Premium Tax'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: premium_tax
+
+	column 'Profit Share Reserve'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: profit_share_reserve
+
+	column 'Is Amount Sign Fixed'
+		dataType: boolean
+		isHidden
+		sourceColumn: is_amount_sign_fixed
+
+	partition 'Contract Finance' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_contract_finance"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract_finance
+	annotation table_kind = dim

@@ -1,0 +1,115 @@
+table Dealer
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: dealer_key
+
+	column 'Dealer ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: dealer_id
+
+	column 'Dealer Number'
+		dataType: string
+		sourceColumn: dealer_number
+
+	column 'Dealer Name'
+		dataType: string
+		sourceColumn: dealer_name
+
+	column City
+		dataType: string
+		sourceColumn: city
+
+	column State
+		dataType: string
+		sourceColumn: state
+
+	column 'Dealer Status'
+		dataType: string
+		sourceColumn: dealer_status
+
+	column 'Onboarded Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: onboarded_date
+
+	column 'Dealer Group Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_group_key
+
+	column 'Agent Key'
+		dataType: string
+		isHidden
+		sourceColumn: agent_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Remit Rule'
+		dataType: string
+		sourceColumn: remit_rule
+
+	column 'Is Weekly Remit'
+		dataType: boolean
+		sourceColumn: is_weekly_remit
+
+	column Program
+		dataType: string
+		sourceColumn: program
+
+	column 'Reinsurance Company'
+		dataType: string
+		sourceColumn: reinsurance_company
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: source_system
+
+	column 'Participation Entity Key'
+		dataType: string
+		isHidden
+		sourceColumn: participation_entity_key
+
+	column 'Participation Entity Name'
+		dataType: string
+		sourceColumn: participation_entity_name
+
+	column 'Participation Structure'
+		dataType: string
+		sourceColumn: participation_structure
+
+	column 'Participation Label'
+		dataType: string
+		sourceColumn: participation_label
+
+	hierarchy 'Dealer Geography'
+
+		level State
+			column: State
+
+		level City
+			column: City
+
+		level 'Dealer Name'
+			column: 'Dealer Name'
+
+	partition Dealer = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_dealer"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_dealer
+	annotation table_kind = dim

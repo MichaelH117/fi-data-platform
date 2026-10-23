@@ -1,0 +1,129 @@
+table Disbursement
+
+	column 'Disbursement Key'
+		dataType: string
+		isHidden
+		sourceColumn: disbursement_key
+
+	column 'Txn Key'
+		dataType: string
+		isHidden
+		sourceColumn: txn_key
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Account Holder Key'
+		dataType: string
+		isHidden
+		sourceColumn: account_holder_key
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: source_system
+
+	column 'Txn Type'
+		dataType: string
+		sourceColumn: txn_type
+
+	column 'Disbursement Type'
+		dataType: string
+		sourceColumn: disbursement_type
+
+	column 'Posted At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posted_at
+
+	column 'Posted Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posted_date_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column Amount
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: amount
+
+	column 'Reserve Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: reserve_amount
+
+	column 'Profit Share Reserve'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: profit_share_reserve
+
+	column 'Is Refundable'
+		dataType: boolean
+		sourceColumn: is_refundable
+
+	column 'Is Renewable'
+		dataType: boolean
+		sourceColumn: is_renewable
+
+	partition Disbursement = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_disbursement"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [posting_period_key] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [posting_period_key] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 10
+		incrementalGranularity: month
+		incrementalPeriods: 3
+		sourceExpression =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_disbursement"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [posting_period_key] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [posting_period_key] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	annotation source_table = core.fct_disbursement
+	annotation table_kind = fact

@@ -1,0 +1,39 @@
+/// External dealer: only the dealers mapped to the signed-in user, inside their tenant.
+role 'Dealer User'
+	modelPermission: read
+
+	tablePermission 'Security User Access' = 'Security User Access'[User Login] = USERPRINCIPALNAME()
+
+	tablePermission Tenant = 'Tenant'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME())
+
+	tablePermission Dealer = 'Dealer'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME())
+
+	tablePermission 'Dealer Group' = 'Dealer Group'[Dealer Group Key] IN CALCULATETABLE(VALUES('Dealer'[Dealer Group Key]), 'Dealer'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission Contract = 'Contract'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME())
+
+	tablePermission Claim = 'Claim'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission 'Account Holder' = 'Account Holder'[Account Holder Key] IN CALCULATETABLE(VALUES('Payee Dealer Access'[Account Holder Key]), 'Payee Dealer Access'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission Agent = 'Agent'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME())
+
+	tablePermission 'Payee Dealer Access' = 'Payee Dealer Access'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME())
+
+	tablePermission 'Contract Terms' = 'Contract Terms'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission 'Contract Finance' = 'Contract Finance'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission 'Contract Vehicle' = 'Contract Vehicle'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission 'Contract Actuarial Class' = 'Contract Actuarial Class'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission 'Contract Claim Summary' = 'Contract Claim Summary'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Dealer Key] IN CALCULATETABLE(VALUES('Security User Access'[Dealer Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission 'Funded Reserve Filing' = FALSE()
+
+	tablePermission 'Regulatory Line Value' = FALSE()
+
+	tablePermission 'IBNR by Cohort' = FALSE()
+
+	annotation security_group = sg-bi-dealer-users

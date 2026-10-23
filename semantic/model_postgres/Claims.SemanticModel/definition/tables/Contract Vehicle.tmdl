@@ -1,0 +1,82 @@
+table 'Contract Vehicle'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: contract_key
+
+	column 'VIN Hash'
+		dataType: string
+		sourceColumn: vin_hash
+
+	column 'Is Valid VIN'
+		dataType: boolean
+		sourceColumn: is_valid_vin
+
+	column 'Chassis VIN Hash'
+		dataType: string
+		sourceColumn: chassis_vin_hash
+
+	column 'Has Chassis VIN'
+		dataType: boolean
+		sourceColumn: has_chassis_vin
+
+	column 'Vehicle Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: vehicle_year
+
+	column 'Vehicle Make'
+		dataType: string
+		sourceColumn: vehicle_make
+
+	column 'Vehicle Model'
+		dataType: string
+		sourceColumn: vehicle_model
+
+	column 'Fuel Type'
+		dataType: string
+		sourceColumn: fuel_type
+
+	column Cylinders
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: cylinders
+
+	column 'Drive Type'
+		dataType: string
+		sourceColumn: drive_type
+
+	column 'Is Commercial'
+		dataType: boolean
+		sourceColumn: is_commercial
+
+	column 'Title Brand'
+		dataType: string
+		sourceColumn: title_brand
+
+	column 'New Used'
+		dataType: string
+		sourceColumn: new_used
+
+	column Odometer
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: odometer
+
+	column 'Odometer Band'
+		dataType: string
+		sourceColumn: odometer_band
+
+	partition 'Contract Vehicle' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_contract_vehicle"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract_vehicle
+	annotation table_kind = dim

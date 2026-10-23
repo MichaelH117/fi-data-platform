@@ -40,6 +40,11 @@ from semantic.tmdl import TAB, annotation, description, join, name, prop_expr
 ROOT = Path(__file__).resolve().parents[1]
 METRICS_PATH = ROOT / "dbt" / "models" / "metrics.yml"
 OUT_DIR = ROOT / "semantic" / "model"
+# Source targets for the M partitions (python -m semantic --target). snowflake is the checked-in default
+# (semantic/model/); postgres points at the local server that python -m warehouse.postgres sync fills.
+TARGETS: tuple[str, ...] = ("snowflake", "postgres")
+DEFAULT_TARGET = "snowflake"
+TARGET_OUT_DIRS = {"snowflake": OUT_DIR, "postgres": ROOT / "semantic" / "model_postgres"}
 LOCK_PATH = ROOT / "semantic" / "columns.lock.json"
 
 Columns = dict[str, list[tuple[str, str]]]  # source table -> [(column, duckdb type)]
@@ -100,6 +105,7 @@ class DomainModel:
     roles: tuple[str, ...] = ()
     drill: list[tuple[str, str, str]] = field(default_factory=list)
     payee_sources: list[tuple[str, str]] = field(default_factory=list)  # (fact, account-holder FK column)
+    purpose: str = ""  # set for a reporting model that is not one of the four domains (powerbi/build.py)
 
 
 @dataclass
@@ -256,13 +262,16 @@ def _expr_columns(expr: str) -> set[str]:
 
 
 def _domain_model(domain: str, metric_names: list[str], measures: dict[str, ModelMeasure],
-                  columns: Columns) -> DomainModel:
-    dm = DomainModel(domain, roles=spec.DOMAIN_ROLES[domain])
+                  columns: Columns, *, allowed: tuple[str, ...] | None = None,
+                  roles: tuple[str, ...] | None = None, purpose: str = "") -> DomainModel:
+    """One model over ``metric_names``. ``allowed``/``roles``/``purpose`` default to the domain's spec entries;
+    a reporting model (``powerbi/build.py``) passes its own."""
+    dm = DomainModel(domain, roles=spec.DOMAIN_ROLES[domain] if roles is None else roles, purpose=purpose)
     order = {m: i for i, m in enumerate(measures)}
     dm.measures = [measures[m] for m in sorted(metric_names, key=lambda x: order[x])]
     facts = sorted({t for m in dm.measures for t in m.tables}, key=list(spec.FACTS).index)
     dm.facts = facts
-    allowed = spec.DOMAIN_DIMS[domain]
+    allowed = spec.DOMAIN_DIMS[domain] if allowed is None else allowed
     dims: set[str] = set()
     rels: list[tuple[str, str, str, str]] = []
     for f in facts:
@@ -429,27 +438,41 @@ ROLE_GROUPS = {"Internal": "sg-bi-internal-<domain>", "Tenant Partner": "sg-bi-p
 
 
 # ---------------------------------------------------------------------- rendering
-def _m_source(t: spec.TableSpec) -> str:
-    schema, table = t.source.upper().split(".")
-    lines = [
-        "let",
-        '    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),',
-        '    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],',
-        f'    Schema = Db{{[Name = "{schema}", Kind = "Schema"]}}[Data],',
-        f'    Data = Schema{{[Name = "{table}", Kind = "Table"]}}[Data]',
-    ]
+def _src_col(c: str, target: str) -> str:
+    """Physical column name as the source returns it: Snowflake folds to upper case, Postgres keeps lower."""
+    return c.lower() if target == "postgres" else c.upper()
+
+
+def _m_source(t: spec.TableSpec, target: str = DEFAULT_TARGET) -> str:
+    if target == "postgres":
+        schema, table = t.source.lower().split(".")
+        lines = [
+            "let",
+            "    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),",
+            f'    Data = Source{{[Schema = "{schema}", Item = "{table}"]}}[Data]',
+        ]
+    else:
+        schema, table = t.source.upper().split(".")
+        lines = [
+            "let",
+            '    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),',
+            '    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],',
+            f'    Schema = Db{{[Name = "{schema}", Kind = "Schema"]}}[Data],',
+            f'    Data = Schema{{[Name = "{table}", Kind = "Table"]}}[Data]',
+        ]
     if t.incremental:
+        pk = _src_col("posting_period_key", target)
         lines[-1] += ","
         lines += ["    Filtered = Table.SelectRows(Data, each",
-                  "        [POSTING_PERIOD_KEY] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)",
-                  "        and [POSTING_PERIOD_KEY] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))",
+                  f"        [{pk}] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)",
+                  f"        and [{pk}] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))",
                   "in", "    Filtered"]
     else:
         lines += ["in", "    Data"]
     return "\n".join(lines)
 
 
-def render_table(t: spec.TableSpec, columns: Columns) -> str:
+def render_table(t: spec.TableSpec, columns: Columns, target: str = DEFAULT_TARGET) -> str:
     out = [*description(t.note, 0), f"table {name(t.name)}"]
     for c, d in visible_columns(columns, t):
         dtype = spec.tmdl_type(d)
@@ -462,26 +485,26 @@ def render_table(t: spec.TableSpec, columns: Columns) -> str:
             out.append(f"{TAB * 2}formatString: yyyy-mm-dd")
         if c == t.key:
             out.append(f"{TAB * 2}isKey")
-        out.append(f"{TAB * 2}sourceColumn: {c.upper()}")
+        out.append(f"{TAB * 2}sourceColumn: {_src_col(c, target)}")
     if t.name in spec.HIERARCHIES:
         h_name, levels = spec.HIERARCHIES[t.name]
         out += ["", f"{TAB}hierarchy {name(h_name)}"]
         for lv in levels:
             out += ["", f"{TAB * 2}level {name(friendly(lv))}", f"{TAB * 3}column: {name(friendly(lv))}"]
     out += ["", f"{TAB}partition {name(t.name)} = m", f"{TAB * 2}mode: import",
-            *prop_expr("source", _m_source(t), 2)]
+            *prop_expr("source", _m_source(t, target), 2)]
     if t.incremental:
         out += ["", f"{TAB}refreshPolicy", f"{TAB * 2}policyType: basic",
                 f"{TAB * 2}rollingWindowGranularity: year", f"{TAB * 2}rollingWindowPeriods: 10",
                 f"{TAB * 2}incrementalGranularity: month", f"{TAB * 2}incrementalPeriods: 3",
-                *prop_expr("sourceExpression", _m_source(t), 2)]
+                *prop_expr("sourceExpression", _m_source(t, target), 2)]
     out += ["", annotation("source_table", t.source, 1), annotation("table_kind", t.kind, 1)]
     return join(out)
 
 
 def render_measures(dm: DomainModel) -> str:
     out = ["/// Every measure is generated from dbt/models/metrics.yml (annotation dbt_metric).",
-           f"table {spec.MEASURES}"]
+           f"table {name(spec.MEASURES)}"]
     for m in dm.measures:
         out += ["", *description(m.description, 1), *prop_expr(f"measure {name(m.name)}", m.dax, 1),
                 f"{TAB * 2}formatString: {FORMATS[m.format]}", f"{TAB * 2}displayFolder: {m.folder}",
@@ -491,7 +514,7 @@ def render_measures(dm: DomainModel) -> str:
         out.append(annotation("certified", "true" if m.certified else "false", 2))
     out += ["", f"{TAB}column Value", f"{TAB * 2}dataType: string", f"{TAB * 2}isHidden",
             f"{TAB * 2}sourceColumn: [Value]", "",
-            f"{TAB}partition {spec.MEASURES} = calculated", f"{TAB * 2}mode: import",
+            f"{TAB}partition {name(spec.MEASURES)} = calculated", f"{TAB * 2}mode: import",
             f'{TAB * 2}source = ROW("Value", BLANK())']
     return join(out)
 
@@ -564,9 +587,10 @@ def _secured_tables(dm: DomainModel) -> set[str]:
     return set(dm.dims) | set(dm.facts) | ({spec.PAYEE_ACCESS} if dm.payee_sources else set())
 
 
-def render_role(role: str, dm: DomainModel) -> str:
+def render_role(role: str, dm: DomainModel, extra: dict[str, str] | None = None) -> str:
+    """``extra``: more table filters (a reporting model hides its internal-only tables from external roles)."""
     out = [*description(ROLE_NOTES[role], 0), f"role {name(role)}", f"{TAB}modelPermission: read"]
-    for table, expr in role_filters(role, _secured_tables(dm)).items():
+    for table, expr in {**role_filters(role, _secured_tables(dm)), **(extra or {})}.items():
         out += ["", *prop_expr(f"tablePermission {name(table)}", expr, 1)]
     out += ["", annotation("security_group", ROLE_GROUPS[role].replace("<domain>", dm.domain.lower()), 1)]
     return join(out)
@@ -585,7 +609,21 @@ def render_relationships(dm: DomainModel) -> str:
     return join(out)
 
 
-def render_expressions() -> str:
+def render_expressions(target: str = DEFAULT_TARGET) -> str:
+    if target == "postgres":
+        pg_params = [
+            ("PostgresServer", '"localhost:5432"', "Text"),
+            ("PostgresDatabase", '"vsc_analytics"', "Text"),
+            ("RangeStart", "#datetime(2019, 1, 1, 0, 0, 0)", "DateTime"),
+            ("RangeEnd", "#datetime(2030, 1, 1, 0, 0, 0)", "DateTime"),
+        ]
+        out = ["/// Local PostgreSQL server filled by python -m warehouse.postgres sync. Import mode; sign in with",
+               "/// Database authentication as the read-only bi_reader login. Change PostgresServer / PostgresDatabase",
+               "/// to point the model at another server."]
+        for n, v, typ in pg_params:
+            out += [f'expression {n} = {v} meta [IsParameterQuery = true, Type = "{typ}", '
+                    f'IsParameterQueryRequired = true]', ""]
+        return join(out)
     params = [
         ("SnowflakeServer", '"your-account.snowflakecomputing.com"', "Text"),
         ("SnowflakeWarehouse", '"REPORTING"', "Text"),
@@ -604,7 +642,11 @@ def render_model(dm: DomainModel) -> str:
     tables = [spec.MEASURES, spec.CALC_GROUP, spec.DRILL, *dm.facts, *dm.dims]
     if dm.payee_sources:
         tables.append(spec.PAYEE_ACCESS)
-    out = [f"/// {dm.domain} domain model: {spec.DOMAIN_PURPOSE[dm.domain]}", "model Model",
+    if dm.purpose:
+        head = f"/// {dm.domain} reporting model: {dm.purpose}"
+    else:
+        head = f"/// {dm.domain} domain model: {spec.DOMAIN_PURPOSE[dm.domain]}"
+    out = [head, "model Model",
            f"{TAB}culture: en-US", f"{TAB}defaultPowerBIDataSourceVersion: powerBI_V3",
            f"{TAB}discourageImplicitMeasures", f"{TAB}sourceQueryCulture: en-US",
            annotation("domain", dm.domain, 1),
@@ -619,7 +661,30 @@ def _safe(n: str) -> str:
     return "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in n).strip()
 
 
-def write_model(plan: Plan, columns: Columns, out_dir: Path) -> list[Path]:
+def write_domain(dm: DomainModel, columns: Columns, base: Path, put, target: str = DEFAULT_TARGET,
+                 role_extra: dict[str, str] | None = None) -> None:
+    """Write one ``<name>.SemanticModel`` folder; ``put(path, text)`` does the writing."""
+    d = dm.domain
+    put(base / "definition.pbism", json.dumps({"version": "4.0", "settings": {}}, indent=2) + "\n")
+    defn = base / "definition"
+    put(defn / "database.tmdl", join([f"database {d}", f"{TAB}compatibilityLevel: 1601"]))
+    put(defn / "model.tmdl", render_model(dm))
+    put(defn / "expressions.tmdl", render_expressions(target))
+    put(defn / "relationships.tmdl", render_relationships(dm))
+    put(defn / "tables" / f"{spec.MEASURES}.tmdl", render_measures(dm))
+    put(defn / "tables" / f"{spec.CALC_GROUP}.tmdl", render_calc_group())
+    put(defn / "tables" / f"{spec.DRILL}.tmdl", render_drill(dm))
+    for t in dm.facts:
+        put(defn / "tables" / f"{_safe(t)}.tmdl", render_table(spec.FACTS[t], columns, target))
+    for t in dm.dims:
+        put(defn / "tables" / f"{_safe(t)}.tmdl", render_table(spec.DIMS[t], columns, target))
+    if dm.payee_sources:
+        put(defn / "tables" / f"{_safe(spec.PAYEE_ACCESS)}.tmdl", render_payee_access(dm, columns))
+    for r in dm.roles:
+        put(defn / "roles" / f"{_safe(r)}.tmdl", render_role(r, dm, role_extra if r != "Internal" else None))
+
+
+def write_model(plan: Plan, columns: Columns, out_dir: Path, target: str = DEFAULT_TARGET) -> list[Path]:
     """(Re)write ``out_dir`` from the plan. Returns every file written."""
     if out_dir.exists():
         shutil.rmtree(out_dir)
@@ -631,25 +696,11 @@ def write_model(plan: Plan, columns: Columns, out_dir: Path) -> list[Path]:
         written.append(path)
 
     for d, dm in plan.models.items():
-        base = out_dir / f"{d}.SemanticModel"
-        put(base / "definition.pbism", json.dumps({"version": "4.0", "settings": {}}, indent=2) + "\n")
-        defn = base / "definition"
-        put(defn / "database.tmdl", join([f"database {d}", f"{TAB}compatibilityLevel: 1601"]))
-        put(defn / "model.tmdl", render_model(dm))
-        put(defn / "expressions.tmdl", render_expressions())
-        put(defn / "relationships.tmdl", render_relationships(dm))
-        put(defn / "tables" / f"{spec.MEASURES}.tmdl", render_measures(dm))
-        put(defn / "tables" / f"{spec.CALC_GROUP}.tmdl", render_calc_group())
-        put(defn / "tables" / f"{spec.DRILL}.tmdl", render_drill(dm))
-        for t in dm.facts:
-            put(defn / "tables" / f"{_safe(t)}.tmdl", render_table(spec.FACTS[t], columns))
-        for t in dm.dims:
-            put(defn / "tables" / f"{_safe(t)}.tmdl", render_table(spec.DIMS[t], columns))
-        if dm.payee_sources:
-            put(defn / "tables" / f"{_safe(spec.PAYEE_ACCESS)}.tmdl", render_payee_access(dm, columns))
-        for r in dm.roles:
-            put(defn / "roles" / f"{_safe(r)}.tmdl", render_role(r, dm))
-    put(out_dir / "manifest.json", json.dumps(manifest(plan), indent=1, sort_keys=True) + "\n")
+        write_domain(dm, columns, out_dir / f"{d}.SemanticModel", put, target)
+    doc = manifest(plan)
+    if target != DEFAULT_TARGET:
+        doc["source_target"] = target
+    put(out_dir / "manifest.json", json.dumps(doc, indent=1, sort_keys=True) + "\n")
     return written
 
 
@@ -674,12 +725,15 @@ def manifest(plan: Plan) -> dict:
     }
 
 
-def generate(out_dir: Path = OUT_DIR, metrics_path: Path = METRICS_PATH, columns: Columns | None = None) -> Plan:
+def generate(out_dir: Path = OUT_DIR, metrics_path: Path = METRICS_PATH, columns: Columns | None = None,
+             target: str = DEFAULT_TARGET) -> Plan:
+    if target not in TARGETS:
+        raise ValueError(f"unknown semantic target {target!r}; choose from {TARGETS}")
     text = metrics_path.read_text(encoding="utf-8")
     catalog = Catalog.load(metrics_path)
     columns = load_lock() if columns is None else columns
     plan = make_plan(catalog, columns, text)
-    write_model(plan, columns, out_dir)
+    write_model(plan, columns, out_dir, target)
     return plan
 
 

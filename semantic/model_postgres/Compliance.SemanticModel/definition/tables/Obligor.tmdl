@@ -1,0 +1,37 @@
+table Obligor
+
+	column 'Obligor Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: obligor_key
+
+	column 'Obligor ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: obligor_id
+
+	column 'Entity Type'
+		dataType: string
+		sourceColumn: entity_type
+
+	column 'Obligor Name'
+		dataType: string
+		sourceColumn: obligor_name
+
+	column State
+		dataType: string
+		sourceColumn: state
+
+	partition Obligor = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_obligor"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_obligor
+	annotation table_kind = dim

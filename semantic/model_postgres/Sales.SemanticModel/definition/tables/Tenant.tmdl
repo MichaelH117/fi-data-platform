@@ -1,0 +1,41 @@
+/// White-label administrator and branding.
+table Tenant
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		isKey
+		sourceColumn: tenant_key
+
+	column 'Tenant Code'
+		dataType: string
+		sourceColumn: tenant_code
+
+	column 'Reportable Name'
+		dataType: string
+		sourceColumn: reportable_name
+
+	column 'Logo Path'
+		dataType: string
+		sourceColumn: logo_path
+
+	column 'Primary Color'
+		dataType: string
+		sourceColumn: primary_color
+
+	column 'Secondary Color'
+		dataType: string
+		sourceColumn: secondary_color
+
+	partition Tenant = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_tenant"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_tenant
+	annotation table_kind = dim

@@ -1,0 +1,1286 @@
+{
+ "calculation_group": {
+  "items": [
+   "Current",
+   "MTD",
+   "QTD",
+   "YTD",
+   "PY",
+   "YoY %",
+   "T12M"
+  ],
+  "name": "Time Intelligence"
+ },
+ "domains": {
+  "Claims": {
+   "dims": [
+    "Posting Period",
+    "Tenant",
+    "Dealer",
+    "Dealer Group",
+    "Product",
+    "Contract",
+    "Contract Vehicle",
+    "Contract Actuarial Class",
+    "Contract Claim Summary",
+    "Claim",
+    "Account Holder",
+    "Security User Access",
+    "Reporting Date"
+   ],
+   "drill_levels": [
+    "Tenant",
+    "Dealer Group",
+    "Dealer",
+    "Dealer State",
+    "Product Category",
+    "Product Subcategory",
+    "Product",
+    "Plan",
+    "Reportable State",
+    "New / Used",
+    "Rating Cell",
+    "Claim Status",
+    "Denied Category"
+   ],
+   "facts": [
+    "Claim Payment Line",
+    "Claim History",
+    "Contract Month",
+    "Claim Summary"
+   ],
+   "inactive_relationships": 1,
+   "incremental_tables": [
+    "Claim Payment Line",
+    "Contract Month"
+   ],
+   "measures": [
+    "written_premium",
+    "earned_premium",
+    "incurred_claims",
+    "loss_ratio",
+    "claim_frequency",
+    "claim_count_metric",
+    "exposure_years_metric",
+    "unearned_premium_balance",
+    "claims_paid",
+    "claims_incurred",
+    "claims_reserve_change",
+    "claims_with_activity",
+    "avg_claim_process_days",
+    "claims_opened",
+    "claims_reported_loss_month",
+    "claims_denied",
+    "claims_closed_paid",
+    "paid_on_paid_claims",
+    "open_claims",
+    "open_claims_aged_30_plus",
+    "avg_claim_turnaround_days",
+    "collected_deductibles",
+    "denial_rate",
+    "paid_claim_severity"
+   ],
+   "purpose": "Claims at payment-line grain, status flow, severity and denial, plus accident-month loss ratio.",
+   "relationships": 37,
+   "roles": [
+    "Internal",
+    "Tenant Partner",
+    "Dealer User"
+   ]
+  },
+  "Compliance": {
+   "dims": [
+    "Posting Period",
+    "Tenant",
+    "Dealer",
+    "Product",
+    "Contract",
+    "Contract Terms",
+    "Claim",
+    "Obligor",
+    "Reporting Date"
+   ],
+   "drill_levels": [
+    "Tenant",
+    "Dealer",
+    "Dealer State",
+    "Product Category",
+    "Product Subcategory",
+    "Product",
+    "Plan",
+    "Reportable State",
+    "Term Band",
+    "Claim Status",
+    "Denied Category",
+    "Obligor"
+   ],
+   "facts": [
+    "Gross Premium",
+    "Cancellation",
+    "Claim Payment Line",
+    "Claim History",
+    "Contract Month",
+    "Claim Summary",
+    "Funded Reserve Filing",
+    "Regulatory Line Value"
+   ],
+   "inactive_relationships": 1,
+   "incremental_tables": [
+    "Claim Payment Line",
+    "Contract Month"
+   ],
+   "measures": [
+    "contracts_written",
+    "gross_coverage_cost",
+    "gross_retail_price",
+    "gross_purchase_price",
+    "contracts_in_force",
+    "cancellations",
+    "effective_cancellations",
+    "customer_refunds",
+    "cancel_fees",
+    "dealer_chargebacks",
+    "coverage_cost_refunds",
+    "net_coverage_cost",
+    "claims_paid",
+    "claims_incurred",
+    "claims_reserve_change",
+    "claims_with_activity",
+    "avg_claim_process_days",
+    "claims_opened",
+    "claims_reported_loss_month",
+    "claims_denied",
+    "claims_closed_paid",
+    "paid_on_paid_claims",
+    "open_claims",
+    "open_claims_aged_30_plus",
+    "avg_claim_turnaround_days",
+    "collected_deductibles",
+    "denial_rate",
+    "paid_claim_severity",
+    "calculated_reserve",
+    "current_reserve",
+    "reserve_shortfall",
+    "complaints_received",
+    "filing_line_value"
+   ],
+   "purpose": "State filing and market-survey inputs (in force, written, consideration, claims paid and denied) plus the filed funded-reserve and market-survey lines by provider (Obligor).",
+   "relationships": 42,
+   "roles": [
+    "Internal"
+   ]
+  },
+  "Finance": {
+   "dims": [
+    "Posting Period",
+    "Tenant",
+    "Dealer",
+    "Dealer Group",
+    "Agent",
+    "Product",
+    "Contract",
+    "Contract Finance",
+    "Contract Actuarial Class",
+    "Account Holder",
+    "Security User Access",
+    "Reporting Date"
+   ],
+   "drill_levels": [
+    "Tenant",
+    "Dealer Group",
+    "Dealer",
+    "Dealer State",
+    "Product Category",
+    "Product Subcategory",
+    "Product",
+    "Plan",
+    "Reportable State",
+    "Rating Cell"
+   ],
+   "facts": [
+    "Gross Premium",
+    "Cancellation",
+    "Reinstatement",
+    "Claim Payment Line",
+    "Cash Transaction",
+    "Disbursement",
+    "Earned Disbursement",
+    "Commission",
+    "Contract Month",
+    "Claim Summary"
+   ],
+   "inactive_relationships": 1,
+   "incremental_tables": [
+    "Claim Payment Line",
+    "Disbursement",
+    "Earned Disbursement",
+    "Contract Month"
+   ],
+   "measures": [
+    "written_premium",
+    "earned_premium",
+    "incurred_claims",
+    "loss_ratio",
+    "claim_frequency",
+    "claim_count_metric",
+    "exposure_years_metric",
+    "contracts_written",
+    "gross_coverage_cost",
+    "gross_retail_price",
+    "gross_purchase_price",
+    "contracts_in_force",
+    "unearned_premium_balance",
+    "cancellations",
+    "effective_cancellations",
+    "customer_refunds",
+    "cancel_fees",
+    "dealer_chargebacks",
+    "coverage_cost_refunds",
+    "effective_cancel_rate",
+    "net_coverage_cost",
+    "reinstatements",
+    "reinstatement_reversals",
+    "claims_paid",
+    "claims_incurred",
+    "claims_reserve_change",
+    "claims_with_activity",
+    "avg_claim_process_days",
+    "claims_opened",
+    "claims_reported_loss_month",
+    "claims_denied",
+    "claims_closed_paid",
+    "paid_on_paid_claims",
+    "open_claims",
+    "open_claims_aged_30_plus",
+    "avg_claim_turnaround_days",
+    "denial_rate",
+    "paid_claim_severity",
+    "posted_loss_ratio",
+    "remitted_cash",
+    "remittances",
+    "late_remittances",
+    "late_fees",
+    "avg_remit_age_days",
+    "late_remittance_rate",
+    "disbursed_amount",
+    "disbursed_claims_reserve",
+    "disbursed_profit_share_reserve",
+    "earned_disbursement_amount",
+    "earned_reserve",
+    "earned_admin_fee",
+    "earned_acquisition_cost",
+    "combined_ratio",
+    "commissions",
+    "commission_advances"
+   ],
+   "purpose": "Ledger-grade premium, disbursement, earning, claims and cash by posting period.",
+   "relationships": 74,
+   "roles": [
+    "Internal",
+    "Tenant Partner",
+    "Dealer User"
+   ]
+  },
+  "Sales": {
+   "dims": [
+    "Posting Period",
+    "Tenant",
+    "Dealer",
+    "Dealer Group",
+    "Agent",
+    "Product",
+    "Contract",
+    "Contract Terms",
+    "Contract Finance",
+    "Contract Vehicle",
+    "Security User Access",
+    "Reporting Date"
+   ],
+   "drill_levels": [
+    "Tenant",
+    "Dealer Group",
+    "Dealer",
+    "Dealer State",
+    "Product Category",
+    "Product Subcategory",
+    "Product",
+    "Plan",
+    "Reportable State",
+    "New / Used",
+    "Term Band"
+   ],
+   "facts": [
+    "Gross Premium",
+    "Cancellation",
+    "Cash Transaction",
+    "Commission",
+    "Contract Month",
+    "Dealer Scorecard"
+   ],
+   "inactive_relationships": 0,
+   "incremental_tables": [
+    "Contract Month"
+   ],
+   "measures": [
+    "contracts_written",
+    "gross_coverage_cost",
+    "gross_retail_price",
+    "gross_purchase_price",
+    "avg_coverage_cost",
+    "dealer_markup_written",
+    "contracts_in_force",
+    "cancellations",
+    "effective_cancellations",
+    "customer_refunds",
+    "cancel_fees",
+    "dealer_chargebacks",
+    "coverage_cost_refunds",
+    "effective_cancel_rate",
+    "net_coverage_cost",
+    "remitted_cash",
+    "remittances",
+    "late_remittances",
+    "late_fees",
+    "avg_remit_age_days",
+    "late_remittance_rate",
+    "scorecard_claims_reported",
+    "early_claims",
+    "early_claim_rate",
+    "dealers_on_watch",
+    "dealers_on_loss_ratio_watch",
+    "scorecard_contracts_written",
+    "scorecard_contracts_cancelled",
+    "scorecard_earned_claims_reserve",
+    "scorecard_incurred_claims",
+    "scorecard_remittances",
+    "scorecard_late_remittances",
+    "scorecard_days_late_total",
+    "scorecard_loss_ratio",
+    "scorecard_cancel_rate",
+    "scorecard_late_remit_rate",
+    "scorecard_avg_days_late",
+    "loss_ratio_peer_percentile",
+    "commissions",
+    "commission_advances"
+   ],
+   "purpose": "Written business, cancellations, in-force book, remittance and commissions by dealer and product.",
+   "relationships": 45,
+   "roles": [
+    "Internal",
+    "Tenant Partner",
+    "Dealer User"
+   ]
+  }
+ },
+ "generated_from": "dbt/models/metrics.yml",
+ "measures": {
+  "avg_claim_process_days": {
+   "certified": false,
+   "dax": "AVERAGE('Claim Payment Line'[Process Days])",
+   "folder": "Claims",
+   "format": "decimal",
+   "measure": "Average Claim Process Days",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Payment Line"
+   ]
+  },
+  "avg_claim_turnaround_days": {
+   "certified": true,
+   "dax": "AVERAGE('Claim Summary'[Turnaround Days])",
+   "folder": "Claims",
+   "format": "decimal",
+   "measure": "Average Turnaround Days",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "avg_coverage_cost": {
+   "certified": false,
+   "dax": "DIVIDE([Gross Coverage Cost], [Contracts Written])",
+   "folder": "Sales",
+   "format": "currency",
+   "measure": "Average Coverage Cost",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Gross Premium"
+   ]
+  },
+  "avg_remit_age_days": {
+   "certified": false,
+   "dax": "AVERAGE('Cash Transaction'[Remit Age Days])",
+   "folder": "Remittance",
+   "format": "decimal",
+   "measure": "Average Remit Age Days",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cash Transaction"
+   ]
+  },
+  "calculated_reserve": {
+   "certified": true,
+   "dax": "IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Calculated Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Calculated Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = \"ITD\"))",
+   "folder": "Filings",
+   "format": "currency",
+   "measure": "Calculated Reserve",
+   "owner": "Senior Data Analyst (regulatory)",
+   "tables": [
+    "Funded Reserve Filing"
+   ]
+  },
+  "cancel_fees": {
+   "certified": false,
+   "dax": "SUM('Cancellation'[Cancel Fee])",
+   "folder": "Cancellations",
+   "format": "currency",
+   "measure": "Cancel Fees",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation"
+   ]
+  },
+  "cancellations": {
+   "certified": false,
+   "dax": "COUNTROWS('Cancellation')",
+   "folder": "Cancellations",
+   "format": "integer",
+   "measure": "Cancellations",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation"
+   ]
+  },
+  "claim_count_metric": {
+   "certified": false,
+   "dax": "SUM('Contract Month'[Claim Count])",
+   "folder": "Claims",
+   "format": "integer",
+   "measure": "Claim Count (accident month)",
+   "owner": "Data Scientist",
+   "tables": [
+    "Contract Month"
+   ]
+  },
+  "claim_frequency": {
+   "certified": true,
+   "dax": "DIVIDE([Claim Count (accident month)], [Exposure Years])",
+   "folder": "Ratios",
+   "format": "decimal",
+   "measure": "Claim Frequency",
+   "owner": "Data Scientist",
+   "tables": [
+    "Contract Month"
+   ]
+  },
+  "claims_closed_paid": {
+   "certified": false,
+   "dax": "CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = \"paid\")",
+   "folder": "Claims",
+   "format": "integer",
+   "measure": "Paid Claim Count",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "claims_denied": {
+   "certified": false,
+   "dax": "CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = \"denied\")",
+   "folder": "Claims",
+   "format": "integer",
+   "measure": "Claims Denied",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "claims_incurred": {
+   "certified": false,
+   "dax": "SUM('Claim Payment Line'[Incurred Change])",
+   "folder": "Claims",
+   "format": "currency",
+   "measure": "Claims Incurred",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Payment Line"
+   ]
+  },
+  "claims_opened": {
+   "certified": false,
+   "dax": "CALCULATE(COUNTROWS('Claim Summary'), USERELATIONSHIP('Claim Summary'[Reported Month], 'Posting Period'[Period Start]))",
+   "folder": "Claims",
+   "format": "integer",
+   "measure": "Claims Opened",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "claims_paid": {
+   "certified": false,
+   "dax": "SUM('Claim Payment Line'[Paid Amount])",
+   "folder": "Claims",
+   "format": "currency",
+   "measure": "Claims Paid",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Payment Line"
+   ]
+  },
+  "claims_reported_loss_month": {
+   "certified": true,
+   "dax": "COUNTROWS('Claim Summary')",
+   "folder": "Claims",
+   "format": "integer",
+   "measure": "Claims Reported (loss month)",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "claims_reserve_change": {
+   "certified": false,
+   "dax": "SUM('Claim Payment Line'[Pending Amount])",
+   "folder": "Claims",
+   "format": "currency",
+   "measure": "Claims Reserve Change",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Payment Line"
+   ]
+  },
+  "claims_with_activity": {
+   "certified": false,
+   "dax": "DISTINCTCOUNT('Claim Payment Line'[Claim Key])",
+   "folder": "Claims",
+   "format": "integer",
+   "measure": "Claims With Activity",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Payment Line"
+   ]
+  },
+  "collected_deductibles": {
+   "certified": false,
+   "dax": "SUM('Claim History'[Collected Deductible])",
+   "folder": "Claims",
+   "format": "currency",
+   "measure": "Collected Deductibles",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim History"
+   ]
+  },
+  "combined_ratio": {
+   "certified": true,
+   "dax": "DIVIDE(([Claims Incurred] + [Earned Acquisition Cost] + [Earned Admin Fee]), [Earned Disbursement Amount])",
+   "folder": "Ratios",
+   "format": "percent",
+   "measure": "Combined Ratio",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Claim Payment Line",
+    "Earned Disbursement"
+   ]
+  },
+  "commission_advances": {
+   "certified": false,
+   "dax": "CALCULATE(SUM('Commission'[Amount]), 'Commission'[Is Advance] = TRUE())",
+   "folder": "Commissions",
+   "format": "currency",
+   "measure": "Commission Advances",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Commission"
+   ]
+  },
+  "commissions": {
+   "certified": false,
+   "dax": "SUM('Commission'[Amount])",
+   "folder": "Commissions",
+   "format": "currency",
+   "measure": "Commissions",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Commission"
+   ]
+  },
+  "complaints_received": {
+   "certified": true,
+   "dax": "IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Complaints Received]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Complaints Received]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = \"ITD\"))",
+   "folder": "Filings",
+   "format": "integer",
+   "measure": "Complaints Received",
+   "owner": "Senior Data Analyst (regulatory)",
+   "tables": [
+    "Funded Reserve Filing"
+   ]
+  },
+  "contracts_in_force": {
+   "certified": true,
+   "dax": "VAR _cap = MAX('Reporting Date'[Last Closed Period Key])\nVAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)\nRETURN\n    CALCULATE(CALCULATE(COUNTROWS('Contract Month'), 'Contract Month'[Is In Force Eom] = TRUE()), 'Posting Period'[Posting Period Key] = _period)",
+   "folder": "Portfolio",
+   "format": "integer",
+   "measure": "Contracts In Force",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Contract Month"
+   ]
+  },
+  "contracts_written": {
+   "certified": true,
+   "dax": "SUM('Gross Premium'[Contracts Written])",
+   "folder": "Sales",
+   "format": "integer",
+   "measure": "Contracts Written",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Gross Premium"
+   ]
+  },
+  "coverage_cost_refunds": {
+   "certified": false,
+   "dax": "SUM('Cancellation'[Coverage Cost Refund])",
+   "folder": "Cancellations",
+   "format": "currency",
+   "measure": "Coverage Cost Refunds",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation"
+   ]
+  },
+  "current_reserve": {
+   "certified": false,
+   "dax": "IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Current Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Current Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = \"ITD\"))",
+   "folder": "Filings",
+   "format": "currency",
+   "measure": "Current Reserve Held",
+   "owner": "Senior Data Analyst (regulatory)",
+   "tables": [
+    "Funded Reserve Filing"
+   ]
+  },
+  "customer_refunds": {
+   "certified": false,
+   "dax": "SUM('Cancellation'[Customer Refund])",
+   "folder": "Cancellations",
+   "format": "currency",
+   "measure": "Customer Refunds",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation"
+   ]
+  },
+  "dealer_chargebacks": {
+   "certified": false,
+   "dax": "SUM('Cancellation'[Dealer Portion])",
+   "folder": "Cancellations",
+   "format": "currency",
+   "measure": "Dealer Chargebacks",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation"
+   ]
+  },
+  "dealer_markup_written": {
+   "certified": true,
+   "dax": "[Gross Retail Price] - [Gross Coverage Cost]",
+   "folder": "Sales",
+   "format": "currency",
+   "measure": "Dealer Markup Written",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Gross Premium"
+   ]
+  },
+  "dealers_on_loss_ratio_watch": {
+   "certified": true,
+   "dax": "VAR _cap = MAX('Reporting Date'[Last Closed Period Key])\nVAR _period = CALCULATE(MAX('Dealer Scorecard'[Month Key]), 'Dealer Scorecard'[Month Key] <= _cap)\nRETURN\n    CALCULATE(CALCULATE(COUNTROWS('Dealer Scorecard'), 'Dealer Scorecard'[Is Watch Loss Ratio] = TRUE()), 'Posting Period'[Posting Period Key] = _period)",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Dealers on Loss-Ratio Watch",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "dealers_on_watch": {
+   "certified": true,
+   "dax": "VAR _cap = MAX('Reporting Date'[Last Closed Period Key])\nVAR _period = CALCULATE(MAX('Dealer Scorecard'[Month Key]), 'Dealer Scorecard'[Month Key] <= _cap)\nRETURN\n    CALCULATE(CALCULATE(COUNTROWS('Dealer Scorecard'), 'Dealer Scorecard'[Is Watch] = TRUE()), 'Posting Period'[Posting Period Key] = _period)",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Dealers On Watch",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "denial_rate": {
+   "certified": true,
+   "dax": "DIVIDE([Claims Denied], [Claims Reported (loss month)])",
+   "folder": "Ratios",
+   "format": "percent",
+   "measure": "Denial Rate",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "disbursed_amount": {
+   "certified": false,
+   "dax": "SUM('Disbursement'[Amount])",
+   "folder": "Disbursements",
+   "format": "currency",
+   "measure": "Disbursed Amount",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Disbursement"
+   ]
+  },
+  "disbursed_claims_reserve": {
+   "certified": false,
+   "dax": "SUM('Disbursement'[Reserve Amount])",
+   "folder": "Disbursements",
+   "format": "currency",
+   "measure": "Disbursed Claims Reserve",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Disbursement"
+   ]
+  },
+  "disbursed_profit_share_reserve": {
+   "certified": false,
+   "dax": "SUM('Disbursement'[Profit Share Reserve])",
+   "folder": "Disbursements",
+   "format": "currency",
+   "measure": "Disbursed Profit Share Reserve",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Disbursement"
+   ]
+  },
+  "early_claim_rate": {
+   "certified": true,
+   "dax": "DIVIDE([Early Claims], [Scorecard Claims Reported])",
+   "folder": "Dealer Scorecard",
+   "format": "percent",
+   "measure": "Early Claim Rate",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "early_claims": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Early Claims])",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Early Claims",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "earned_acquisition_cost": {
+   "certified": false,
+   "dax": "CALCULATE(SUM('Earned Disbursement'[Earned Amount]), 'Earned Disbursement'[Disbursement Type] IN {\"COMMISSION\", \"INSURER_FEE\", \"PREMIUM_TAX\"})",
+   "folder": "Disbursements",
+   "format": "currency",
+   "measure": "Earned Acquisition Cost",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Earned Disbursement"
+   ]
+  },
+  "earned_admin_fee": {
+   "certified": false,
+   "dax": "CALCULATE(SUM('Earned Disbursement'[Earned Amount]), 'Earned Disbursement'[Disbursement Type] = \"ADMIN_FEE\")",
+   "folder": "Disbursements",
+   "format": "currency",
+   "measure": "Earned Admin Fee",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Earned Disbursement"
+   ]
+  },
+  "earned_disbursement_amount": {
+   "certified": true,
+   "dax": "SUM('Earned Disbursement'[Earned Amount])",
+   "folder": "Disbursements",
+   "format": "currency",
+   "measure": "Earned Disbursement Amount",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Earned Disbursement"
+   ]
+  },
+  "earned_premium": {
+   "certified": false,
+   "dax": "SUM('Contract Month'[Earned Premium])",
+   "folder": "Premium",
+   "format": "currency",
+   "measure": "Earned Premium",
+   "owner": "Data Scientist",
+   "tables": [
+    "Contract Month"
+   ]
+  },
+  "earned_reserve": {
+   "certified": true,
+   "dax": "SUM('Earned Disbursement'[Earned Reserve])",
+   "folder": "Disbursements",
+   "format": "currency",
+   "measure": "Earned Reserve",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Earned Disbursement"
+   ]
+  },
+  "effective_cancel_rate": {
+   "certified": false,
+   "dax": "DIVIDE([Effective Cancellations], [Contracts Written])",
+   "folder": "Cancellations",
+   "format": "percent",
+   "measure": "Effective Cancel Rate",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation",
+    "Gross Premium"
+   ]
+  },
+  "effective_cancellations": {
+   "certified": false,
+   "dax": "CALCULATE(COUNTROWS('Cancellation'), 'Cancellation'[Is Effective Cancel] = TRUE())",
+   "folder": "Cancellations",
+   "format": "integer",
+   "measure": "Effective Cancellations",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation"
+   ]
+  },
+  "exposure_years_metric": {
+   "certified": false,
+   "dax": "SUM('Contract Month'[Exposure Years])",
+   "folder": "Exposure",
+   "format": "decimal",
+   "measure": "Exposure Years",
+   "owner": "Data Scientist",
+   "tables": [
+    "Contract Month"
+   ]
+  },
+  "filing_line_value": {
+   "certified": false,
+   "dax": "IF(HASONEVALUE('Regulatory Line Value'[Report ID]) && HASONEVALUE('Regulatory Line Value'[Line Item]) && HASONEVALUE('Regulatory Line Value'[Scope]) && HASONEVALUE('Regulatory Line Value'[Basis]),\n    IF(HASONEVALUE('Regulatory Line Value'[Window ID]), SUM('Regulatory Line Value'[Value]),\n        IF(SELECTEDVALUE('Regulatory Line Value'[Aggregation]) = \"LAST\",\n            VAR _end = MAX('Regulatory Line Value'[Window End])\n            VAR _w = CALCULATE(MAX('Regulatory Line Value'[Window ID]), 'Regulatory Line Value'[Window End] = _end)\n            RETURN\n                CALCULATE(SUM('Regulatory Line Value'[Value]), 'Regulatory Line Value'[Window ID] = _w))))",
+   "folder": "Filings",
+   "format": "decimal",
+   "measure": "Filing Line Value",
+   "owner": "Senior Data Analyst (regulatory)",
+   "tables": [
+    "Regulatory Line Value"
+   ]
+  },
+  "gross_coverage_cost": {
+   "certified": true,
+   "dax": "SUM('Gross Premium'[Coverage Cost])",
+   "folder": "Sales",
+   "format": "currency",
+   "measure": "Gross Coverage Cost",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Gross Premium"
+   ]
+  },
+  "gross_purchase_price": {
+   "certified": false,
+   "dax": "SUM('Gross Premium'[Purchase Price])",
+   "folder": "Sales",
+   "format": "currency",
+   "measure": "Gross Purchase Price",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Gross Premium"
+   ]
+  },
+  "gross_retail_price": {
+   "certified": false,
+   "dax": "SUM('Gross Premium'[Retail Price])",
+   "folder": "Sales",
+   "format": "currency",
+   "measure": "Gross Retail Price",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Gross Premium"
+   ]
+  },
+  "incurred_claims": {
+   "certified": false,
+   "dax": "SUM('Contract Month'[Incurred Claims])",
+   "folder": "Claims",
+   "format": "currency",
+   "measure": "Incurred Claims (accident month)",
+   "owner": "Data Scientist",
+   "tables": [
+    "Contract Month"
+   ]
+  },
+  "late_fees": {
+   "certified": false,
+   "dax": "SUM('Cash Transaction'[Late Fee])",
+   "folder": "Remittance",
+   "format": "currency",
+   "measure": "Late Fees",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cash Transaction"
+   ]
+  },
+  "late_remittance_rate": {
+   "certified": false,
+   "dax": "DIVIDE([Late Remittances], [Remittances])",
+   "folder": "Remittance",
+   "format": "percent",
+   "measure": "Late Remittance Rate",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cash Transaction"
+   ]
+  },
+  "late_remittances": {
+   "certified": false,
+   "dax": "CALCULATE(COUNTROWS('Cash Transaction'), 'Cash Transaction'[Is Late] = TRUE())",
+   "folder": "Remittance",
+   "format": "integer",
+   "measure": "Late Remittances",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cash Transaction"
+   ]
+  },
+  "loss_ratio": {
+   "certified": true,
+   "dax": "DIVIDE([Incurred Claims (accident month)], [Earned Premium])",
+   "folder": "Ratios",
+   "format": "percent",
+   "measure": "Loss Ratio (on earned premium)",
+   "owner": "Data Scientist",
+   "tables": [
+    "Contract Month"
+   ]
+  },
+  "loss_ratio_peer_percentile": {
+   "certified": false,
+   "dax": "IF(HASONEVALUE('Dealer Scorecard'[Dealer Key]),\n    VAR _cap = MAX('Reporting Date'[Last Closed Period Key])\n    VAR _period = CALCULATE(MAX('Dealer Scorecard'[Month Key]), 'Dealer Scorecard'[Month Key] <= _cap)\n    RETURN\n        CALCULATE(MAX('Dealer Scorecard'[T12 Loss Ratio Peer Pct]), 'Posting Period'[Posting Period Key] = _period))",
+   "folder": "Dealer Scorecard",
+   "format": "percent",
+   "measure": "Loss-Ratio Peer Percentile",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "net_coverage_cost": {
+   "certified": false,
+   "dax": "[Gross Coverage Cost] - [Coverage Cost Refunds]",
+   "folder": "Sales",
+   "format": "currency",
+   "measure": "Net Coverage Cost",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Cancellation",
+    "Gross Premium"
+   ]
+  },
+  "open_claims": {
+   "certified": true,
+   "dax": "CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = \"open\")",
+   "folder": "Claims",
+   "format": "integer",
+   "measure": "Open Claims",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "open_claims_aged_30_plus": {
+   "certified": true,
+   "dax": "CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Is Aged Open] = TRUE())",
+   "folder": "Claims",
+   "format": "integer",
+   "measure": "Open Claims Aged 30 Plus",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "paid_claim_severity": {
+   "certified": true,
+   "dax": "DIVIDE([Paid On Paid Claims], [Paid Claim Count])",
+   "folder": "Ratios",
+   "format": "currency",
+   "measure": "Paid Claim Severity",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "paid_on_paid_claims": {
+   "certified": false,
+   "dax": "CALCULATE(SUM('Claim Summary'[Paid Amount]), 'Claim Summary'[Status Group] = \"paid\")",
+   "folder": "Claims",
+   "format": "currency",
+   "measure": "Paid On Paid Claims",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Claim Summary"
+   ]
+  },
+  "posted_loss_ratio": {
+   "certified": true,
+   "dax": "DIVIDE([Claims Incurred], [Earned Reserve])",
+   "folder": "Ratios",
+   "format": "percent",
+   "measure": "Loss Ratio (on claims reserve)",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Claim Payment Line",
+    "Earned Disbursement"
+   ]
+  },
+  "reinstatement_reversals": {
+   "certified": false,
+   "dax": "SUM('Reinstatement'[Reversal Amount])",
+   "folder": "Cancellations",
+   "format": "currency",
+   "measure": "Reinstatement Reversals",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Reinstatement"
+   ]
+  },
+  "reinstatements": {
+   "certified": false,
+   "dax": "COUNTROWS('Reinstatement')",
+   "folder": "Cancellations",
+   "format": "integer",
+   "measure": "Reinstatements",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Reinstatement"
+   ]
+  },
+  "remittances": {
+   "certified": false,
+   "dax": "COUNTROWS('Cash Transaction')",
+   "folder": "Remittance",
+   "format": "integer",
+   "measure": "Remittances",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cash Transaction"
+   ]
+  },
+  "remitted_cash": {
+   "certified": false,
+   "dax": "SUM('Cash Transaction'[Amount])",
+   "folder": "Remittance",
+   "format": "currency",
+   "measure": "Remitted Cash",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cash Transaction"
+   ]
+  },
+  "reserve_shortfall": {
+   "certified": true,
+   "dax": "IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Reserve Shortfall]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Reserve Shortfall]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = \"ITD\"))",
+   "folder": "Filings",
+   "format": "currency",
+   "measure": "Reserve Shortfall",
+   "owner": "Senior Data Analyst (regulatory)",
+   "tables": [
+    "Funded Reserve Filing"
+   ]
+  },
+  "scorecard_avg_days_late": {
+   "certified": false,
+   "dax": "DIVIDE([Scorecard Days Late Total], [Scorecard Late Remittances])",
+   "folder": "Dealer Scorecard",
+   "format": "decimal",
+   "measure": "Scorecard Average Days Late",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_cancel_rate": {
+   "certified": false,
+   "dax": "DIVIDE([Scorecard Contracts Cancelled], [Scorecard Contracts Written])",
+   "folder": "Dealer Scorecard",
+   "format": "percent",
+   "measure": "Scorecard Cancel Rate",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_claims_reported": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Claims Reported])",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Scorecard Claims Reported",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_contracts_cancelled": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Contracts Cancelled])",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Scorecard Contracts Cancelled",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_contracts_written": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Contracts Written])",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Scorecard Contracts Written",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_days_late_total": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Days Late Total])",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Scorecard Days Late Total",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_earned_claims_reserve": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Earned Claims Reserve])",
+   "folder": "Dealer Scorecard",
+   "format": "currency",
+   "measure": "Scorecard Earned Claims Reserve",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_incurred_claims": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Incurred Claims])",
+   "folder": "Dealer Scorecard",
+   "format": "currency",
+   "measure": "Scorecard Incurred Claims",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_late_remit_rate": {
+   "certified": false,
+   "dax": "DIVIDE([Scorecard Late Remittances], [Scorecard Remittances])",
+   "folder": "Dealer Scorecard",
+   "format": "percent",
+   "measure": "Scorecard Late Remit Rate",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_late_remittances": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Late Remittances])",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Scorecard Late Remittances",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_loss_ratio": {
+   "certified": false,
+   "dax": "DIVIDE([Scorecard Incurred Claims], [Scorecard Earned Claims Reserve])",
+   "folder": "Dealer Scorecard",
+   "format": "percent",
+   "measure": "Scorecard Loss Ratio (on claims reserve)",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "scorecard_remittances": {
+   "certified": false,
+   "dax": "SUM('Dealer Scorecard'[Remittances])",
+   "folder": "Dealer Scorecard",
+   "format": "integer",
+   "measure": "Scorecard Remittances",
+   "owner": "Senior Data Analyst (dealer & claims)",
+   "tables": [
+    "Dealer Scorecard"
+   ]
+  },
+  "unearned_premium_balance": {
+   "certified": false,
+   "dax": "VAR _cap = MAX('Reporting Date'[Last Closed Period Key])\nVAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)\nRETURN\n    CALCULATE(SUM('Contract Month'[Unearned Premium Eom]), 'Posting Period'[Posting Period Key] = _period)",
+   "folder": "Premium",
+   "format": "currency",
+   "measure": "Unearned Premium Balance",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Contract Month"
+   ]
+  },
+  "written_premium": {
+   "certified": false,
+   "dax": "SUM('Contract Month'[Written Premium])",
+   "folder": "Premium",
+   "format": "currency",
+   "measure": "Written Premium",
+   "owner": "Data Scientist",
+   "tables": [
+    "Contract Month"
+   ]
+  }
+ },
+ "metrics_sha256": "7c929191b12d54c4c92c58481d0502e240bd391b7fd02112181fe62ff0b13c13",
+ "not_exported": {
+  "cancel_rate": "input contracts_cancelled: V1 semantic model contract_sale (not exported)",
+  "claim_paid_amount": "V1 semantic model claim (not exported)",
+  "claim_severity": "input claim_paid_amount: V1 semantic model claim (not exported)",
+  "contracts_cancelled": "V1 semantic model contract_sale (not exported)",
+  "contracts_sold": "V1 semantic model contract_sale (not exported)",
+  "paid_claim_count": "V1 semantic model claim (not exported)"
+ },
+ "source_target": "postgres",
+ "time_variants": {
+  "t12_earned_premium": {
+   "base_metric": "earned_premium",
+   "calculation_item": "T12M"
+  },
+  "t12_incurred_claims": {
+   "base_metric": "incurred_claims",
+   "calculation_item": "T12M"
+  },
+  "t12_loss_ratio": {
+   "base_metric": "loss_ratio",
+   "calculation_item": "T12M"
+  }
+ }
+}

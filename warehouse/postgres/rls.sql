@@ -1,7 +1,8 @@
 -- =====================================================================================================
 -- Postgres row-level security for the server warehouse target (dbt target `postgres`)
--- Written, NOT executed locally (no server on the dev box). docker-compose mounts it as an init
--- script, so it runs once on the first boot of the warehouse container.
+-- Applied by `python -m warehouse.postgres sync` (opt-in local server, tools/pg.ps1) on every sync, and
+-- mounted by docker-compose as an init script for the warehouse container. Idempotent.
+-- Mart tenant_key is BIGINT and the map stores text, so the policy casts both keys to text.
 --
 -- Rule (same as Snowflake 04_row_access_policy.sql and the semantic RLS table):
 --   a reader sees a mart row only when security.user_dealer_access grants its tenant and dealer.
@@ -111,8 +112,8 @@ BEGIN
         EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', t.table_schema, t.table_name);
         EXECUTE format('DROP POLICY IF EXISTS rls_tenant_dealer ON %I.%I', t.table_schema, t.table_name);
         EXECUTE format(
-            'CREATE POLICY rls_tenant_dealer ON %I.%I FOR SELECT TO reporter USING (security.can_read(tenant_key, %s))',
-            t.table_schema, t.table_name, CASE WHEN t.has_dealer THEN 'dealer_key' ELSE 'NULL' END);
+            'CREATE POLICY rls_tenant_dealer ON %I.%I FOR SELECT TO reporter USING (security.can_read(tenant_key::text, %s))',
+            t.table_schema, t.table_name, CASE WHEN t.has_dealer THEN 'dealer_key::text' ELSE 'NULL' END);
         EXECUTE format('GRANT SELECT ON %I.%I TO reporter', t.table_schema, t.table_name);
         n := n + 1;
     END LOOP;

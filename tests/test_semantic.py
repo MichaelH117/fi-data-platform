@@ -47,7 +47,7 @@ def test_every_measure_maps_to_a_metric(built):
     out, _ = built
     metrics = {m["name"] for m in yaml.safe_load(METRICS.read_text(encoding="utf-8"))["metrics"]}
     total = 0
-    for f in out.glob("*.SemanticModel/definition/tables/Measures.tmdl"):
+    for f in out.glob(f"*.SemanticModel/definition/tables/{spec.MEASURES}.tmdl"):
         found = _measures_in(f.read_text(encoding="utf-8"))
         assert found, f
         for name, metric in found:
@@ -58,7 +58,7 @@ def test_every_measure_maps_to_a_metric(built):
 
 def test_no_measure_is_a_time_suffixed_copy(built):
     out, _ = built
-    for f in out.glob("*.SemanticModel/definition/tables/Measures.tmdl"):
+    for f in out.glob(f"*.SemanticModel/definition/tables/{spec.MEASURES}.tmdl"):
         for name, _ in _measures_in(f.read_text(encoding="utf-8")):
             assert not has_time_word(name), name
             assert not re.search(r"(MTD|QTD|YTD|PY|YoY|KPI|T12M?|TTM)\b", name, re.I), name
@@ -409,7 +409,7 @@ def test_every_headline_tile_maps_to_a_certified_metric_with_an_owner(built):
     assert tiles <= known, f"overview tiles with no certified metric: {sorted(tiles - known)}"
     # the generated model carries owner and certification on every certified measure
     measures_tmdl = "\n".join(f.read_text(encoding="utf-8")
-                              for f in out.glob("*.SemanticModel/definition/tables/Measures.tmdl"))
+                              for f in out.glob(f"*.SemanticModel/definition/tables/{spec.MEASURES}.tmdl"))
     for metric in spec.HEADLINE_KPIS.values():
         mm = plan.measures[metric]
         assert mm.certified and mm.owner

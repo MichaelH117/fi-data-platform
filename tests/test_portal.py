@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import http.client
+import io
 import json
 import sqlite3
 import threading
@@ -9,6 +11,7 @@ import urllib.error
 import urllib.request
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlencode
 
 import pandas as pd
 import pytest
@@ -226,3 +229,155 @@ def test_http_api_masks_by_default_and_logs_each_read(db: Path) -> None:
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+# ---------------------------------------------------------------- browser UI (/ui)
+class _UI:
+    """Tiny cookie-keeping client for the portal UI (no redirect following)."""
+
+    def __init__(self, port: int) -> None:
+        self.port, self.cookie = port, None
+
+    def req(self, method: str, path: str, form: dict | None = None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        headers = {"Cookie": self.cookie} if self.cookie else {}
+        body = None
+        if form is not None:
+            body = urlencode(form)
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        conn.request(method, path, body=body, headers=headers)
+        r = conn.getresponse()
+        data = r.read()
+        set_cookie = r.getheader("Set-Cookie")
+        if set_cookie:
+            self.cookie = set_cookie.split(";")[0]
+        conn.close()
+        return r.status, dict(r.getheaders()), data.decode("utf-8", "replace")
+
+    def sign_in(self, login: str, key: str):
+        return self.req("POST", "/ui/login", {"login": login, "api_key": key})
+
+
+@pytest.fixture()
+def ui_server(db: Path):
+    httpd = serve(db, port=0)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        yield httpd.server_address[1]
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_ui_sign_in_and_session(db: Path, ui_server: int) -> None:
+    d = _dealers(db).iloc[0]
+    login = f"{d['dealer_number'].lower()}.admin"
+    c = _UI(ui_server)
+    status, headers, _ = c.req("GET", "/ui")
+    assert status == 303 and headers["Location"] == "/ui/login"
+    status, headers, page = c.req("GET", "/ui/login")
+    assert status == 200 and 'name="api_key"' in page and "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+    status, _, page = c.sign_in(login, "wrong-key")
+    assert status == 401 and c.cookie is None and "not valid" in page
+    status, headers, _ = c.sign_in(login, demo_api_key(SEED, login))
+    assert status == 303 and "HttpOnly" in headers["Set-Cookie"] and "SameSite=Strict" in headers["Set-Cookie"]
+    status, _, page = c.req("GET", "/ui")
+    assert status == 200 and d["dealer_number"] in page
+    assert "Updated since" in page and "Access log" in page
+    assert c.req("GET", "/ui/static/portal.css")[0] == 200
+    assert c.req("GET", "/ui/static/../web.py")[0] in (404, 303)
+    stranger = _UI(ui_server)
+    stranger.cookie = "portal_session=forged-token"
+    assert stranger.req("GET", "/ui")[0] == 303
+    token = c.cookie
+    assert c.req("POST", "/ui/logout", {"csrf": "wrong"})[0] == 303  # bad CSRF token: the session survives
+    c.cookie = token
+    status, _, page = c.req("GET", "/ui")
+    assert status == 200
+    csrf = page.split('name="csrf" value="')[1].split('"')[0]
+    assert c.req("POST", "/ui/logout", {"csrf": csrf})[0] == 303
+    c.cookie = token  # the old cookie no longer works
+    assert c.req("GET", "/ui")[0] == 303
+
+
+def test_ui_denies_another_dealers_data(db: Path, ui_server: int) -> None:
+    dealers = _dealers(db)
+    d = dealers.iloc[0]
+    other = dealers[dealers["dealer_id"] != d["dealer_id"]].iloc[0]
+    with sqlite3.connect(db) as conn:
+        foreign = {r[0] for r in conn.execute("select contract_number from contract where dealer_id = ?",
+                                              [int(other["dealer_id"])])}
+    login = f"{d['dealer_number'].lower()}.admin"
+    c = _UI(ui_server)
+    c.sign_in(login, demo_api_key(SEED, login))
+    for path in (f"/ui?dataset=contracts&dealer={other['dealer_number']}",
+                 f"/ui/download/contracts?format=csv&dealer={other['dealer_number']}"):
+        status, _, page = c.req("GET", path)
+        assert status == 403 and not any(n in page for n in foreign)
+    status, headers, text = c.req("GET", "/ui/download/contracts?format=csv")
+    assert status == 200 and "attachment" in headers["Content-Disposition"]
+    got = pd.read_csv(io.StringIO(text), dtype=str)
+    assert set(got["dealer_number"]) == {d["dealer_number"]} and not set(got["contract_number"]) & foreign
+    # a tenant admin may narrow to its own dealers, never to another tenant's
+    admin = f"{d['administrator_code'].lower()}.admin"
+    t = _UI(ui_server)
+    t.sign_in(admin, demo_api_key(SEED, admin))
+    assert t.req("GET", f"/ui?dealer={d['dealer_number']}")[0] == 200
+    foreign_tenant = dealers[dealers["tenant_id"] != d["tenant_id"]].iloc[0]["dealer_number"]
+    assert t.req("GET", f"/ui?dealer={foreign_tenant}")[0] == 403
+    assert t.req("GET", "/ui?scope=contact")[0] == 403  # tenant admins never get the contact scope
+    assert 'name="scope"' not in t.req("GET", "/ui")[2]
+
+
+def test_ui_masks_pii_by_default_and_contact_is_admin_only(db: Path, ui_server: int) -> None:
+    dealers = _dealers(db)
+    d = dealers.iloc[0]
+    with sqlite3.connect(db) as conn:
+        emails = {r[0] for r in conn.execute("select customer_email from contract where dealer_id = ? and "
+                                             "removed_from_source = 0 order by contract_id limit 100",
+                                             [int(d["dealer_id"])]) if r[0]}
+    login = f"{d['dealer_number'].lower()}.admin"
+    c = _UI(ui_server)
+    c.sign_in(login, demo_api_key(SEED, login))
+    status, _, page = c.req("GET", "/ui?dataset=contracts")
+    assert status == 200 and emails and not any(e in page for e in emails)
+    assert "holder_initials" in page and "customer_email" not in page and 'name="scope"' in page
+    status, _, text = c.req("GET", "/ui/download/contracts?format=json")
+    assert status == 200 and not any(e in text for e in emails)
+    status, _, page = c.req("GET", "/ui?dataset=contracts&scope=contact")
+    assert status == 200 and "customer_email" in page and any(e in page for e in emails)
+    viewer = dealers[dealers["dealer_id"] % 3 == 0].iloc[0]
+    vlogin = f"{viewer['dealer_number'].lower()}.viewer"
+    v = _UI(ui_server)
+    v.sign_in(vlogin, demo_api_key(SEED, vlogin))
+    status, _, page = v.req("GET", "/ui")
+    assert status == 200 and 'name="scope"' not in page  # no contact toggle for a viewer
+    assert v.req("GET", "/ui?scope=contact")[0] == 403
+    assert v.req("GET", "/ui/download/contracts?scope=contact")[0] == 403
+
+
+def test_ui_writes_audit_rows_and_shows_own_history(db: Path, ui_server: int) -> None:
+    dealers = _dealers(db)
+    d, other = dealers.iloc[0], dealers.iloc[1]
+    login = f"{d['dealer_number'].lower()}.admin"
+    olog = f"{other['dealer_number'].lower()}.admin"
+    o = _UI(ui_server)
+    o.sign_in(olog, demo_api_key(SEED, olog))
+    assert o.req("GET", "/ui/download/claims?format=csv&since=2026-01-01")[0] == 200
+    before = len(_log(db))
+    c = _UI(ui_server)
+    c.sign_in(login, demo_api_key(SEED, login))
+    assert c.req("GET", "/ui?dataset=claims&since=2026-01-01")[0] == 200
+    assert c.req("GET", "/ui/download/remittances?format=csv")[0] == 200
+    assert c.req("GET", "/ui?since=not-a-date")[0] == 403
+    log = _log(db).iloc[before:]
+    mine = log[log["login"] == login]
+    assert list(mine["status"]) == ["OK", "OK", "DENIED"] and set(mine["channel"]) == {"ui"}
+    assert list(mine["dataset"])[:2] == ["claims", "remittances"]
+    assert mine.iloc[0]["since"] == "2026-01-01" and set(mine["dealer_number"].dropna()) == {d["dealer_number"]}
+    assert mine.iloc[1]["message"] == "download csv" and int(mine.iloc[1]["row_count"]) >= 0
+    panel = c.req("GET", "/ui")[2].split("latest 25 reads")[1]
+    assert "remittances" in panel and "DENIED" in panel and olog not in panel  # own history only
+    assert "operator:" not in panel
+    _UI(ui_server).sign_in(login, "nope")
+    assert _log(db).iloc[-1][["dataset", "status"]].tolist() == ["sign-in", "DENIED"]

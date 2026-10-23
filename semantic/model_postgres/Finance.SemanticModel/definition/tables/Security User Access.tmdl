@@ -1,0 +1,51 @@
+/// Dynamic RLS map user -> tenant, dealer. Hidden and disconnected; roles read it.
+table 'Security User Access'
+
+	column 'User Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: user_key
+
+	column 'User Login'
+		dataType: string
+		isHidden
+		sourceColumn: user_login
+
+	column Role
+		dataType: string
+		isHidden
+		sourceColumn: role
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Tenant Code'
+		dataType: string
+		isHidden
+		sourceColumn: tenant_code
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Dealer Number'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_number
+
+	partition 'Security User Access' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_user_dealer_access"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_user_dealer_access
+	annotation table_kind = security

@@ -1,0 +1,63 @@
+/// The ONE time-intelligence calculation group. Measures never carry MTD/QTD/YTD/PY copies.
+/// Filters Posting Period only; capped at the last CLOSED period (Reporting Date), never the open month.
+table 'Time Intelligence'
+	calculationGroup
+		precedence: 10
+
+		calculationItem Current = SELECTEDMEASURE()
+			ordinal: 0
+
+		calculationItem MTD =
+				VAR _p = MIN(MAX('Posting Period'[Posting Period Key]), MAX('Reporting Date'[Last Closed Period Key]))
+				RETURN
+				    CALCULATE(SELECTEDMEASURE(), REMOVEFILTERS('Posting Period'), 'Posting Period'[Posting Period Key] = _p)
+			ordinal: 1
+
+		calculationItem QTD =
+				VAR _p = MIN(MAX('Posting Period'[Posting Period Key]), MAX('Reporting Date'[Last Closed Period Key]))
+				VAR _fy = CALCULATE(MAX('Posting Period'[Fiscal Year]), REMOVEFILTERS('Posting Period'), 'Posting Period'[Posting Period Key] = _p)
+				VAR _fq = CALCULATE(MAX('Posting Period'[Fiscal Quarter]), REMOVEFILTERS('Posting Period'), 'Posting Period'[Posting Period Key] = _p)
+				RETURN
+				    CALCULATE(SELECTEDMEASURE(), REMOVEFILTERS('Posting Period'), 'Posting Period'[Fiscal Year] = _fy, 'Posting Period'[Fiscal Quarter] = _fq, 'Posting Period'[Posting Period Key] <= _p)
+			ordinal: 2
+
+		calculationItem YTD =
+				VAR _p = MIN(MAX('Posting Period'[Posting Period Key]), MAX('Reporting Date'[Last Closed Period Key]))
+				VAR _fy = CALCULATE(MAX('Posting Period'[Fiscal Year]), REMOVEFILTERS('Posting Period'), 'Posting Period'[Posting Period Key] = _p)
+				RETURN
+				    CALCULATE(SELECTEDMEASURE(), REMOVEFILTERS('Posting Period'), 'Posting Period'[Fiscal Year] = _fy, 'Posting Period'[Posting Period Key] <= _p)
+			ordinal: 3
+
+		calculationItem PY =
+				CALCULATE(SELECTEDMEASURE(), REMOVEFILTERS('Posting Period'),
+				    TREATAS(SELECTCOLUMNS(VALUES('Posting Period'[Posting Period Key]), "@key", 'Posting Period'[Posting Period Key] - 100), 'Posting Period'[Posting Period Key]))
+			ordinal: 4
+
+		calculationItem 'YoY %' =
+				VAR _cur = SELECTEDMEASURE()
+				VAR _py =
+				    CALCULATE(SELECTEDMEASURE(), REMOVEFILTERS('Posting Period'),
+				        TREATAS(SELECTCOLUMNS(VALUES('Posting Period'[Posting Period Key]), "@key", 'Posting Period'[Posting Period Key] - 100), 'Posting Period'[Posting Period Key]))
+				RETURN
+				    IF(NOT ISBLANK(_py), DIVIDE(_cur - _py, ABS(_py)))
+			ordinal: 5
+			formatStringDefinition = "0.0%"
+
+		calculationItem T12M =
+				VAR _p = MIN(MAX('Posting Period'[Posting Period Key]), MAX('Reporting Date'[Last Closed Period Key]))
+				RETURN
+				    CALCULATE(SELECTEDMEASURE(), REMOVEFILTERS('Posting Period'),
+				        'Posting Period'[Posting Period Key] <= _p, 'Posting Period'[Posting Period Key] > _p - 100)
+			ordinal: 6
+
+	column 'Time Calculation'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Name
+		sortByColumn: Ordinal
+
+	column Ordinal
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: Ordinal

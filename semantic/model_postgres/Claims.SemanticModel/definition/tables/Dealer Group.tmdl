@@ -1,0 +1,39 @@
+table 'Dealer Group'
+
+	column 'Dealer Group Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: dealer_group_key
+
+	column 'Dealer Group ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: dealer_group_id
+
+	column 'Group Code'
+		dataType: string
+		sourceColumn: group_code
+
+	column 'Group Name'
+		dataType: string
+		sourceColumn: group_name
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	partition 'Dealer Group' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_dealer_group"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_dealer_group
+	annotation table_kind = dim

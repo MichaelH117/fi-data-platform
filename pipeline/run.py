@@ -425,6 +425,8 @@ def run_pipeline(args: argparse.Namespace, runner: Runner = subprocess_runner, r
         if summary.wap == "held":
             log.warning("staged build %s is not live yet: diagnostics and reconcile must pass on it "
                         "(python -m pipeline.run --from diagnostics)", staged.name)
+        if getattr(args, "postgres", False):
+            _postgres_step(summary, runner, env, live)
         summary.status = "ok"
     except PipelineError as exc:
         summary.status, summary.error = "failed", str(exc)
@@ -439,6 +441,26 @@ def run_pipeline(args: argparse.Namespace, runner: Runner = subprocess_runner, r
         _write_summary(summary, runs_dir)
         _audit_run(summary, warehouse if warehouse is not None else Path(env["WAREHOUSE_PATH"]))
     return summary
+
+
+def _postgres_step(summary: RunSummary, runner: Runner, env: dict[str, str], live: Path) -> None:
+    """Opt-in (--postgres): copy the live, gate-passed warehouse to the local Postgres server and reconcile.
+
+    Not in STEPS (the Airflow DAG and CI never run it). Refuses a held build: only a published warehouse,
+    one that passed every gate, is copied."""
+    if summary.wap == "held":
+        summary.steps.append(StepResult("postgres", "blocked", note="staged build not published"))
+        raise PipelineError("step 'postgres' blocked: the staged build did not pass every gate")
+    cmd = [sys.executable, "-m", "warehouse.postgres", "sync", "--warehouse", str(live)]
+    log.info("[postgres] start: %s", " ".join(cmd[1:]))
+    t0 = time.perf_counter()
+    code = runner(cmd, env)
+    secs = round(time.perf_counter() - t0, 2)
+    summary.steps.append(StepResult("postgres", "ok" if code == 0 else "failed", secs, cmd, code))
+    if code != 0:
+        raise PipelineError(f"step 'postgres' failed with exit code {code} after {secs}s (2 = server not "
+                            "available: tools/pg.ps1 start); retry with: python -m warehouse.postgres sync")
+    log.info("[postgres] ok in %.2fs", secs)
 
 
 def freshness_command(build_cmd: Sequence[str]) -> list[str]:
@@ -562,6 +584,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
                     "history; implies --full-refresh)")
     ap.add_argument("--env", choices=ENVS, help="dev | uat | prod: separate warehouse, dbt target, site, "
                     "publish and runs folders (pipeline/envs.py); default: the paths already in the environment")
+    ap.add_argument("--postgres", action="store_true",
+                    help="after the run, copy the warehouse to the local Postgres server and reconcile it "
+                    "(python -m warehouse.postgres sync; needs .env and tools/pg.ps1 start)")
     ns = ap.parse_args(argv)
     ns.full_refresh = ns.full_refresh or ns.reload_raw
     return ns

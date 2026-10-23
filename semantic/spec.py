@@ -14,7 +14,7 @@ PERIOD = "Posting Period"
 SECURITY = "Security User Access"
 CALC_GROUP = "Time Intelligence"
 DRILL = "Drill Level"
-MEASURES = "Measures"
+MEASURES = "Key Measures"  # "Measures" is a reserved table name in Power BI Desktop
 REPORTING_DATE = "Reporting Date"
 # Hidden calculated bridge (account holder -> dealer, tenant) built from the payee columns of the facts
 # in the model. RLS reads it to scope Account Holder to a dealer's own payees; it has no relationships.

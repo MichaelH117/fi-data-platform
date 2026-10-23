@@ -1,0 +1,90 @@
+table 'Contract Terms'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: contract_key
+
+	column 'Term Months'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: term_months
+
+	column 'Term Miles'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: term_miles
+
+	column 'Term Band'
+		dataType: string
+		sourceColumn: term_band
+
+	column 'Term Days'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: term_days
+
+	column 'Expiration Mileage'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: expiration_mileage
+
+	column 'Claim Wait Days'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: claim_wait_days
+
+	column 'Claim Wait Miles'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: claim_wait_miles
+
+	column 'Deductible Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: deductible_amount
+
+	column 'Deductible Name'
+		dataType: string
+		sourceColumn: deductible_name
+
+	column 'Coverage Limit'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: coverage_limit
+
+	column 'Option Codes'
+		dataType: string
+		sourceColumn: option_codes
+
+	column 'Options Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: options_amount
+
+	column 'Surcharge Codes'
+		dataType: string
+		sourceColumn: surcharge_codes
+
+	column 'Surcharge Count'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: surcharge_count
+
+	column 'Surcharge Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: surcharge_amount
+
+	partition 'Contract Terms' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_contract_terms"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract_terms
+	annotation table_kind = dim

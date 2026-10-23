@@ -6,7 +6,7 @@ Snowflake-shaped warehouse, accounting-grade facts, a Power BI-ready semantic mo
 dealer statements and per-dealer packets. All of it is rebuilt every day by one command, and it refuses to
 publish a number that does not reconcile.
 
-- **Reliable.** `python -m pipeline.run` rebuilds everything from an empty folder in about 3 minutes, on a laptop,
+- **Reliable.** `python -m pipeline.run` rebuilds everything from an empty folder in about 12 minutes, on a laptop,
   with no Docker, no servers and no paid accounts. Each step fails fast, and every run is logged.
 - **Reconciled.** Row counts and dollar totals are tied out from source to raw to marts on every run. Eight
   diagnostics gates **block publishing** when one breaks: product-dimension match rate, contract key-bridge
@@ -25,7 +25,8 @@ publish a number that does not reconcile.
 ## See it without running it
 
 The report site is build output (`site/` is not committed), so here are four of its pages from a real local run
-on synthetic data. Run `python -m pipeline.run` and open `site/index.html` for the rest; CI also keeps the built
+on synthetic data. Run `python -m pipeline.run` and open `site/start.html` (a six-stop guided tour) or
+`site/index.html` for the rest; CI also keeps the built
 site as the `pipeline-output` artifact. `python tools/screenshots.py` re-takes these images after a run.
 
 **Executive overview**: T12 premium, loss and combined ratio, in-force book, from the same P&L mart as Finance.
@@ -112,7 +113,7 @@ Python 3.12+ (tested on 3.13).
 ```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m pipeline.run                # full run from nothing, about 3 minutes
+.venv\Scripts\python.exe -m pipeline.run                # full run from nothing, about 12 minutes
 .venv\Scripts\python.exe -m pipeline.run --append-day   # next business day: CDC loads only new versions
 start site\index.html
 ```
@@ -152,10 +153,47 @@ Other entry points:
 
 ```powershell
 .venv\Scripts\python.exe -m portal export --tenant PVA --dealer D1001   # one dealer's raw data, nobody else's
-.venv\Scripts\python.exe -m portal serve                               # the same, as a small read-only HTTP API
+.venv\Scripts\python.exe -m portal serve                               # the same, as a read-only HTTP API + browser UI at /ui (portal/README.md)
 .venv\Scripts\python.exe -m semantic --check                           # semantic model is in sync with metrics.yml
 .venv\Scripts\python.exe -m pytest -q; .venv\Scripts\python.exe -m ruff check .
 ```
+
+**Raw-data portal in the browser.** `python -m portal serve` also serves a sign-in page at
+`http://127.0.0.1:8765/ui` (get a demo key with `python -m portal demo-key --login d1001.admin`). A dealer sees
+previews and CSV/JSON downloads of its own contracts, claims, cancellations and remittances, contact data only
+as a dealer admin, and its own access log. Isolation is checked on the server for every request, and every read
+or refusal is logged. It is a local demo (plain HTTP, in-memory sessions); see [portal/README.md](portal/README.md).
+
+## Real Power BI on a real database
+
+The default run needs no servers. As an opt-in extra, the marts are copied into a real local PostgreSQL 16
+database and a five-page Power BI report reads from it. Everything below runs as your own Windows user: no
+admin rights, no Windows service, no Docker.
+
+1. **Get the two free programs.** PostgreSQL 16 binaries (the zip from EDB, unzipped to a folder you own) and
+   Power BI Desktop (free, from the Microsoft Store). Copy `.env.example` to `.env` and fill in the server
+   paths and two passwords. `.env` is git-ignored. Creating the database cluster is a one-time step
+   ([one-time setup](warehouse/postgres/README.md#one-time-setup-no-admin-rights-no-docker)).
+2. **Start the server.** `powershell -ExecutionPolicy Bypass -File tools\pg.ps1 start` (`status`, `stop`,
+   `psql` also work). It listens on `127.0.0.1:5432` only. Start it again after a reboot.
+3. **Load the warehouse.** `pip install -r requirements-postgres.txt`, then
+   `python -m pipeline.run --postgres`. After every gate passes, `python -m warehouse.postgres sync` copies 104
+   tables (about 12.9M rows) into the `vsc_analytics` database in one transaction, adds keys, indexes and
+   row-level security, and ties out row counts and dollar totals against DuckDB before it commits. A mismatch
+   rolls everything back. `python -m warehouse.postgres reconcile` re-checks at any time.
+4. **Open the report.** Double-click `powerbi\VSC Portfolio.pbip` and click **Refresh now**. Sign in on the
+   **Database** tab as `bi_reader` (password `PG_BI_READER_PASSWORD` in `.env`); if Desktop asks, connect
+   without encryption (the server is local only). The first refresh loads about 13M rows and takes a few
+   minutes. Pages: executive overview, dealer scorecard, claims and IBNR, regulatory funded reserve, finance.
+5. **Test dealer security.** Modeling > View as > Other user, enter a `user_login` from
+   `core.dim_user_dealer_access` and tick Dealer User: every page narrows to that user's dealers.
+
+The report is a Power BI project (PBIP/PBIR text files), generated by `python -m powerbi` from the same plan as
+the semantic model, so every measure still maps to a metric in `metrics.yml`. `python -m powerbi --check
+--validate` checks it against Microsoft's published JSON schemas and confirms every field a visual uses exists in
+the model. `python -m semantic --target postgres` writes the four domain models pointed at Postgres
+(`semantic/model_postgres/`). Details: [warehouse/postgres](warehouse/postgres/README.md),
+[powerbi](powerbi/README.md).
 
 ## Architecture
 
@@ -197,7 +235,7 @@ actuarial, semantic, publish, reports. Steps after the gates never run when a ga
 | Warehouse | DuckDB, one schema per layer | Snowflake `RAW` / `ANALYTICS` databases, see [warehouse/snowflake/](warehouse/snowflake/) |
 | Transform | dbt Core (140+ models, 4 snapshots, 15 seeds, 440+ data tests; counts from `dbt/target/manifest.json`) | the same project on the dbt `snowflake` target |
 | Orchestration | `python -m pipeline.run` | Airflow DAG calling the same steps ([pipeline/airflow/](pipeline/airflow/)) |
-| BI | Static HTML + Excel site, TMDL model spec | Power BI semantic models with dynamic RLS |
+| BI | Static HTML + Excel site, TMDL model spec; opt-in: PostgreSQL copy of the marts + a Power BI project (PBIP) that opens and refreshes in Desktop | Power BI semantic models with dynamic RLS on Snowflake |
 
 Details: [ARCHITECTURE](docs/ARCHITECTURE.md), [DATA_MODEL](docs/DATA_MODEL.md), [METRICS](docs/METRICS.md),
 [V3 design contract](docs/V3_DESIGN.md), [RUNBOOK](docs/operating-model/RUNBOOK.md).
@@ -215,6 +253,10 @@ Details: [ARCHITECTURE](docs/ARCHITECTURE.md), [DATA_MODEL](docs/DATA_MODEL.md),
   statement, P&L by product, actuarial reserves, and an operations page with run history.
 - **Semantic layer** ([semantic/](semantic/)): Sales, Claims, Finance and Compliance models, generated from
   [dbt/models/metrics.yml](dbt/models/metrics.yml). A test proves every measure maps to a metric.
+- **Power BI report** ([powerbi/](powerbi/)): a five-page PBIP project over a reconciled PostgreSQL copy of the
+  marts, with dealer row-level security (opt-in, see [Real Power BI on a real database](#real-power-bi-on-a-real-database)).
+- **Raw-data portal** ([portal/](portal/README.md)): a CLI, a read-only HTTP API and a browser UI, all scoped to
+  one dealer or one partner program and written to an access log.
 - **Operating model** ([docs/operating-model/](docs/operating-model/)): SLAs, runbook, incident template, an
   example postmortem, intake form, release process and data dictionary. Access is set out in
   [ACCESS_MATRIX](docs/ACCESS_MATRIX.md).
@@ -245,9 +287,11 @@ reports back what it built, how it checked it, and what is still open.
 | Check | Command |
 |---|---|
 | Full run, gates included | `python -m pipeline.run` |
-| Python tests (300+ pytest tests, including injected gate failures) | `python -m pytest -q` |
+| Python tests (500+ pytest tests, including injected gate failures) | `python -m pytest -q` |
 | Lint | `python -m ruff check .` |
-| Semantic model in sync | `python -m semantic --check` |
+| Semantic model in sync (both targets) | `python -m semantic --check`, `python -m semantic --target postgres --check` |
+| Power BI project in sync and valid | `python -m powerbi --check --validate` |
+| Postgres copy ties out (opt-in; its tests skip without a server) | `python -m warehouse.postgres reconcile` |
 | Brand scrub (needs the private term list) | `python tools/brand_scrub.py` |
 
 ## Known limitations
@@ -265,8 +309,9 @@ The top items:
 4. **Two definitions still to merge**: remittance late fees (dealer vs finance marts) and the combined ratio
    ([METRICS](docs/METRICS.md#open-governance-items)).
 5. Several V1 pages still read the retired `gold` / `silver` schema names through compatibility views.
-6. The Snowflake scripts, the dbt `snowflake` target, the Postgres RLS policies and the Airflow DAG are written
-   but not executed here. Running them needs accounts or Docker.
+6. The Snowflake scripts, the dbt `snowflake` target and the Airflow DAG are written but not executed here.
+   Running them needs accounts or Docker. The Postgres target is real but opt-in: a local server, a
+   reconciled copy of the marts and a Power BI model pointed at it ([warehouse/postgres](warehouse/postgres/README.md)).
 7. Reports and publish are the slowest steps (about half of the run).
 
 ## Author

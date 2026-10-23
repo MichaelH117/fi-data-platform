@@ -8,7 +8,7 @@ model Model
 	annotation generated_by = python -m semantic (from dbt/models/metrics.yml)
 	annotation storage_mode = import; incremental refresh on large facts (semantic/README.md)
 
-ref table Measures
+ref table 'Key Measures'
 ref table 'Time Intelligence'
 ref table 'Drill Level'
 ref table 'Claim Payment Line'

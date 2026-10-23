@@ -1,0 +1,161 @@
+table 'Claim Payment Line'
+
+	column 'Line Key'
+		dataType: string
+		isHidden
+		sourceColumn: line_key
+
+	column 'Claim Key'
+		dataType: string
+		isHidden
+		sourceColumn: claim_key
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Payee Account Holder Key'
+		dataType: string
+		isHidden
+		sourceColumn: payee_account_holder_key
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: source_system
+
+	column 'Source Line ID'
+		dataType: string
+		isHidden
+		sourceColumn: source_line_id
+
+	column 'Line Type'
+		dataType: string
+		sourceColumn: line_type
+
+	column 'Posted At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posted_at
+
+	column 'Posted Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posted_date_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column 'Loss Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: loss_date_key
+
+	column 'Reported Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: reported_date_key
+
+	column 'Authorized Change'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: authorized_change
+
+	column 'Inspection Change'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: inspection_change
+
+	column 'Paid Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: paid_amount
+
+	column 'Pending Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: pending_amount
+
+	column 'Incurred Change'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: incurred_change
+
+	column 'Process Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: process_days
+
+	column 'Age Bin'
+		dataType: string
+		sourceColumn: age_bin
+
+	column 'Is Sign Fixed'
+		dataType: boolean
+		isHidden
+		sourceColumn: is_sign_fixed
+
+	partition 'Claim Payment Line' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_claim_payment_line"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [posting_period_key] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [posting_period_key] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 10
+		incrementalGranularity: month
+		incrementalPeriods: 3
+		sourceExpression =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_claim_payment_line"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [posting_period_key] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [posting_period_key] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	annotation source_table = core.fct_claim_payment_line
+	annotation table_kind = fact

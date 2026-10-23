@@ -1,0 +1,300 @@
+relationship 'Gross Premium.contract_key -> Contract'
+	fromColumn: 'Gross Premium'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Gross Premium.contract_key -> Contract Finance'
+	fromColumn: 'Gross Premium'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Gross Premium.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Gross Premium'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Gross Premium.posting_period_key -> Posting Period'
+	fromColumn: 'Gross Premium'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Gross Premium.dealer_key -> Dealer'
+	fromColumn: 'Gross Premium'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Gross Premium.product_key -> Product'
+	fromColumn: 'Gross Premium'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Gross Premium.tenant_key -> Tenant'
+	fromColumn: 'Gross Premium'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Cancellation.contract_key -> Contract'
+	fromColumn: Cancellation.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Cancellation.contract_key -> Contract Finance'
+	fromColumn: Cancellation.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Cancellation.contract_key -> Contract Actuarial Class'
+	fromColumn: Cancellation.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Cancellation.dealer_key -> Dealer'
+	fromColumn: Cancellation.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Cancellation.product_key -> Product'
+	fromColumn: Cancellation.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Cancellation.tenant_key -> Tenant'
+	fromColumn: Cancellation.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Cancellation.posting_period_key -> Posting Period'
+	fromColumn: Cancellation.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Reinstatement.contract_key -> Contract'
+	fromColumn: Reinstatement.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Reinstatement.contract_key -> Contract Finance'
+	fromColumn: Reinstatement.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Reinstatement.contract_key -> Contract Actuarial Class'
+	fromColumn: Reinstatement.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Reinstatement.dealer_key -> Dealer'
+	fromColumn: Reinstatement.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Reinstatement.product_key -> Product'
+	fromColumn: Reinstatement.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Reinstatement.tenant_key -> Tenant'
+	fromColumn: Reinstatement.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Reinstatement.posting_period_key -> Posting Period'
+	fromColumn: Reinstatement.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Claim Payment Line.contract_key -> Contract'
+	fromColumn: 'Claim Payment Line'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Claim Payment Line.contract_key -> Contract Finance'
+	fromColumn: 'Claim Payment Line'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Claim Payment Line.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Claim Payment Line'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Claim Payment Line.dealer_key -> Dealer'
+	fromColumn: 'Claim Payment Line'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Claim Payment Line.product_key -> Product'
+	fromColumn: 'Claim Payment Line'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Claim Payment Line.tenant_key -> Tenant'
+	fromColumn: 'Claim Payment Line'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Claim Payment Line.payee_account_holder_key -> Account Holder'
+	fromColumn: 'Claim Payment Line'.'Payee Account Holder Key'
+	toColumn: 'Account Holder'.'Account Holder Key'
+
+relationship 'Claim Payment Line.posting_period_key -> Posting Period'
+	fromColumn: 'Claim Payment Line'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Cash Transaction.contract_key -> Contract'
+	fromColumn: 'Cash Transaction'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Cash Transaction.contract_key -> Contract Finance'
+	fromColumn: 'Cash Transaction'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Cash Transaction.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Cash Transaction'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Cash Transaction.dealer_key -> Dealer'
+	fromColumn: 'Cash Transaction'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Cash Transaction.product_key -> Product'
+	fromColumn: 'Cash Transaction'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Cash Transaction.tenant_key -> Tenant'
+	fromColumn: 'Cash Transaction'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Cash Transaction.posting_period_key -> Posting Period'
+	fromColumn: 'Cash Transaction'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Disbursement.contract_key -> Contract'
+	fromColumn: Disbursement.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Disbursement.contract_key -> Contract Finance'
+	fromColumn: Disbursement.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Disbursement.contract_key -> Contract Actuarial Class'
+	fromColumn: Disbursement.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Disbursement.dealer_key -> Dealer'
+	fromColumn: Disbursement.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Disbursement.product_key -> Product'
+	fromColumn: Disbursement.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Disbursement.tenant_key -> Tenant'
+	fromColumn: Disbursement.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Disbursement.account_holder_key -> Account Holder'
+	fromColumn: Disbursement.'Account Holder Key'
+	toColumn: 'Account Holder'.'Account Holder Key'
+
+relationship 'Disbursement.posting_period_key -> Posting Period'
+	fromColumn: Disbursement.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Earned Disbursement.contract_key -> Contract'
+	fromColumn: 'Earned Disbursement'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Earned Disbursement.contract_key -> Contract Finance'
+	fromColumn: 'Earned Disbursement'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Earned Disbursement.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Earned Disbursement'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Earned Disbursement.dealer_key -> Dealer'
+	fromColumn: 'Earned Disbursement'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Earned Disbursement.product_key -> Product'
+	fromColumn: 'Earned Disbursement'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Earned Disbursement.tenant_key -> Tenant'
+	fromColumn: 'Earned Disbursement'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Earned Disbursement.posting_period_key -> Posting Period'
+	fromColumn: 'Earned Disbursement'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Commission.contract_key -> Contract'
+	fromColumn: Commission.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Commission.contract_key -> Contract Finance'
+	fromColumn: Commission.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Commission.contract_key -> Contract Actuarial Class'
+	fromColumn: Commission.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Commission.dealer_key -> Dealer'
+	fromColumn: Commission.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Commission.product_key -> Product'
+	fromColumn: Commission.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Commission.tenant_key -> Tenant'
+	fromColumn: Commission.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Commission.agent_key -> Agent'
+	fromColumn: Commission.'Agent Key'
+	toColumn: Agent.'Agent Key'
+
+relationship 'Commission.posting_period_key -> Posting Period'
+	fromColumn: Commission.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Contract Month.contract_key -> Contract'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Contract Month.contract_key -> Contract Finance'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Contract Month.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Contract Month.dealer_key -> Dealer'
+	fromColumn: 'Contract Month'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Contract Month.product_key -> Product'
+	fromColumn: 'Contract Month'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Contract Month.tenant_key -> Tenant'
+	fromColumn: 'Contract Month'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Contract Month.posting_period_key -> Posting Period'
+	fromColumn: 'Contract Month'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Claim Summary.contract_key -> Contract'
+	fromColumn: 'Claim Summary'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Claim Summary.contract_key -> Contract Finance'
+	fromColumn: 'Claim Summary'.'Contract Key'
+	toColumn: 'Contract Finance'.'Contract Key'
+
+relationship 'Claim Summary.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Claim Summary'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Claim Summary.tenant_key -> Tenant'
+	fromColumn: 'Claim Summary'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Claim Summary.dealer_key -> Dealer'
+	fromColumn: 'Claim Summary'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Claim Summary.product_key -> Product'
+	fromColumn: 'Claim Summary'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Claim Summary.loss_month -> Posting Period'
+	fromColumn: 'Claim Summary'.'Loss Month'
+	toColumn: 'Posting Period'.'Period Start'
+
+relationship 'Dealer.dealer_group_key -> Dealer Group'
+	fromColumn: Dealer.'Dealer Group Key'
+	toColumn: 'Dealer Group'.'Dealer Group Key'
+
+relationship 'Claim Summary.reported_month -> Posting Period'
+	isActive: false
+	fromColumn: 'Claim Summary'.'Reported Month'
+	toColumn: 'Posting Period'.'Period Start'

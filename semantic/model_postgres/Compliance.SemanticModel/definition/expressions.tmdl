@@ -1,0 +1,10 @@
+/// Local PostgreSQL server filled by python -m warehouse.postgres sync. Import mode; sign in with
+/// Database authentication as the read-only bi_reader login. Change PostgresServer / PostgresDatabase
+/// to point the model at another server.
+expression PostgresServer = "localhost:5432" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+
+expression PostgresDatabase = "vsc_analytics" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+
+expression RangeStart = #datetime(2019, 1, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]
+
+expression RangeEnd = #datetime(2030, 1, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]

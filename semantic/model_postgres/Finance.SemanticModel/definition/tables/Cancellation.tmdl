@@ -1,0 +1,156 @@
+table Cancellation
+
+	column 'Cancel Key'
+		dataType: string
+		isHidden
+		sourceColumn: cancel_key
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: source_system
+
+	column 'Source Cancel ID'
+		dataType: string
+		isHidden
+		sourceColumn: source_cancel_id
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Cancel Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: cancel_date
+
+	column 'Cancel Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: cancel_date_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column 'Initiated By'
+		dataType: string
+		sourceColumn: initiated_by
+
+	column Reason
+		dataType: string
+		sourceColumn: reason
+
+	column Method
+		dataType: string
+		sourceColumn: method
+
+	column Odometer
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: odometer
+
+	column 'Contract Age Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: contract_age_days
+
+	column 'Refund Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: refund_pct
+
+	column 'Cancel Fee'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: cancel_fee
+
+	column 'Customer Refund'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: customer_refund
+
+	column 'Admin Portion'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: admin_portion
+
+	column 'Dealer Portion'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: dealer_portion
+
+	column 'Coverage Cost Refund'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: coverage_cost_refund
+
+	column 'Dealer Profit Refund'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: dealer_profit_refund
+
+	column 'Admin Withheld Claims'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: admin_withheld_claims
+
+	column 'Is Reinstated'
+		dataType: boolean
+		sourceColumn: is_reinstated
+
+	column 'Is Effective Cancel'
+		dataType: boolean
+		sourceColumn: is_effective_cancel
+
+	column 'Is Amount Sign Fixed'
+		dataType: boolean
+		isHidden
+		sourceColumn: is_amount_sign_fixed
+
+	partition Cancellation = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_cancellation"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_cancellation
+	annotation table_kind = fact

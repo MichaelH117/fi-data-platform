@@ -1,0 +1,186 @@
+table 'Contract Month'
+
+	column 'Contract Month Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_month_key
+
+	column 'Row Type'
+		dataType: string
+		sourceColumn: row_type
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Contract ID'
+		dataType: string
+		isHidden
+		sourceColumn: contract_id
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Dealer Code'
+		dataType: string
+		sourceColumn: dealer_code
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Product Code'
+		dataType: string
+		sourceColumn: product_code
+
+	column 'Subcategory Code'
+		dataType: string
+		sourceColumn: subcategory_code
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'New Used'
+		dataType: string
+		sourceColumn: new_used
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: month_start
+
+	column 'Earned Month Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_month_key
+
+	column 'Month Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: month_date_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column 'Sale Month'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: sale_month
+
+	column 'Months Since Effective'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: months_since_effective
+
+	column 'Written Premium'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: written_premium
+
+	column 'Earned Premium'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_premium
+
+	column 'Earned Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_pct
+
+	column 'Earned Pct Cumulative'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_pct_cumulative
+
+	column 'Unearned Premium Eom'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: unearned_premium_eom
+
+	column 'Earned Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_days
+
+	column 'Exposure Years'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: exposure_years
+
+	column 'Is In Force Eom'
+		dataType: boolean
+		sourceColumn: is_in_force_eom
+
+	column 'Claim Count'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: claim_count
+
+	column 'Incurred Claims'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: incurred_claims
+
+	column 'Paid Claims'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: paid_claims
+
+	partition 'Contract Month' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_contract_monthly"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [posting_period_key] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [posting_period_key] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 10
+		incrementalGranularity: month
+		incrementalPeriods: 3
+		sourceExpression =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_contract_monthly"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [posting_period_key] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [posting_period_key] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	annotation source_table = core.fct_contract_monthly
+	annotation table_kind = fact

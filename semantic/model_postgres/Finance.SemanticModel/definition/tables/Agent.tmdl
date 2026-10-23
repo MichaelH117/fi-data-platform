@@ -1,0 +1,47 @@
+table Agent
+
+	column 'Agent Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: agent_key
+
+	column 'Agent ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: agent_id
+
+	column 'Agent Code'
+		dataType: string
+		sourceColumn: agent_code
+
+	column 'Agent Name'
+		dataType: string
+		sourceColumn: agent_name
+
+	column Territory
+		dataType: string
+		sourceColumn: territory
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Has Advance Agreement'
+		dataType: boolean
+		sourceColumn: has_advance_agreement
+
+	partition Agent = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_agent"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_agent
+	annotation table_kind = dim

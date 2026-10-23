@@ -1,0 +1,104 @@
+/// Actuarial IBNR by accident-quarter cohort (Python valuation output, not a dbt model). Disconnected: no tenant or dealer key, so slicers do not filter it and external roles cannot see it.
+table 'IBNR by Cohort'
+
+	/// Selected IBNR reserve (chain-ladder / Bornhuetter-Ferguson pick) at the valuation date.
+	measure 'IBNR (selected)' = SUM('IBNR by Cohort'[Selected IBNR])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Actuarial
+		annotation source = actuarial valuation (gold_actuarial.ibnr_by_cohort), not metrics.yml
+
+	/// Selected ultimate losses: paid to date plus IBNR.
+	measure 'Ultimate Losses (selected)' = SUM('IBNR by Cohort'[Selected Ultimate])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Actuarial
+		annotation source = actuarial valuation (gold_actuarial.ibnr_by_cohort), not metrics.yml
+
+	/// Claims paid to date by accident-quarter cohort, as valued.
+	measure 'Paid To Date (actuarial)' = SUM('IBNR by Cohort'[Paid To Date])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Actuarial
+		annotation source = actuarial valuation (gold_actuarial.ibnr_by_cohort), not metrics.yml
+
+	/// Selected ultimate losses over ultimate earned premium.
+	measure 'Ultimate Loss Ratio (actuarial)' = DIVIDE(SUM('IBNR by Cohort'[Selected Ultimate]), SUM('IBNR by Cohort'[Ultimate Premium]))
+		formatString: 0.0%
+		displayFolder: Actuarial
+		annotation source = actuarial valuation (gold_actuarial.ibnr_by_cohort), not metrics.yml
+
+	column 'Cohort Label'
+		dataType: string
+		sourceColumn: cohort_label
+
+	column 'Cohort Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: cohort_start
+
+	column 'Age Quarters'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: age_quarters
+
+	column Contracts
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: contracts
+
+	column 'Written Premium'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: written_premium
+
+	column 'Ultimate Premium'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: ultimate_premium
+
+	column 'Paid To Date'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: paid_to_date
+
+	column 'Reported To Date'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: reported_to_date
+
+	column 'Selected Ultimate'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: selected_ultimate
+
+	column 'Selected Ibnr'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: selected_ibnr
+
+	column Method
+		dataType: string
+		sourceColumn: method
+
+	column 'Valuation Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: valuation_date
+
+	partition 'IBNR by Cohort' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "gold_actuarial", Item = "ibnr_by_cohort"]}[Data],
+				    Kept = Table.SelectColumns(Data, {"cohort_label", "cohort_start", "age_quarters", "contracts", "written_premium", "ultimate_premium", "paid_to_date", "reported_to_date", "selected_ultimate", "selected_ibnr", "method", "valuation_date"})
+				in
+				    Kept
+
+	annotation source_table = gold_actuarial.ibnr_by_cohort
+	annotation table_kind = actuarial

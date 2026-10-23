@@ -1,0 +1,92 @@
+table 'Claim History'
+
+	column 'Claim History Key'
+		dataType: string
+		isHidden
+		sourceColumn: claim_history_key
+
+	column 'Claim Key'
+		dataType: string
+		isHidden
+		sourceColumn: claim_key
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Changed At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: changed_at
+
+	column 'Changed Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: changed_date_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column 'From Status'
+		dataType: string
+		sourceColumn: from_status
+
+	column 'To Status'
+		dataType: string
+		sourceColumn: to_status
+
+	column 'Pre Deductible Change'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: pre_deductible_change
+
+	column 'Post Deductible Change'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: post_deductible_change
+
+	column 'Collected Deductible'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: collected_deductible
+
+	partition 'Claim History' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_claim_history"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_claim_history
+	annotation table_kind = fact

@@ -200,3 +200,14 @@ One line per improvement; the test or gate that holds it is named in brackets.
 - The README shows four screenshots of the built site, and `tools/screenshots.py` re-takes them. [`test_docs.py`]
 - A ranked roadmap lists the known gaps with business value, risk, effort and owner. [`docs/ROADMAP.md`, `test_docs.py`]
 - The semantic model's column lock is refreshed to include this round's new mart columns. [`python -m semantic --check`]
+
+## Round 5 improvements
+- The marts now also live in a real database: an opt-in step copies 104 tables into a local PostgreSQL 16 server in one transaction, and commits only when row counts and dollar totals tie out to DuckDB. [`python -m warehouse.postgres reconcile`, `test_postgres.py`]
+- Dealer row-level security runs on that server from the same user-to-dealer map, and the report reader can only read (no writes, no access map). [`warehouse/postgres/rls.sql`, `test_postgres.py`]
+- A five-page Power BI project (PBIP) opens in Power BI Desktop and reads from Postgres; it is generated from the same plan as the semantic model, so every measure still maps to `metrics.yml`. [`python -m powerbi --check --validate`, `test_powerbi.py`]
+- The Power BI files are checked against Microsoft's published JSON schemas, and every field a visual uses must exist in the model. [`test_powerbi.py`]
+- The measure table is named `Key Measures`, because Desktop reserves the name `Measures` and refuses to open a model that uses it. [`test_semantic.py`]
+- `python -m semantic --target postgres` writes the four domain models pointed at Postgres; the default Snowflake output is unchanged. [`python -m semantic --check`]
+- The raw-data portal has a browser UI with sign-in, previews, CSV/JSON downloads and an access-log panel, and isolation is checked on the server for every request. [`test_portal.py`]
+- The report site has a grouped sidebar menu, a Start here tour, KPI tiles with trend lines and "i" explanations, and light and dark themes. [`test_reports.py`]
+- Postgres stays opt-in: the default run and CI need no server, and the live tests skip without one. [`python -m pipeline.run`, `pytest -q`]

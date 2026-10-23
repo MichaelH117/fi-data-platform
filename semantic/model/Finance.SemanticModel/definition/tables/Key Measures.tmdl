@@ -1,0 +1,459 @@
+/// Every measure is generated from dbt/models/metrics.yml (annotation dbt_metric).
+table 'Key Measures'
+
+	/// Reserve premium booked in the sale month.
+	measure 'Written Premium' = SUM('Contract Month'[Written Premium])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Premium
+		annotation dbt_metric = written_premium
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Pro-rata earned reserve premium.
+	measure 'Earned Premium' = SUM('Contract Month'[Earned Premium])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Premium
+		annotation dbt_metric = earned_premium
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Paid + case reserve on open claims, by loss month.
+	measure 'Incurred Claims (accident month)' = SUM('Contract Month'[Incurred Claims])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = incurred_claims
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Incurred claims divided by EARNED premium (never written). Not comparable with the loss ratio on claims reserve.
+	measure 'Loss Ratio (on earned premium)' = DIVIDE([Incurred Claims (accident month)], [Earned Premium])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = loss_ratio
+		annotation metric_owner = Data Scientist
+		annotation certified = true
+
+	/// Non-denied claims per earned contract-year, accident-month basis (claims page tile).
+	measure 'Claim Frequency' = DIVIDE([Claim Count (accident month)], [Exposure Years])
+		formatString: #,0.00
+		displayFolder: Ratios
+		annotation dbt_metric = claim_frequency
+		annotation metric_owner = Data Scientist
+		annotation certified = true
+
+	/// Non-denied claims, by loss month.
+	measure 'Claim Count (accident month)' = SUM('Contract Month'[Claim Count])
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claim_count_metric
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Earned contract-years (days in force / 365.25).
+	measure 'Exposure Years' = SUM('Contract Month'[Exposure Years])
+		formatString: #,0.00
+		displayFolder: Exposure
+		annotation dbt_metric = exposure_years_metric
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Contracts sold in the posting period (sales only; amendments add 0), from core.fct_gross_premium.
+	measure 'Contracts Written' = SUM('Gross Premium'[Contracts Written])
+		formatString: #,0
+		displayFolder: Sales
+		annotation dbt_metric = contracts_written
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Coverage cost (dealer cost) written in the posting period. The executive overview shows it as Written coverage cost.
+	measure 'Gross Coverage Cost' = SUM('Gross Premium'[Coverage Cost])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Sales
+		annotation dbt_metric = gross_coverage_cost
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Gross consideration on the retail basis.
+	measure 'Gross Retail Price' = SUM('Gross Premium'[Retail Price])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Sales
+		annotation dbt_metric = gross_retail_price
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Gross purchase price
+	measure 'Gross Purchase Price' = SUM('Gross Premium'[Purchase Price])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Sales
+		annotation dbt_metric = gross_purchase_price
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Contracts in force at month end (a balance: it never sums across months).
+	measure 'Contracts In Force' =
+			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
+			VAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)
+			RETURN
+			    CALCULATE(CALCULATE(COUNTROWS('Contract Month'), 'Contract Month'[Is In Force Eom] = TRUE()), 'Posting Period'[Posting Period Key] = _period)
+		formatString: #,0
+		displayFolder: Portfolio
+		annotation dbt_metric = contracts_in_force
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Unearned reserve premium at month end (a balance, so it never sums across months).
+	measure 'Unearned Premium Balance' =
+			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
+			VAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)
+			RETURN
+			    CALCULATE(SUM('Contract Month'[Unearned Premium Eom]), 'Posting Period'[Posting Period Key] = _period)
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Premium
+		annotation dbt_metric = unearned_premium_balance
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Cancellations
+	measure Cancellations = COUNTROWS('Cancellation')
+		formatString: #,0
+		displayFolder: Cancellations
+		annotation dbt_metric = cancellations
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Cancels not later reinstated.
+	measure 'Effective Cancellations' = CALCULATE(COUNTROWS('Cancellation'), 'Cancellation'[Is Effective Cancel] = TRUE())
+		formatString: #,0
+		displayFolder: Cancellations
+		annotation dbt_metric = effective_cancellations
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Customer refunds
+	measure 'Customer Refunds' = SUM('Cancellation'[Customer Refund])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = customer_refunds
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Cancel fees
+	measure 'Cancel Fees' = SUM('Cancellation'[Cancel Fee])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = cancel_fees
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Dealer portion of the refund (chargeback).
+	measure 'Dealer Chargebacks' = SUM('Cancellation'[Dealer Portion])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = dealer_chargebacks
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Coverage cost refunds
+	measure 'Coverage Cost Refunds' = SUM('Cancellation'[Coverage Cost Refund])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = coverage_cost_refunds
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Effective cancel rate (effective cancels / contracts written, same period)
+	measure 'Effective Cancel Rate' = DIVIDE([Effective Cancellations], [Contracts Written])
+		formatString: 0.0%
+		displayFolder: Cancellations
+		annotation dbt_metric = effective_cancel_rate
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Net coverage cost (gross - coverage cost refunds)
+	measure 'Net Coverage Cost' = [Gross Coverage Cost] - [Coverage Cost Refunds]
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Sales
+		annotation dbt_metric = net_coverage_cost
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Reinstatements
+	measure Reinstatements = COUNTROWS('Reinstatement')
+		formatString: #,0
+		displayFolder: Cancellations
+		annotation dbt_metric = reinstatements
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Reinstatement reversals
+	measure 'Reinstatement Reversals' = SUM('Reinstatement'[Reversal Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = reinstatement_reversals
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Claim dollars paid (always positive after conforming).
+	measure 'Claims Paid' = SUM('Claim Payment Line'[Paid Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_paid
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Paid plus change in case reserve (as posted).
+	measure 'Claims Incurred' = SUM('Claim Payment Line'[Incurred Change])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_incurred
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Change in outstanding case reserve.
+	measure 'Claims Reserve Change' = SUM('Claim Payment Line'[Pending Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_reserve_change
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims with posted activity
+	measure 'Claims With Activity' = DISTINCTCOUNT('Claim Payment Line'[Claim Key])
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_with_activity
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Average claim process days
+	measure 'Average Claim Process Days' = AVERAGE('Claim Payment Line'[Process Days])
+		formatString: #,0.00
+		displayFolder: Claims
+		annotation dbt_metric = avg_claim_process_days
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims reported (both systems).
+	measure 'Claims Opened' = CALCULATE(COUNTROWS('Claim Summary'), USERELATIONSHIP('Claim Summary'[Reported Month], 'Posting Period'[Period Start]))
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_opened
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims reported, one row per claim from both admin systems, by loss month.
+	measure 'Claims Reported (loss month)' = COUNTROWS('Claim Summary')
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_reported_loss_month
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Claims denied (loss month)
+	measure 'Claims Denied' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "denied")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_denied
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Paid claims (loss month)
+	measure 'Paid Claim Count' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "paid")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_closed_paid
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claim dollars paid on paid claims (loss month)
+	measure 'Paid On Paid Claims' = CALCULATE(SUM('Claim Summary'[Paid Amount]), 'Claim Summary'[Status Group] = "paid")
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = paid_on_paid_claims
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims open as of the as-of date.
+	measure 'Open Claims' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "open")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = open_claims
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days).
+	measure 'Open Claims Aged 30 Plus' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Is Aged Open] = TRUE())
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = open_claims_aged_30_plus
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Average days from reported to closed, closed claims only.
+	measure 'Average Turnaround Days' = AVERAGE('Claim Summary'[Turnaround Days])
+		formatString: #,0.00
+		displayFolder: Claims
+		annotation dbt_metric = avg_claim_turnaround_days
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Same definition as the claims KPI page and mart_claims_kpi.denial_rate.
+	measure 'Denial Rate' = DIVIDE([Claims Denied], [Claims Reported (loss month)])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = denial_rate
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Numerator and denominator are the same population (paid claims). Same as mart_claims_kpi.claim_severity.
+	measure 'Paid Claim Severity' = DIVIDE([Paid On Paid Claims], [Paid Claim Count])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Ratios
+		annotation dbt_metric = paid_claim_severity
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Ledger view, claims incurred as posted / earned claims reserve. Not comparable with the loss ratio on earned premium (the accident-month actuarial view).
+	measure 'Loss Ratio (on claims reserve)' = DIVIDE([Claims Incurred], [Earned Reserve])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = posted_loss_ratio
+		annotation metric_owner = Financial Analyst II
+		annotation certified = true
+
+	/// Remitted cash
+	measure 'Remitted Cash' = SUM('Cash Transaction'[Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Remittance
+		annotation dbt_metric = remitted_cash
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Remittances
+	measure Remittances = COUNTROWS('Cash Transaction')
+		formatString: #,0
+		displayFolder: Remittance
+		annotation dbt_metric = remittances
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Late remittances
+	measure 'Late Remittances' = CALCULATE(COUNTROWS('Cash Transaction'), 'Cash Transaction'[Is Late] = TRUE())
+		formatString: #,0
+		displayFolder: Remittance
+		annotation dbt_metric = late_remittances
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Late fees
+	measure 'Late Fees' = SUM('Cash Transaction'[Late Fee])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Remittance
+		annotation dbt_metric = late_fees
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Average remit age (days)
+	measure 'Average Remit Age Days' = AVERAGE('Cash Transaction'[Remit Age Days])
+		formatString: #,0.00
+		displayFolder: Remittance
+		annotation dbt_metric = avg_remit_age_days
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Late remittance rate (late / all remittances)
+	measure 'Late Remittance Rate' = DIVIDE([Late Remittances], [Remittances])
+		formatString: 0.0%
+		displayFolder: Remittance
+		annotation dbt_metric = late_remittance_rate
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Disbursed amount
+	measure 'Disbursed Amount' = SUM('Disbursement'[Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Disbursements
+		annotation dbt_metric = disbursed_amount
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Claims reserve disbursed
+	measure 'Disbursed Claims Reserve' = SUM('Disbursement'[Reserve Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Disbursements
+		annotation dbt_metric = disbursed_claims_reserve
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Profit-share reserve disbursed
+	measure 'Disbursed Profit Share Reserve' = SUM('Disbursement'[Profit Share Reserve])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Disbursements
+		annotation dbt_metric = disbursed_profit_share_reserve
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// All earned cost-split buckets in the posting period. The executive overview and the P&L call it Earned premium; it is the combined-ratio denominator.
+	measure 'Earned Disbursement Amount' = SUM('Earned Disbursement'[Earned Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Disbursements
+		annotation dbt_metric = earned_disbursement_amount
+		annotation metric_owner = Financial Analyst II
+		annotation certified = true
+
+	/// Earned claims reserve in the posting period, the denominator of the posted loss ratio.
+	measure 'Earned Reserve' = SUM('Earned Disbursement'[Earned Reserve])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Disbursements
+		annotation dbt_metric = earned_reserve
+		annotation metric_owner = Financial Analyst II
+		annotation certified = true
+
+	/// Earned admin fee
+	measure 'Earned Admin Fee' = CALCULATE(SUM('Earned Disbursement'[Earned Amount]), 'Earned Disbursement'[Disbursement Type] = "ADMIN_FEE")
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Disbursements
+		annotation dbt_metric = earned_admin_fee
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Earned acquisition cost (commission + insurer fee + premium tax)
+	measure 'Earned Acquisition Cost' = CALCULATE(SUM('Earned Disbursement'[Earned Amount]), 'Earned Disbursement'[Disbursement Type] IN {"COMMISSION", "INSURER_FEE", "PREMIUM_TAX"})
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Disbursements
+		annotation dbt_metric = earned_acquisition_cost
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Same as finance.mart_pnl_by_product.combined_ratio and the executive overview. Above 100% the book lost money.
+	measure 'Combined Ratio' = DIVIDE(([Claims Incurred] + [Earned Acquisition Cost] + [Earned Admin Fee]), [Earned Disbursement Amount])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = combined_ratio
+		annotation metric_owner = Financial Analyst II
+		annotation certified = true
+
+	/// Commissions
+	measure Commissions = SUM('Commission'[Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Commissions
+		annotation dbt_metric = commissions
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Commission advances
+	measure 'Commission Advances' = CALCULATE(SUM('Commission'[Amount]), 'Commission'[Is Advance] = TRUE())
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Commissions
+		annotation dbt_metric = commission_advances
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	column Value
+		dataType: string
+		isHidden
+		sourceColumn: [Value]
+
+	partition 'Key Measures' = calculated
+		mode: import
+		source = ROW("Value", BLANK())

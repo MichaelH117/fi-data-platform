@@ -1,0 +1,23 @@
+/// White-label partner program: every dealer of the tenants mapped to the signed-in user.
+role 'Tenant Partner'
+	modelPermission: read
+
+	tablePermission 'Security User Access' = 'Security User Access'[User Login] = USERPRINCIPALNAME()
+
+	tablePermission Tenant = 'Tenant'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME())
+
+	tablePermission Dealer = 'Dealer'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()) || 'Dealer'[Dealer Key] = "-1"
+
+	tablePermission 'Dealer Group' = 'Dealer Group'[Dealer Group Key] IN CALCULATETABLE(VALUES('Dealer'[Dealer Group Key]), 'Dealer'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()))
+
+	tablePermission Contract = 'Contract'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()) || 'Contract'[Contract Key] = "-1"
+
+	tablePermission Agent = 'Agent'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME())
+
+	tablePermission 'Contract Terms' = 'Contract Terms'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()) || 'Contract'[Contract Key] = "-1")
+
+	tablePermission 'Contract Finance' = 'Contract Finance'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()) || 'Contract'[Contract Key] = "-1")
+
+	tablePermission 'Contract Vehicle' = 'Contract Vehicle'[Contract Key] IN CALCULATETABLE(VALUES('Contract'[Contract Key]), 'Contract'[Tenant Key] IN CALCULATETABLE(VALUES('Security User Access'[Tenant Key]), 'Security User Access'[User Login] = USERPRINCIPALNAME()) || 'Contract'[Contract Key] = "-1")
+
+	annotation security_group = sg-bi-partner-<tenant>

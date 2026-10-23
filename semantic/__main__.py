@@ -1,4 +1,4 @@
-"""CLI: ``python -m semantic [--out DIR] [--warehouse PATH] [--check] [--refresh-columns]``.
+"""CLI: ``python -m semantic [--target snowflake|postgres] [--out DIR] [--check] [--refresh-columns]``.
 
 Builds ``semantic/model/`` (TMDL-style Sales / Claims / Finance / Compliance models) from
 ``dbt/models/metrics.yml``. Column names and types come from ``semantic/columns.lock.json``, so the
@@ -8,6 +8,10 @@ When the warehouse exists the lock is checked against it: a removed or retyped c
 (the model would break on refresh); new columns are only a warning. ``--refresh-columns`` rewrites the
 lock from the warehouse. ``--check`` regenerates into a temp folder and exits 1 when the committed
 files differ (CI guard against hand edits or a stale model).
+
+``--target`` picks the M source of every partition: ``snowflake`` (default; ``semantic/model/``) or
+``postgres`` (``PostgreSQL.Database`` on the local server; ``semantic/model_postgres/``). Measures, calc
+group, relationships and RLS are identical. ``--check`` checks the folder of the chosen target.
 """
 
 from __future__ import annotations
@@ -22,7 +26,18 @@ from pathlib import Path
 
 import duckdb
 
-from semantic.build import LOCK_PATH, OUT_DIR, ROOT, drift, generate, load_lock, read_warehouse_columns, write_lock
+from semantic.build import (
+    DEFAULT_TARGET,
+    LOCK_PATH,
+    ROOT,
+    TARGET_OUT_DIRS,
+    TARGETS,
+    drift,
+    generate,
+    load_lock,
+    read_warehouse_columns,
+    write_lock,
+)
 from semantic.metrics import TranslationError
 
 WAREHOUSE_PATH = Path(os.environ.get("WAREHOUSE_PATH", ROOT / "data" / "warehouse" / "warehouse.duckdb"))
@@ -41,11 +56,14 @@ def _same_tree(a: Path, b: Path) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m semantic", description=__doc__.splitlines()[0])
-    ap.add_argument("--out", type=Path, default=OUT_DIR)
+    ap.add_argument("--target", choices=TARGETS, default=DEFAULT_TARGET,
+                    help="M source of the partitions (default: %(default)s)")
+    ap.add_argument("--out", type=Path, help="output folder (default: the target's folder under semantic/)")
     ap.add_argument("--warehouse", type=Path, default=WAREHOUSE_PATH)
     ap.add_argument("--check", action="store_true", help="exit 1 when the committed model is stale")
     ap.add_argument("--refresh-columns", action="store_true", help="rewrite columns.lock.json from the warehouse")
     args = ap.parse_args(argv)
+    args.out = args.out or TARGET_OUT_DIRS[args.target]
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
 
     if args.refresh_columns:
@@ -56,14 +74,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.check:
             with tempfile.TemporaryDirectory() as tmp:
-                generate(Path(tmp) / "model")
+                generate(Path(tmp) / "model", target=args.target)
                 diffs = _same_tree(Path(tmp) / "model", args.out)
             if diffs:
-                log.error("semantic model is stale (run python -m semantic):\n  %s", "\n  ".join(diffs[:20]))
+                log.error("semantic model is stale (run python -m semantic --target %s):\n  %s", args.target,
+                          "\n  ".join(diffs[:20]))
                 return 1
             log.info("semantic model is up to date")
             return 0
-        plan = generate(args.out)
+        plan = generate(args.out, target=args.target)
     except TranslationError as exc:
         log.error("cannot generate the semantic model: %s", exc)
         return 1

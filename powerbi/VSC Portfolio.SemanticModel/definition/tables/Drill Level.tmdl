@@ -1,0 +1,49 @@
+/// Field parameter: pick the drill level (use it twice for a 1st / 2nd level matrix).
+table 'Drill Level'
+
+	column 'Drill Level'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: [Value1]
+		sortByColumn: 'Drill Level Order'
+
+		relatedColumnDetails
+			groupByColumn: 'Drill Level Fields'
+
+	column 'Drill Level Fields'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: [Value2]
+
+		extendedProperty ParameterMetadata =
+				{"version": 3, "kind": 2}
+
+	column 'Drill Level Order'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: [Value3]
+
+	partition 'Drill Level' = calculated
+		mode: import
+		source =
+				{
+				    ("Tenant", NAMEOF('Tenant'[Reportable Name]), 0),
+				    ("Dealer Group", NAMEOF('Dealer Group'[Group Name]), 1),
+				    ("Dealer", NAMEOF('Dealer'[Dealer Name]), 2),
+				    ("Dealer State", NAMEOF('Dealer'[State]), 3),
+				    ("Product Category", NAMEOF('Product'[Category]), 4),
+				    ("Product Subcategory", NAMEOF('Product'[Subcategory]), 5),
+				    ("Product", NAMEOF('Product'[Product]), 6),
+				    ("Plan", NAMEOF('Product'[Plan]), 7),
+				    ("Reportable State", NAMEOF('Contract'[Reportable State]), 8),
+				    ("New / Used", NAMEOF('Contract Vehicle'[New Used]), 9),
+				    ("Term Band", NAMEOF('Contract Terms'[Term Band]), 10),
+				    ("Rating Cell", NAMEOF('Contract Actuarial Class'[Rating Cell]), 11),
+				    ("Claim Status", NAMEOF('Claim'[Status]), 12),
+				    ("Denied Category", NAMEOF('Claim'[Denied Category]), 13),
+				    ("Obligor", NAMEOF('Obligor'[Obligor Name]), 14)
+				}
+
+	annotation PBI_FieldParameter = true

@@ -1,0 +1,50 @@
+/// One row: as-of date and current period. Caps the calculation group at the as-of period.
+table 'Reporting Date'
+
+	column 'As Of Date'
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		sourceColumn: as_of_date
+
+	column 'As Of Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: as_of_date_key
+
+	column 'Cutover Date'
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		sourceColumn: cutover_date
+
+	column 'Current Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: current_period_key
+
+	column 'Last Closed Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: last_closed_period_key
+
+	column 'Last Complete Month'
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		sourceColumn: last_complete_month
+
+	partition 'Reporting Date' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_reporting_date"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_reporting_date
+	annotation table_kind = helper

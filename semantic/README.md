@@ -134,7 +134,7 @@ the `AnalyticsDatabase` parameter to `ANALYTICS_DEV`.
 
 ## Craft rules followed
 
-- Star schemas only. Explicit measures only (`discourageImplicitMeasures`), in one `Measures`
+- Star schemas only. Explicit measures only (`discourageImplicitMeasures`), in one `Key Measures`
   table with display folders. Numeric fact columns are hidden.
 - Transforms happen upstream in dbt. M only connects to the tables and filters for incremental
   refresh.
@@ -142,3 +142,21 @@ the `AnalyticsDatabase` parameter to `ANALYTICS_DEV`.
   deployment pipeline, and the TMDL is versioned in git.
 - Profile slow visuals with Performance Analyzer and DAX Studio before release (see
   `docs/operating-model/` release process).
+
+## Source targets (`--target`)
+
+| Target | Command | Output | M source |
+|---|---|---|---|
+| `snowflake` (default) | `python -m semantic` | `semantic/model/` | `Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse)`, `ANALYTICS.<SCHEMA>.<TABLE>` |
+| `postgres` | `python -m semantic --target postgres` | `semantic/model_postgres/` | `PostgreSQL.Database(PostgresServer, PostgresDatabase)`, defaults `localhost:5432` / `vsc_analytics` |
+
+Both are Import mode and share every measure, the calculation group, relationships and RLS roles; only the
+partitions, source column case and the parameters differ. Snowflake stays the default because it is the
+production layout; the Postgres variant is for the local server that `python -m warehouse.postgres sync`
+fills (see [warehouse/postgres/README.md](../warehouse/postgres/README.md)). `--check --target postgres`
+guards the committed Postgres folder the same way.
+
+## Power BI report
+
+`powerbi/` holds the five-page VSC Portfolio report (PBIP, PBIR) and its internal reporting model,
+built from the same plan as these domain models (`python -m powerbi`). See `powerbi/README.md`.

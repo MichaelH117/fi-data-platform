@@ -1,0 +1,202 @@
+/// Dealer x month scorecard: monthly additive columns (written, cancelled, earned claims reserve, incurred, remittances, days late) and the watch flags. Ratios are measures; the trailing 12 months come from the T12M calculation item, never from rolling columns.
+table 'Dealer Scorecard'
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Dealer Number'
+		dataType: string
+		sourceColumn: dealer_number
+
+	column 'Dealer Name'
+		dataType: string
+		sourceColumn: dealer_name
+
+	column 'Dealer State'
+		dataType: string
+		sourceColumn: dealer_state
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: month_start
+
+	column 'Month Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: month_key
+
+	column 'Contracts Written'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: contracts_written
+
+	column 'Contracts Cancelled'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: contracts_cancelled
+
+	column 'Coverage Cost'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: coverage_cost
+
+	column 'Retail Price'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: retail_price
+
+	column 'Earned Claims Reserve'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_claims_reserve
+
+	column 'Incurred Claims'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: incurred_claims
+
+	column 'Claims Reported'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: claims_reported
+
+	column 'Early Claims'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claims
+
+	column Remittances
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: remittances
+
+	column 'Late Remittances'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: late_remittances
+
+	column 'Late Fees'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: late_fees
+
+	column 'Remit Age Days Total'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: remit_age_days_total
+
+	column 'Days Late Total'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: days_late_total
+
+	column 'Cancellations Posted'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: cancellations_posted
+
+	column 'Dealer Chargebacks'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: dealer_chargebacks
+
+	column 'T12 Loss Ratio Peer Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: t12_loss_ratio_peer_pct
+
+	column 'Early Claim Ae Window Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claim_ae_window_days
+
+	column 'Early Claim Ae Contracts Exposed'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claim_ae_contracts_exposed
+
+	column 'Early Claim Ae Early Contracts'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claim_ae_early_contracts
+
+	column 'Early Claim Ae Expected'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claim_ae_expected
+
+	column 'Early Claim Ae Incidence'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claim_ae_incidence
+
+	column 'Early Claim Actual To Expected'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claim_actual_to_expected
+
+	column 'Early Claim Ae Z Score'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claim_ae_z_score
+
+	column 'Is Watch Loss Ratio'
+		dataType: boolean
+		sourceColumn: is_watch_loss_ratio
+
+	column 'Is Watch Late Remit'
+		dataType: boolean
+		sourceColumn: is_watch_late_remit
+
+	column 'Is Watch Early Claims'
+		dataType: boolean
+		sourceColumn: is_watch_early_claims
+
+	column 'Is Watch'
+		dataType: boolean
+		sourceColumn: is_watch
+
+	partition 'Dealer Scorecard' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "dealer", Item = "mart_dealer_scorecard"]}[Data]
+				in
+				    Data
+
+	annotation source_table = dealer.mart_dealer_scorecard
+	annotation table_kind = fact

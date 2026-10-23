@@ -100,3 +100,27 @@ def bars(categories: Sequence, series: dict[str, Sequence[float]], *, yfmt: str 
 def to_div(fig: go.Figure, div_id: str, label: str) -> str:
     html = fig.to_html(full_html=False, include_plotlyjs=False, config=CONFIG, div_id=div_id)
     return f'<div class="chart" role="img" aria-label="{label}">{html}</div>'
+
+
+def sparkline(values: Sequence[float], width: int = 120, height: int = 32) -> str:
+    """Inline SVG trend line for a KPI tile (no axes; CSS colours it via ``currentColor``).
+
+    Purely decorative context: the tile's number is the value, so the SVG is hidden from screen readers
+    and carries only a ``<title>`` for mouse users. Returns "" when there are too few points.
+    """
+    pts = [float(v) for v in values if v is not None and not pd.isna(v)]
+    if len(pts) < 3:
+        return ""
+    lo, hi = min(pts), max(pts)
+    span = (hi - lo) or 1.0
+    pad = 3
+    step = (width - 2 * pad) / (len(pts) - 1)
+    xy = [(pad + i * step, pad + (height - 2 * pad) * (1 - (v - lo) / span)) for i, v in enumerate(pts)]
+    path = " ".join(f"{'M' if i == 0 else 'L'}{x:.1f},{y:.1f}" for i, (x, y) in enumerate(xy))
+    area = f"{path} L{xy[-1][0]:.1f},{height} L{xy[0][0]:.1f},{height} Z"
+    ex, ey = xy[-1]
+    return (f'<svg class="spark" viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+            f'aria-hidden="true" focusable="false">'
+            f"<title>Last {len(pts)} months</title>"
+            f'<path class="spark-area" d="{area}"/><path class="spark-line" d="{path}"/>'
+            f'<circle class="spark-end" cx="{ex:.1f}" cy="{ey:.1f}" r="2.5"/></svg>')

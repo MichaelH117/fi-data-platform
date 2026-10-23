@@ -72,6 +72,7 @@ class Kpi:
     value: str
     sub: str = ""
     status: str = ""  # "", good, warning, critical (rendered with icon + word, never color alone)
+    spark: list[float] = field(default_factory=list)  # optional monthly series, oldest first, drawn as a sparkline
 
 
 @dataclass
@@ -84,6 +85,7 @@ class Section:
     wide: bool = False
     table_open: bool = False  # table shown directly (no chart) instead of behind "Show data"
     note: str = ""
+    html: str = ""  # trusted shell-built markup (the Start here page); never data from a mart
 
 
 @dataclass
@@ -104,6 +106,15 @@ def link(text: str, href: str) -> dict:
 def chart_section(title: str, caption: str, fig, div_id: str, cols: list[str], rows: list[list],
                   wide: bool = False, note: str = "") -> Section:
     return Section(title, caption, charts.to_div(fig, div_id, f"Chart: {title}"), cols, rows, wide, note=note)
+
+
+SPARK_MONTHS = 24
+
+
+def spark(series: pd.Series, months: int = SPARK_MONTHS) -> list[float]:
+    """Last ``months`` points of a monthly series (oldest first) for a KPI sparkline; display only."""
+    vals = pd.to_numeric(series, errors="coerce").dropna().tail(months)
+    return [float(v) for v in vals] if len(vals) >= 3 else []
 
 
 def lr_status(v: float | None) -> str:
@@ -136,15 +147,18 @@ def overview_money(d: ReportData) -> tuple[list[Kpi], list[Section]]:
     lr_delta = (now.t12_loss_ratio - year_ago.t12_loss_ratio) * 100
     window = f"12 posting periods to {month_label(now.month)}"
     kpis = [
-        Kpi("Written coverage cost, T12", money(now.t12_written_coverage_cost), window),
-        Kpi("Earned premium, T12", money(now.t12_earned_premium), "earned gross, all cost-split buckets"),
-        Kpi("Earned claims reserve, T12", money(now.t12_earned_claims_reserve), "the loss-ratio denominator"),
+        Kpi("Written coverage cost, T12", money(now.t12_written_coverage_cost), window,
+            spark=spark(f["t12_written_coverage_cost"])),
+        Kpi("Earned premium, T12", money(now.t12_earned_premium), "earned gross, all cost-split buckets",
+            spark=spark(f["t12_earned_premium"])),
+        Kpi("Earned claims reserve, T12", money(now.t12_earned_claims_reserve), "the loss-ratio denominator",
+            spark=spark(f["t12_earned_claims_reserve"])),
         Kpi("Loss ratio, T12", pct(now.t12_loss_ratio),
             f"incurred / earned claims reserve; {'up' if lr_delta >= 0 else 'down'} {abs(lr_delta):.1f} pts "
-            "vs a year ago", lr_status(now.t12_loss_ratio)),
+            "vs a year ago", lr_status(now.t12_loss_ratio), spark=spark(f["t12_loss_ratio"])),
         Kpi("Combined ratio, T12", pct(now.t12_combined_ratio),
             "(claims + acquisition + admin fee) / earned premium",
-            "critical" if now.t12_combined_ratio > 1 else "good"),
+            "critical" if now.t12_combined_ratio > 1 else "good", spark=spark(f["t12_combined_ratio"])),
     ]
     prem = f[["month", "written_coverage_cost", "earned_premium", "earned_claims_reserve"]]
     s1 = chart_section(
@@ -185,7 +199,8 @@ def page_overview(d: ReportData) -> Page:
 
     money_kpis, money_sections = overview_money(d)
     kpis = money_kpis + [
-        Kpi("Contracts in force", num(now.contracts_in_force), f"at end of {month_label(now.month)}"),
+        Kpi("Contracts in force", num(now.contracts_in_force), f"at end of {month_label(now.month)}",
+            spark=spark(p["contracts_in_force"])),
         Kpi(CANCEL_RATE_ITD, pct(cancel_rate), f"portfolio; {pct(early_share, 0)} of cancels within 90 days"),
         Kpi("IBNR (actuarial)", money(ibnr), "incurred, not yet reported (excludes unexpired coverage)"),
         overview_dealer_watch_kpi(d),
@@ -592,8 +607,120 @@ def page_quality(d: ReportData) -> Page:
 
 
 # --------------------------------------------------------------------------- render
-NAV = [("index.html", "Overview"), ("products.html", "Products"), ("claims.html", "Claims & IBNR"),
-       ("dealers.html", "Dealers"), ("quality.html", "Data quality")]
+START = "start.html"
+NAV = [(START, "Start here"), ("index.html", "Overview"), ("products.html", "Products"),
+       ("claims.html", "Claims & IBNR"), ("dealers.html", "Dealers"), ("quality.html", "Data quality")]
+
+# Sidebar sections, in display order. Core pages are placed by path; plug-ins by area name, or by an
+# optional ``NAV_GROUP`` attribute on the package. Anything unplaced lands in "Platform".
+NAV_GROUP_ORDER = ["Executive", "Finance", "Claims & Actuarial", "Regulatory", "Dealers", "Platform"]
+CORE_GROUPS = {"index.html": "Executive", "products.html": "Finance", "claims.html": "Claims & Actuarial",
+               "dealers.html": "Dealers", "quality.html": "Platform"}
+AREA_GROUPS = {"regulatory": "Regulatory", "dealer": "Dealers", "claims": "Claims & Actuarial",
+               "finance": "Finance", "ops": "Platform", "actuarial": "Claims & Actuarial", "semantic": "Platform"}
+# Order inside a section: lower first; unlisted links keep discovery order after these.
+NAV_RANK = {"finance/index.html": 0, "products.html": 1, "claims.html": 0, "claims/index.html": 1,
+            "actuarial.html": 2, "dealers.html": 0, "quality.html": 0, "ops.html": 1}
+
+
+def group_nav(nav: Sequence[tuple[str, str]], groups: dict[str, str]) -> tuple[list[tuple[str, str]], list[tuple]]:
+    """Split nav entries into (ungrouped top links, [(section, [(href, label), ...]), ...]) for the sidebar."""
+    top = [(h, lbl) for h, lbl in nav if h == START]
+    buckets: dict[str, list[tuple[str, str]]] = {g: [] for g in NAV_GROUP_ORDER}
+    for href, label in nav:
+        if href == START:
+            continue
+        g = groups.get(href) or CORE_GROUPS.get(href) or "Platform"
+        buckets.setdefault(g, []).append((href, label))
+    for items in buckets.values():
+        items.sort(key=lambda it: NAV_RANK.get(it[0], 50))
+    return top, [(g, items) for g, items in buckets.items() if items]
+
+
+# One-line "what you will find" for the Start here page; pages not listed fall back to their lede.
+NAV_BLURBS = {
+    "index.html": "T12 premium, loss and combined ratio, in-force book and the dealer watchlist on one page.",
+    "products.html": "Loss ratio, frequency, severity and cancellations by coverage tier.",
+    "claims.html": "Reported losses, IBNR and ultimate loss ratio from the actuarial reserve study.",
+    "dealers.html": "Every dealer's production and loss ratio, with a link to its packet.",
+    "quality.html": "Can the numbers be trusted today? dbt tests, freshness and the data issues handled.",
+    "finance/index.html": "Profit-share, commission, P&L by product and cession statements, with Excel downloads.",
+    "regulatory/index.html": "State funded-reserve filings and the market survey, with methodology notes.",
+    "dealer/index.html": "Dealer production, pending contracts, remittance aging, surcharge audit and scorecard.",
+    "claims/index.html": "Claim frequency, severity, denial rate, aging and turnaround.",
+    "ops.html": "The 7 AM SLO, the diagnostics gates and the source-to-raw-to-mart reconciliation.",
+    "actuarial.html": "Loss development triangles, IBNR methods and the selected reserve.",
+    "semantic.html": "The Power BI-ready semantic model: measures, relationships and row-level security roles.",
+}
+TOUR = [  # (href, what to look at); a step is shown only when its page was built
+    ("index.html", "Read the headline tiles. Every figure has an \u201ci\u201d with its definition."),
+    ("finance/index.html", "Open a statement and download its Excel copy; totals tie to the overview."),
+    ("claims.html", "See how reported losses grow into ultimate losses (IBNR)."),
+    ("regulatory/index.html", "Open a state filing: two reserve bases side by side, with notes."),
+    ("dealers.html", "Pick a dealer and open its packet: it shows that dealer\u2019s rows only."),
+    ("ops.html", "Check the gates: a failed reconciliation stops the site from publishing."),
+]
+PROOFS = [  # (claim, explanation, page that shows it)
+    ("Reliable", "One command rebuilds everything from an empty folder. Each step fails fast and every run is "
+     "logged with its timing against a 7 AM target.", "ops.html"),
+    ("Reconciled", "Row counts and dollar totals are tied out from source to raw to marts on every run. Eight "
+     "diagnostics gates block publishing when one breaks.", "ops.html"),
+    ("Secure", "Customer PII is hashed or dropped at staging. A dealer sees only its own rows, in its packet and "
+     "in the semantic model\u2019s row-level security.", "semantic.html"),
+]
+
+
+def _first_sentence(text: str) -> str:
+    head = text.split(". ")[0].strip()
+    return head if head.endswith(".") or not head else head + "."
+
+
+def page_start(nav: Sequence[tuple[str, str]], groups: dict[str, str], pages: Sequence[Page],
+               packets: int) -> Page:
+    """The 'Start here' tour: what the site is, what to click, what it proves, and a link to every section."""
+    from markupsafe import escape
+
+    built = {p.path for p in pages}
+    ledes = {p.path: p.lede for p in pages}
+    _, sections = group_nav(nav, groups)
+    label = dict(nav)
+
+    def a(href: str, text: str) -> str:
+        return f'<a href="{escape(href)}">{escape(text)}</a>'
+
+    steps = "".join(f'<li><p class="step-title">{a(h, label.get(h, h))}</p><p>{escape(t)}</p></li>'
+                    for h, t in TOUR if h in built)
+    proofs = "".join(
+        f'<li class="proof"><p class="proof-title">{escape(c)}</p><p>{escape(t)}</p>'
+        + (f'<p class="proof-link">{a(h, "See it: " + label.get(h, h))}</p>' if h in built else "")
+        + "</li>" for c, t, h in PROOFS)
+    dirs = "".join(
+        f'<div class="dir-group"><h3>{escape(g)}</h3><ul>'
+        + "".join(f"<li>{a(h, lbl)}<span>{escape(NAV_BLURBS.get(h) or _first_sentence(ledes.get(h, '')))}</span></li>"
+                  for h, lbl in items)
+        + "</ul></div>" for g, items in sections)
+    what = ("<p>This is the reporting site of a <strong>vehicle service contract (VSC) data platform</strong>: "
+            "an admin system, a daily dealer feed, a warehouse, accounting-grade facts, regulatory filings and "
+            "per-dealer packets, rebuilt every day by one command.</p>"
+            "<p>The menu groups the reports by who uses them. Every chart has a <em>Show data</em> table, "
+            "every tile has an <em>i</em> button with its definition, and the button at the top right switches "
+            "between light and dark mode.</p>"
+            '<p class="synthetic"><strong>All data is synthetic.</strong> A seeded generator invents every dealer, '
+            "contract, claim and customer. No real company\u2019s data is used.</p>")
+    kpis = [Kpi("Report pages", num(len(built) + 1), "every page in the menu tree, including this one"),
+            Kpi("Report sections", num(len(sections)), ", ".join(g for g, _ in sections)),
+            Kpi("Dealer packets", num(packets), "one filtered packet per reportable dealer"),
+            Kpi("Data", "Synthetic", "generated from a fixed seed; no real customers or companies")]
+    return Page(START, "Start here",
+                "A two-minute guide to this site: what it is, where to click first, and what it proves.", kpis, [
+        Section("What this is", "", html=what, wide=True),
+        Section("Take the tour", "Six stops, in this order. Use the menu to come back here at any time.",
+                html=f'<ol class="tour">{steps}</ol>'),
+        Section("What it proves", "Three promises the platform keeps, and where to check each one.",
+                html=f'<ul class="proofs">{proofs}</ul>'),
+        Section("Every section", "Each report in the menu, in one line.",
+                html=f'<div class="directory">{dirs}</div>', wide=True),
+    ])
 
 
 def build_pages(d: ReportData) -> list[Page]:
@@ -619,6 +746,9 @@ def discover_plugins(areas: Sequence[str] = PLUGIN_AREAS) -> list[tuple[str, Mod
     return found
 
 
+NAV_AREA_OF: dict[str, str] = {}  # plug-in nav href -> sidebar section, filled by plugin_pages
+
+
 def plugin_pages(con, out: Path, plugins: Sequence[tuple[str, ModuleType]]) -> tuple[list[Page], list[tuple]]:
     """Run each plug-in's build(); return its pages plus one nav entry per area (its first page)."""
     pages: list[Page] = []
@@ -633,6 +763,7 @@ def plugin_pages(con, out: Path, plugins: Sequence[tuple[str, ModuleType]]) -> t
             raise TypeError(f"reports.{area}.build must return reports.build.Page objects, got {type(bad[0])}")
         if got:
             nav.append((got[0].path, getattr(mod, "NAV_LABEL", area.title())))
+            NAV_AREA_OF[got[0].path] = getattr(mod, "NAV_GROUP", AREA_GROUPS.get(area, "Platform"))
             pages += got
     return pages, nav
 
@@ -644,6 +775,10 @@ def copy_dealer_packets(publish_dir: Path | None, out: Path) -> int:
         return 0
     shutil.copytree(src, out / "dealers", dirs_exist_ok=True)
     return sum(1 for _ in (out / "dealers").glob("*/*/index.html"))
+
+
+def spark_svg(values: Sequence[float]) -> Markup:
+    return Markup(charts.sparkline(values))
 
 
 def render_site(d: ReportData, out: Path, con=None, publish_dir: Path | None = None,
@@ -658,18 +793,24 @@ def render_site(d: ReportData, out: Path, con=None, publish_dir: Path | None = N
     shutil.copy(HERE / "static" / "site.css", out / "assets" / "site.css")
     shutil.copy(HERE / "static" / "site.js", out / "assets" / "site.js")
     (out / "assets" / "plotly.min.js").write_text(plotly.offline.get_plotlyjs(), encoding="utf-8")
-    copy_dealer_packets(publish_dir, out)
+    packets = copy_dealer_packets(publish_dir, out)
     extra, extra_nav = ([], [])
     if con is not None:
         extra, extra_nav = plugin_pages(con, out, discover_plugins() if plugins is None else plugins)
     nav = NAV + extra_nav
+    groups = {h: NAV_AREA_OF[h] for h, _ in extra_nav if h in NAV_AREA_OF}
+    nav_top, nav_sections = group_nav(nav, groups)
+    pages = build_pages(d) + extra
+    if any(h == START for h, _ in nav):
+        pages = [page_start(nav, groups, pages, packets), *pages]
     written = []
-    for page in build_pages(d) + extra:
+    for page in pages:
         depth = page.path.count("/")
         (out / page.path).parent.mkdir(parents=True, exist_ok=True)
         html = tpl.render(
-            page=page, root="../" * depth, nav=nav, active=page.nav or page.path, as_of=d.as_of,
-            last_month=month_label(d.last_month), chart=lambda s: Markup(s),
+            page=page, root="../" * depth, nav_top=nav_top, nav_sections=nav_sections,
+            active=page.nav or page.path, as_of=d.as_of, start=START,
+            last_month=month_label(d.last_month), chart=lambda s: Markup(s), sparkline=spark_svg,
         )
         path = out / page.path
         path.write_text(html, encoding="utf-8")

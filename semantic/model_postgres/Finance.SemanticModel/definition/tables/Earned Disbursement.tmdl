@@ -1,0 +1,116 @@
+/// Largest table (contract x type x period); never restated after close, ideal for incremental.
+table 'Earned Disbursement'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Disbursement Type'
+		dataType: string
+		sourceColumn: disbursement_type
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: month_start
+
+	column 'Earned Month Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_month_key
+
+	column 'Written Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: written_amount
+
+	column 'Earned Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_pct
+
+	column 'Earned Pct Cumulative'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_pct_cumulative
+
+	column 'Earned Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_amount
+
+	column 'Cancel True Up Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: cancel_true_up_amount
+
+	column 'Earned Reserve'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: earned_reserve
+
+	partition 'Earned Disbursement' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_earned_disbursement"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [posting_period_key] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [posting_period_key] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 10
+		incrementalGranularity: month
+		incrementalPeriods: 3
+		sourceExpression =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_earned_disbursement"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [posting_period_key] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [posting_period_key] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	annotation source_table = core.fct_earned_disbursement
+	annotation table_kind = fact

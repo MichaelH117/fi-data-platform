@@ -48,6 +48,31 @@
       setTheme(dark ? "light" : "dark");
     });
   }
+  // Phone/tablet menu: the sidebar is a drawer opened by the Menu button; Escape or a click outside closes it.
+  var menu = document.querySelector(".nav-toggle");
+  var sidebar = document.getElementById("sidebar");
+  function setMenu(open, focusBack) {
+    document.body.classList.toggle("nav-open", open);
+    menu.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) {
+      var first = sidebar.querySelector("a[aria-current]") || sidebar.querySelector("a");
+      if (first) first.focus();
+    } else if (focusBack) {
+      menu.focus();
+    }
+  }
+  if (menu && sidebar) {
+    menu.addEventListener("click", function () { setMenu(!document.body.classList.contains("nav-open"), false); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && document.body.classList.contains("nav-open")) setMenu(false, true);
+    });
+    document.addEventListener("click", function (e) {
+      if (document.body.classList.contains("nav-open") && !sidebar.contains(e.target) && !menu.contains(e.target)) {
+        setMenu(false, false);
+      }
+    });
+  }
+
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", inkCharts);
   if (document.readyState === "complete") inkCharts(); else window.addEventListener("load", inkCharts);
 })();

@@ -1,0 +1,88 @@
+table Commission
+
+	column 'Commission Key'
+		dataType: string
+		isHidden
+		sourceColumn: commission_key
+
+	column 'Commission ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: commission_id
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Agent Key'
+		dataType: string
+		isHidden
+		sourceColumn: agent_key
+
+	column 'Posted At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posted_at
+
+	column 'Posted Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posted_date_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column Amount
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: amount
+
+	column 'Share Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: share_pct
+
+	column 'Is Advance'
+		dataType: boolean
+		sourceColumn: is_advance
+
+	partition Commission = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_commission"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_commission
+	annotation table_kind = fact

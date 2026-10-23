@@ -1,0 +1,30 @@
+/// Which dealers paid each account holder (payee). Hidden; Dealer User RLS reads it.
+table 'Payee Dealer Access'
+	isHidden
+
+	column 'Account Holder Key'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: [Account Holder Key]
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: [Dealer Key]
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: [Tenant Key]
+
+	partition 'Payee Dealer Access' = calculated
+		mode: import
+		source =
+				DISTINCT(UNION(
+				    SELECTCOLUMNS('Claim Payment Line', "Account Holder Key", 'Claim Payment Line'[Payee Account Holder Key], "Dealer Key", 'Claim Payment Line'[Dealer Key], "Tenant Key", 'Claim Payment Line'[Tenant Key]),
+				    SELECTCOLUMNS('Disbursement', "Account Holder Key", 'Disbursement'[Account Holder Key], "Dealer Key", 'Disbursement'[Dealer Key], "Tenant Key", 'Disbursement'[Tenant Key])))
+
+	annotation table_kind = security

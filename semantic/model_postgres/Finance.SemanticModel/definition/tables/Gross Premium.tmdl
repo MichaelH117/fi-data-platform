@@ -1,0 +1,99 @@
+table 'Gross Premium'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Entered Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: entered_date_key
+
+	column 'Posted Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posted_date_key
+
+	column 'Coverage Cost'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: coverage_cost
+
+	column 'Sale Coverage Cost'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: sale_coverage_cost
+
+	column 'Amend Coverage Cost'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: amend_coverage_cost
+
+	column 'Purchase Price'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: purchase_price
+
+	column 'Retail Price'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: retail_price
+
+	column 'Contracts Written'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: contracts_written
+
+	column 'Refund Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: refund_pct
+
+	partition 'Gross Premium' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_gross_premium"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_gross_premium
+	annotation table_kind = fact

@@ -40,6 +40,12 @@ jobs:
         run: pip install -r requirements.txt
       - name: Lint
         run: ruff check .
+      - name: Generated models in sync (semantic, both targets; Power BI project + schema check)
+        run: |
+          python -m semantic --check
+          python -m semantic --target postgres --check
+          python -m powerbi --check --validate
+      # No Postgres here and psycopg is not installed: the live Postgres / Power BI tests skip.
       - name: Unit tests
         run: pytest -q
 

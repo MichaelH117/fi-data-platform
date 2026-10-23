@@ -1,0 +1,121 @@
+table Product
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: product_key
+
+	column 'Plan ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: plan_id
+
+	column 'Program ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: program_id
+
+	column 'Product ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: product_id
+
+	column 'Category Code'
+		dataType: string
+		sourceColumn: category_code
+
+	column Category
+		dataType: string
+		sourceColumn: category
+
+	column 'Subcategory Code'
+		dataType: string
+		sourceColumn: subcategory_code
+
+	column Subcategory
+		dataType: string
+		sourceColumn: subcategory
+
+	column 'Product Code'
+		dataType: string
+		sourceColumn: product_code
+
+	column Product
+		dataType: string
+		sourceColumn: product
+
+	column 'Plan Code'
+		dataType: string
+		sourceColumn: plan_code
+
+	column Plan
+		dataType: string
+		sourceColumn: plan
+
+	column 'Program Code'
+		dataType: string
+		sourceColumn: program_code
+
+	column Program
+		dataType: string
+		sourceColumn: program
+
+	column 'Plan Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: plan_year
+
+	column 'Is Cancellable'
+		dataType: boolean
+		sourceColumn: is_cancellable
+
+	column 'Contract Prefix'
+		dataType: string
+		sourceColumn: contract_prefix
+
+	column 'Deductible Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: deductible_amount
+
+	column 'Deductible Name'
+		dataType: string
+		sourceColumn: deductible_name
+
+	column 'Tier Rank'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: tier_rank
+
+	hierarchy 'Product Hierarchy'
+
+		level Category
+			column: Category
+
+		level Subcategory
+			column: Subcategory
+
+		level Product
+			column: Product
+
+		level Plan
+			column: Plan
+
+		level Program
+			column: Program
+
+	partition Product = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_product"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_product
+	annotation table_kind = dim

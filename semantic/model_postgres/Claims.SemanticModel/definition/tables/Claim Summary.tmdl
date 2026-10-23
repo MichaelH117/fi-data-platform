@@ -1,0 +1,203 @@
+/// One row per claim from BOTH admin systems (legacy 2019-2022 and admin core). Claim counts, denial and severity come from here, by loss month (active) or reported month (inactive).
+table 'Claim Summary'
+
+	column 'Claim Key'
+		dataType: string
+		isHidden
+		sourceColumn: claim_key
+
+	column 'Claim Number'
+		dataType: string
+		sourceColumn: claim_number
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: source_system
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Has Contract Key'
+		dataType: boolean
+		isHidden
+		sourceColumn: has_contract_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Subcategory Code'
+		dataType: string
+		sourceColumn: subcategory_code
+
+	column 'Category Code'
+		dataType: string
+		sourceColumn: category_code
+
+	column Status
+		dataType: string
+		sourceColumn: status
+
+	column Substatus
+		dataType: string
+		sourceColumn: substatus
+
+	column 'Status Group'
+		dataType: string
+		sourceColumn: status_group
+
+	column 'Denied Reason'
+		dataType: string
+		sourceColumn: denied_reason
+
+	column 'Denied Category'
+		dataType: string
+		sourceColumn: denied_category
+
+	column 'Loss Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: loss_date
+
+	column 'Reported Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: reported_date
+
+	column 'Loss Month'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: loss_month
+
+	column 'Reported Month'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: reported_month
+
+	column 'Contract Effective Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: contract_effective_date
+
+	column 'Is Contract Matched'
+		dataType: boolean
+		sourceColumn: is_contract_matched
+
+	column 'Days From Effective'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: days_from_effective
+
+	column 'Top Component'
+		dataType: string
+		sourceColumn: top_component
+
+	column 'Component Source'
+		dataType: string
+		sourceColumn: component_source
+
+	column 'Component Count'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: component_count
+
+	column 'Payment Lines'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: payment_lines
+
+	column 'Authorized Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: authorized_amount
+
+	column 'Inspection Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: inspection_amount
+
+	column 'Paid Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: paid_amount
+
+	column 'Pending Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: pending_amount
+
+	column 'Incurred Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: incurred_amount
+
+	column 'Closed At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: closed_at
+
+	column 'As Of Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: as_of_date
+
+	column 'Turnaround Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: turnaround_days
+
+	column 'Early Claim Window Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: early_claim_window_days
+
+	column 'Open Age Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: open_age_days
+
+	column 'Is Aged Open'
+		dataType: boolean
+		sourceColumn: is_aged_open
+
+	column 'Open Age Band'
+		dataType: string
+		sourceColumn: open_age_band
+
+	partition 'Claim Summary' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "claims", Item = "mart_claim_summary"]}[Data]
+				in
+				    Data
+
+	annotation source_table = claims.mart_claim_summary
+	annotation table_kind = fact

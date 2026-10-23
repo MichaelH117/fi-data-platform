@@ -1,0 +1,82 @@
+table Reinstatement
+
+	column 'Reinstatement Key'
+		dataType: string
+		isHidden
+		sourceColumn: reinstatement_key
+
+	column 'Reinstatement ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: reinstatement_id
+
+	column 'Cancel Key'
+		dataType: string
+		isHidden
+		sourceColumn: cancel_key
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: contract_key
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column Status
+		dataType: string
+		sourceColumn: status
+
+	column 'Reinstated At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: reinstated_at
+
+	column 'Reinstated Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: reinstated_date_key
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: posting_period_key
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: posting_period_start_date
+
+	column 'Reversal Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: reversal_amount
+
+	partition Reinstatement = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "fct_reinstatement"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_reinstatement
+	annotation table_kind = fact
