@@ -1,0 +1,641 @@
+# Data contract: Admin Core (OLTP, SQLite standing in for SQL Server) -> raw_admin_core (bronze).
+# Owner: Data Engineer. Consumers: Data Engineering Manager (dbt staging stg_admin_core__*).
+#
+# Replication = change tracking: `python -m ingest` pulls rows with row_version greater than the
+# table's watermark (audit.ingest_watermark) and appends them to raw_admin_core.<table> with
+# _loaded_at, _loaded_by, _source_system, _source_version (= row_version), _is_deleted
+# (= removed_from_source = 1) and _run_id. Admin Core never hard deletes, so no key diff is needed.
+# Tenancy: every table carries tenant_id; 0 = platform rows shared by every tenant (catalog,
+# rates, obligors, insurers, reinsurers, repair facilities) and network intake rows.
+# Every table also has created_at, updated_at, row_version and removed_from_source.
+# columns: type and NOT NULL per column, generated from the DDL (generator/admin_core.py) with
+# `python -m ingest.cdc --write-contract`; tests check that this file and the DDL agree exactly.
+# Ingest enforces them: a value that does not cast to its declared type, or a NULL in a NOT NULL
+# column, is not loaded but quarantined in raw_admin_core._quarantine (reject_reason type:<col> /
+# null:<col>) and counted in audit.ingest_run.rows_quarantined.
+# "transaction" is a reserved word in SQL: always quote it.
+version: 1
+source: admin_core
+replication: {method: change_tracking, version_column: row_version, delete_flag: removed_from_source}
+freshness: {warn_after_hours: 24, error_after_hours: 48}
+tables:
+  administrator:
+    primary_key: [tenant_id]
+    columns:
+      tenant_id: INTEGER NOT NULL
+      administrator_code: TEXT NOT NULL
+      reportable_name: TEXT NOT NULL
+      logo_path: TEXT
+      primary_color: TEXT
+      secondary_color: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  dealer_group:
+    primary_key: [dealer_group_id]
+    columns:
+      dealer_group_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      group_code: TEXT NOT NULL
+      group_name: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  agent:
+    primary_key: [agent_id]
+    pii: [email]
+    columns:
+      agent_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      agent_code: TEXT NOT NULL
+      agent_name: TEXT
+      territory: TEXT
+      email: TEXT
+      is_advance_agreement: INTEGER NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  dealer:
+    primary_key: [dealer_id]
+    columns:
+      dealer_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      dealer_number: TEXT NOT NULL
+      dealer_name: TEXT
+      dealer_group_id: INTEGER
+      agent_id: INTEGER
+      city: TEXT
+      state: TEXT NOT NULL
+      status: TEXT NOT NULL
+      onboarded_date: DATE
+      is_demo: INTEGER NOT NULL
+      remit_rule: TEXT NOT NULL
+      weekly_remit_flag: INTEGER NOT NULL
+      program: TEXT NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  lienholder:
+    primary_key: [lienholder_id]
+    columns:
+      lienholder_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      lienholder_code: TEXT NOT NULL
+      lienholder_name: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  account_holder:
+    primary_key: [account_holder_id]
+    columns:
+      account_holder_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      holder_type: TEXT NOT NULL
+      holder_name: TEXT
+      state: TEXT
+      ref_id: INTEGER
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  obligor:
+    primary_key: [obligor_id]
+    columns:
+      obligor_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      obligor_name: TEXT NOT NULL
+      state: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  insurer:
+    primary_key: [insurer_id]
+    columns:
+      insurer_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      insurer_name: TEXT NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  reinsurer:
+    primary_key: [reinsurer_id]
+    columns:
+      reinsurer_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      reinsurer_name: TEXT NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  participation_entity:
+    primary_key: [entity_id]
+    columns:
+      entity_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      dealer_id: INTEGER NOT NULL
+      entity_name: TEXT
+      structure_type: TEXT NOT NULL
+      reinsurer_id: INTEGER
+      effective_date: DATE
+      profit_share_pct: REAL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  product_category:
+    primary_key: [category_id]
+    columns:
+      category_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      category_code: TEXT NOT NULL
+      category_name: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  product_subcategory:
+    primary_key: [subcategory_id]
+    columns:
+      subcategory_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      category_id: INTEGER NOT NULL
+      subcategory_code: TEXT NOT NULL
+      subcategory_name: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  product:
+    primary_key: [product_id]
+    columns:
+      product_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      subcategory_id: INTEGER NOT NULL
+      product_code: TEXT NOT NULL
+      product_name: TEXT
+      contract_prefix: TEXT NOT NULL
+      plan_year: INTEGER NOT NULL
+      is_cancellable: INTEGER NOT NULL
+      claim_wait_days: INTEGER
+      claim_wait_miles: INTEGER
+      coverage_limit: REAL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  plan:
+    primary_key: [plan_id]
+    columns:
+      plan_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      product_id: INTEGER NOT NULL
+      plan_code: TEXT NOT NULL
+      plan_name: TEXT
+      deductible_amount: REAL
+      deductible_name: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  program:
+    primary_key: [program_id]
+    columns:
+      program_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      plan_id: INTEGER NOT NULL
+      program_code: TEXT NOT NULL
+      program_name: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  rate:
+    primary_key: [rate_id]
+    columns:
+      rate_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      plan_id: INTEGER NOT NULL
+      term_months: INTEGER NOT NULL
+      term_miles: INTEGER
+      odometer_band: TEXT
+      class_code: TEXT
+      deductible_amount: REAL
+      coverage_cost: REAL NOT NULL
+      suggested_retail: REAL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  rate_component:
+    primary_key: [rate_component_id]
+    columns:
+      rate_component_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      rate_id: INTEGER NOT NULL
+      disbursement_type: TEXT NOT NULL
+      account_holder_id: INTEGER
+      amount: REAL NOT NULL
+      is_refundable: INTEGER NOT NULL
+      is_renewable: INTEGER NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  contract:
+    primary_key: [contract_id]
+    pii: [customer_first_name, customer_last_name, customer_email, customer_phone, customer_zip, vin, chassis_vin]
+    columns:
+      contract_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_number: TEXT NOT NULL
+      deal_id: TEXT
+      dealer_id: INTEGER NOT NULL
+      agent_id: INTEGER
+      plan_id: INTEGER NOT NULL
+      program_id: INTEGER
+      rate_id: INTEGER NOT NULL
+      status: TEXT NOT NULL
+      entered_date: DATE NOT NULL
+      effective_date: DATE NOT NULL
+      expiration_date: DATE NOT NULL
+      expiration_mileage: INTEGER
+      term_months: INTEGER NOT NULL
+      term_miles: INTEGER
+      odometer_band: TEXT
+      deductible_amount: REAL
+      deductible_name: TEXT
+      claim_wait_days: INTEGER
+      claim_wait_miles: INTEGER
+      coverage_limit: REAL
+      purchase_price: REAL NOT NULL
+      coverage_cost: REAL NOT NULL
+      retail_price: REAL
+      msrp: REAL
+      finance_type: TEXT
+      finance_amount: REAL
+      apr: REAL
+      new_used: TEXT
+      odometer: INTEGER
+      vin: TEXT
+      chassis_vin: TEXT
+      vehicle_year: INTEGER
+      vehicle_make: TEXT
+      vehicle_model: TEXT
+      fuel_type: TEXT
+      cylinders: INTEGER
+      drive_type: TEXT
+      is_commercial: INTEGER
+      title_brand: TEXT
+      class_code: TEXT
+      reportable_state: TEXT NOT NULL
+      original_obligor_id: INTEGER
+      current_obligor_id: INTEGER
+      insurer_id: INTEGER
+      lienholder_id: INTEGER
+      customer_first_name: TEXT
+      customer_last_name: TEXT
+      customer_email: TEXT
+      customer_phone: TEXT
+      customer_zip: TEXT
+      customer_state: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  contract_surcharge:
+    primary_key: [surcharge_id]
+    columns:
+      surcharge_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      surcharge_code: TEXT NOT NULL
+      amount: REAL NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  contract_option:
+    primary_key: [option_id]
+    columns:
+      option_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      option_code: TEXT NOT NULL
+      amount: REAL NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  contract_status_history:
+    primary_key: [status_history_id]
+    columns:
+      status_history_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      changed_at: TIMESTAMP NOT NULL
+      from_status: TEXT
+      to_status: TEXT NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  contract_amendment:
+    primary_key: [amendment_id]
+    columns:
+      amendment_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER
+      legacy_contract_ref: INTEGER
+      amendment_type: TEXT NOT NULL
+      effective_date: DATE NOT NULL
+      delta_coverage_cost: REAL NOT NULL
+      note: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  remit_batch:
+    primary_key: [remit_batch_id]
+    columns:
+      remit_batch_id: TEXT NOT NULL
+      tenant_id: INTEGER NOT NULL
+      dealer_id: INTEGER NOT NULL
+      entered_at: TIMESTAMP NOT NULL
+      sent_at: TIMESTAMP
+      received_at: TIMESTAMP
+      status: TEXT NOT NULL
+      source: TEXT NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  cash_transaction:
+    primary_key: [cash_txn_id]
+    columns:
+      cash_txn_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      remit_batch_id: TEXT NOT NULL
+      contract_id: INTEGER NOT NULL
+      amount: REAL NOT NULL
+      posted_at: TIMESTAMP NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  transaction:
+    primary_key: [txn_id]
+    columns:
+      txn_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      txn_type: TEXT NOT NULL
+      posted_at: TIMESTAMP NOT NULL
+      amount: REAL NOT NULL
+      source_ref: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  disbursement:
+    primary_key: [disbursement_id]
+    columns:
+      disbursement_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      txn_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      disbursement_type: TEXT NOT NULL
+      account_holder_id: INTEGER NOT NULL
+      amount: REAL NOT NULL
+      posted_at: TIMESTAMP NOT NULL
+      is_refundable: INTEGER
+      is_renewable: INTEGER
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  cancellation:
+    primary_key: [cancel_id]
+    columns:
+      cancel_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      cancel_date: DATE NOT NULL
+      processed_at: TIMESTAMP NOT NULL
+      initiated_by: TEXT NOT NULL
+      reason: TEXT
+      method: TEXT NOT NULL
+      odometer: INTEGER
+      contract_age_days: INTEGER
+      refund_pct: REAL
+      cancel_fee: REAL
+      customer_refund: REAL
+      admin_portion: REAL
+      dealer_portion: REAL
+      coverage_cost_refund: REAL
+      dealer_profit_refund: REAL
+      admin_withheld_claims: REAL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  reinstatement:
+    primary_key: [reinstatement_id]
+    columns:
+      reinstatement_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      cancel_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      reinstated_at: TIMESTAMP NOT NULL
+      status: TEXT NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  claim:
+    primary_key: [claim_id]
+    columns:
+      claim_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      claim_number: TEXT NOT NULL
+      contract_id: INTEGER
+      legacy_contract_ref: INTEGER
+      status: TEXT NOT NULL
+      substatus: TEXT
+      denied_reason: TEXT
+      denied_category: TEXT
+      repair_facility_id: INTEGER
+      adjuster_user_id: INTEGER
+      loss_date: DATE NOT NULL
+      reported_at: TIMESTAMP NOT NULL
+      odometer: INTEGER
+      repair_order: TEXT
+      towing_flag: INTEGER
+      goodwill_flag: INTEGER
+      authorization_required: INTEGER
+      requested_amount: REAL
+      deductible_amount: REAL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  claim_component:
+    primary_key: [claim_component_id]
+    columns:
+      claim_component_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      claim_id: INTEGER NOT NULL
+      component_code: TEXT NOT NULL
+      parts_amount: REAL
+      labor_amount: REAL
+      labor_hours: REAL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  claim_payment_line:
+    primary_key: [line_id]
+    columns:
+      line_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      claim_id: INTEGER NOT NULL
+      posted_at: TIMESTAMP NOT NULL
+      line_type: TEXT NOT NULL
+      authorized_change: REAL NOT NULL
+      inspection_change: REAL NOT NULL
+      paid_amount: REAL NOT NULL
+      pending_amount: REAL NOT NULL
+      payee_account_holder_id: INTEGER
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  claim_history:
+    primary_key: [claim_history_id]
+    columns:
+      claim_history_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      claim_id: INTEGER NOT NULL
+      changed_at: TIMESTAMP NOT NULL
+      from_status: TEXT
+      to_status: TEXT NOT NULL
+      pre_deductible_change: REAL
+      post_deductible_change: REAL
+      collected_deductible: REAL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  claim_note:
+    primary_key: [note_id]
+    columns:
+      note_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      claim_id: INTEGER NOT NULL
+      author_user_id: INTEGER
+      noted_at: TIMESTAMP NOT NULL
+      note_text: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  complaint:
+    primary_key: [complaint_id]
+    columns:
+      complaint_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER
+      claim_id: INTEGER
+      received_date: DATE NOT NULL
+      state: TEXT
+      category: TEXT
+      source: TEXT
+      is_regulator: INTEGER
+      resolution: TEXT
+      resolved_date: DATE
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  commission:
+    primary_key: [commission_id]
+    columns:
+      commission_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      agent_id: INTEGER NOT NULL
+      txn_id: INTEGER
+      posted_at: TIMESTAMP NOT NULL
+      amount: REAL NOT NULL
+      share_pct: REAL NOT NULL
+      is_advance: INTEGER NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  admin_user:
+    primary_key: [admin_user_id]
+    pii: [user_name, email]
+    columns:
+      admin_user_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      user_name: TEXT
+      role: TEXT
+      email: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  portal_user:
+    primary_key: [portal_user_id]
+    columns:
+      portal_user_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      dealer_id: INTEGER
+      role: TEXT NOT NULL
+      login: TEXT NOT NULL
+      api_key_hash: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  intake_file:
+    primary_key: [intake_file_id]
+    columns:
+      intake_file_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      feed_date: DATE NOT NULL
+      sequence_no: INTEGER NOT NULL
+      file_name: TEXT NOT NULL
+      expected_rows: INTEGER
+      actual_rows: INTEGER
+      expected_sha256: TEXT
+      actual_sha256: TEXT
+      status: TEXT NOT NULL
+      message: TEXT
+      processed_at: TIMESTAMP
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  intake_reject:
+    primary_key: [reject_id]
+    columns:
+      reject_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      intake_file_id: INTEGER NOT NULL
+      feed_date: DATE NOT NULL
+      file_name: TEXT NOT NULL
+      row_number: INTEGER
+      reject_reason: TEXT NOT NULL
+      raw_json: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL

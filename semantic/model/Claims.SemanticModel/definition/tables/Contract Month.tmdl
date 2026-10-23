@@ -1,0 +1,190 @@
+table 'Contract Month'
+
+	column 'Contract Month Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_MONTH_KEY
+
+	column 'Row Type'
+		dataType: string
+		sourceColumn: ROW_TYPE
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Contract ID'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_ID
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Dealer Code'
+		dataType: string
+		sourceColumn: DEALER_CODE
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Product Code'
+		dataType: string
+		sourceColumn: PRODUCT_CODE
+
+	column 'Subcategory Code'
+		dataType: string
+		sourceColumn: SUBCATEGORY_CODE
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'New Used'
+		dataType: string
+		sourceColumn: NEW_USED
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: MONTH_START
+
+	column 'Earned Month Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_MONTH_KEY
+
+	column 'Month Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: MONTH_DATE_KEY
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTING_PERIOD_START_DATE
+
+	column 'Sale Month'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: SALE_MONTH
+
+	column 'Months Since Effective'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: MONTHS_SINCE_EFFECTIVE
+
+	column 'Written Premium'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: WRITTEN_PREMIUM
+
+	column 'Earned Premium'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_PREMIUM
+
+	column 'Earned Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_PCT
+
+	column 'Earned Pct Cumulative'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_PCT_CUMULATIVE
+
+	column 'Unearned Premium Eom'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: UNEARNED_PREMIUM_EOM
+
+	column 'Earned Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_DAYS
+
+	column 'Exposure Years'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: EXPOSURE_YEARS
+
+	column 'Is In Force Eom'
+		dataType: boolean
+		sourceColumn: IS_IN_FORCE_EOM
+
+	column 'Claim Count'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CLAIM_COUNT
+
+	column 'Incurred Claims'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: INCURRED_CLAIMS
+
+	column 'Paid Claims'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: PAID_CLAIMS
+
+	partition 'Contract Month' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_CONTRACT_MONTHLY", Kind = "Table"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [POSTING_PERIOD_KEY] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [POSTING_PERIOD_KEY] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 10
+		incrementalGranularity: month
+		incrementalPeriods: 3
+		sourceExpression =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_CONTRACT_MONTHLY", Kind = "Table"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [POSTING_PERIOD_KEY] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [POSTING_PERIOD_KEY] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	annotation source_table = core.fct_contract_monthly
+	annotation table_kind = fact

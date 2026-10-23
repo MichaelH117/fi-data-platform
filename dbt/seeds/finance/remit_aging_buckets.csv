@@ -1,0 +1,6 @@
+aging_bucket,min_days,max_days,sort_order,notes
+0-15,0,15,1,Remitted within the first half of the standard window.
+16-30,16,30,2,Remitted inside the standard window (dbt var remit_late_days).
+31-60,31,60,3,Late; late fee billed.
+61-90,61,90,4,Late; late fee billed; dealer flagged for follow-up.
+91+,91,100000,5,Late; late fee billed; escalate to the dealer's account manager.

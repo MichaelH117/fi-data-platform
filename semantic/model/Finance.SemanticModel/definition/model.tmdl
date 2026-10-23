@@ -1,0 +1,40 @@
+/// Finance domain model: Ledger-grade premium, disbursement, earning, claims and cash by posting period.
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+	annotation domain = Finance
+	annotation generated_by = python -m semantic (from dbt/models/metrics.yml)
+	annotation storage_mode = import; incremental refresh on large facts (semantic/README.md)
+
+ref table Measures
+ref table 'Time Intelligence'
+ref table 'Drill Level'
+ref table 'Gross Premium'
+ref table Cancellation
+ref table Reinstatement
+ref table 'Claim Payment Line'
+ref table 'Cash Transaction'
+ref table Disbursement
+ref table 'Earned Disbursement'
+ref table Commission
+ref table 'Contract Month'
+ref table 'Claim Summary'
+ref table 'Posting Period'
+ref table Tenant
+ref table Dealer
+ref table 'Dealer Group'
+ref table Agent
+ref table Product
+ref table Contract
+ref table 'Contract Finance'
+ref table 'Contract Actuarial Class'
+ref table 'Account Holder'
+ref table 'Security User Access'
+ref table 'Reporting Date'
+ref table 'Payee Dealer Access'
+
+ref role Internal
+ref role 'Tenant Partner'
+ref role 'Dealer User'

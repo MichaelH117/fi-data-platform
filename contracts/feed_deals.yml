@@ -1,0 +1,55 @@
+# Data contract: dealer-integration network -> landing `deals.csv` -> Admin Core contracts.
+# Owner: Data Engineer. Producer: the network (DMS deal extract). Consumer: `python -m ingest.feed`.
+#
+# File level (checked before any row): the manifest's sha256 and row_count must match the file,
+# and a file whose sha256 was already loaded is skipped as a duplicate resend. A failing file is
+# rejected whole: every row goes to quarantine and nothing is promoted.
+# Row level (enforced here): required, type, pattern and strict accepted_values. Rejected rows go
+# to Admin Core `intake_reject` and on to raw_network_feed._quarantine with the reason.
+# Business rules (enforced in ingest/feed.py): unknown or inactive dealer, unknown plan, no rate
+# for the term/odometer band/class, coverage_cost not equal to rate + surcharges + options,
+# duplicate deal_id or contract_number.
+# Types: string | integer | number | date (YYYY-MM-DD) | timestamp (YYYY-MM-DD HH:MM:SS)
+version: 1
+source: network_feed
+file: deals.csv
+tables:
+  deals:
+    primary_key: [deal_id]
+    columns:
+      deal_id:             {type: string, required: true, pattern: 'DL[0-9]{9}'}
+      dealer_number:       {type: string, required: true, pattern: 'D[0-9]{4}'}
+      contract_number:     {type: string, required: true, pattern: '[A-Z]{2,4}-[0-9]{8}'}
+      vin:                 {type: string, required: true, pii: true, pattern: '[A-HJ-NPR-Z0-9]{17}'}
+      chassis_vin:         {type: string, pii: true, pattern: '[A-HJ-NPR-Z0-9]{17}'}
+      sale_date:           {type: date, required: true}
+      product_code:        {type: string, required: true}
+      plan_code:           {type: string, required: true}
+      term_months:         {type: integer, required: true}
+      term_miles:          {type: integer}
+      odometer:            {type: integer, required: true}
+      vehicle_year:        {type: integer}
+      vehicle_make:        {type: string}
+      vehicle_model:       {type: string}
+      fuel_type:           {type: string, accepted_values: [GAS, DIESEL, HYBRID, ELECTRIC], strict: true}
+      cylinders:           {type: integer}
+      drive_type:          {type: string, accepted_values: [2WD, AWD, 4X4]}
+      new_used:            {type: string, required: true, accepted_values: [NEW, USED], strict: true}
+      is_commercial:       {type: integer}
+      title_brand:         {type: string}
+      msrp:                {type: number}
+      purchase_price:      {type: number, required: true}
+      coverage_cost:       {type: number, required: true}
+      retail_price:        {type: number}
+      surcharge_codes:     {type: string}   # pipe-separated, e.g. DIESEL|4X4
+      option_codes:        {type: string}   # pipe-separated
+      finance_type:        {type: string, accepted_values: [CASH, RETAIL_LOAN, LEASE, BALLOON]}
+      finance_amount:      {type: number}
+      apr:                 {type: number}
+      lienholder_code:     {type: string}
+      customer_first_name: {type: string, pii: true}
+      customer_last_name:  {type: string, pii: true}
+      customer_email:      {type: string, pii: true}
+      customer_phone:      {type: string, pii: true}
+      customer_zip:        {type: string, pii: true}
+      customer_state:      {type: string}

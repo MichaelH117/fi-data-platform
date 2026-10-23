@@ -1,0 +1,127 @@
+name: ci
+
+# Serverless CI: everything runs on DuckDB inside the runner (no Docker, no accounts, no secrets).
+#   lint-test    ruff + pytest (unit tests, platform checks)
+#   dbt-duckdb   build the sources, then dbt build (seeds, models, snapshots, tests) on DuckDB
+#   e2e          the full `python -m pipeline.run` with its quality gates, then one incremental day
+#   portability  dbt parse against the postgres and snowflake targets (no connection; advisory)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+  WAREHOUSE_PATH: ${{ github.workspace }}/data/warehouse/warehouse.duckdb
+  ADMIN_CORE_PATH: ${{ github.workspace }}/data/source/admin_core.db
+  LEGACY_DB_PATH: ${{ github.workspace }}/data/source/legacy_admin.db
+  LANDING_DIR: ${{ github.workspace }}/data/landing
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Lint
+        run: ruff check .
+      - name: Unit tests
+        run: pytest -q
+
+  dbt-duckdb:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Build sources (generate -> feed -> ingest)
+        run: |
+          python -m generator
+          python -m ingest.feed
+          python -m ingest --full-refresh
+      - name: dbt build on DuckDB
+        run: python -m dbt.cli.main build --project-dir dbt --profiles-dir dbt --target duckdb
+      - name: Upload dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-artifacts
+          path: |
+            dbt/target/run_results.json
+            dbt/target/manifest.json
+            dbt/logs/
+          if-no-files-found: warn
+
+  e2e:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      # Performance budget from docs/V3_DESIGN.md 4.3: the full local run finishes in about 5 minutes.
+      - name: End-to-end pipeline (gates block publish and reports)
+        timeout-minutes: 10
+        run: python -m pipeline.run
+      - name: Incremental day (CDC picks up only new versions)
+        timeout-minutes: 5
+        run: python -m pipeline.run --append-day
+      - name: Upload run summaries and report site
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-output
+          path: |
+            data/runs/
+            data/publish/
+            site/
+          if-no-files-found: warn
+
+  portability:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Advisory: proves the project still parses for the server targets. It never connects.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [postgres, snowflake]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install dbt adapter
+        run: |
+          pip install -r requirements.txt
+          pip install "dbt-postgres~=1.9.0" "dbt-snowflake~=1.10.0"
+      - name: dbt parse (${{ matrix.target }})
+        run: python -m dbt.cli.main parse --project-dir dbt --profiles-dir dbt --target ${{ matrix.target }}

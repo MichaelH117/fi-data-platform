@@ -1,0 +1,148 @@
+version: 2
+
+# Raw (bronze) layer, written only by `python -m ingest` (Data Engineer). Every table is
+# append-only and carries the audit columns _loaded_at, _loaded_by, _source_system,
+# _source_version, _is_deleted and _run_id. Staging keeps the latest _source_version per key.
+# A delete marker row holds only the key plus _is_deleted = true.
+
+sources:
+  - name: admin_core
+    description: >
+      Admin Core OLTP (SQLite locally, standing in for SQL Server), replicated by change-tracking
+      version. Every business table carries tenant_id; tenant_id = 0 marks shared rows (catalog,
+      rates, obligors, intake rows). Data contract: contracts/admin_core.yml.
+    schema: raw_admin_core
+    config:
+      loaded_at_field: _loaded_at
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
+    tables:
+      - {name: administrator, description: White-label administrators (tenants) and their branding.}
+      - {name: dealer_group}
+      - {name: dealer, description: Dealers. is_demo = 1 marks training dealers that are never reportable.}
+      - {name: agent}
+      - {name: lienholder}
+      - {name: account_holder, description: Payees of the dealer-cost split (admin, insurer, obligor, dealer reserve, agent, repair facility).}
+      - {name: obligor}
+      - {name: insurer}
+      - {name: reinsurer}
+      - {name: participation_entity, description: Dealer participation structures (dealer-owned obligor, CFC, NCFC, PORC, retro, profit share).}
+      - {name: product_category}
+      - {name: product_subcategory}
+      - {name: product, description: Product catalog, versioned by plan year. Complete for every year (unlike the legacy table).}
+      - {name: plan}
+      - {name: program}
+      - {name: rate}
+      - {name: rate_component}
+      - {name: contract, description: Contracts. Carries customer PII, which never leaves staging.}
+      - {name: contract_surcharge}
+      - {name: contract_option}
+      - {name: contract_status_history}
+      - {name: contract_amendment, description: Amendments, renewals and transfers. May point at a legacy contract via legacy_contract_ref.}
+      - {name: remit_batch}
+      - {name: cash_transaction}
+      - name: transaction
+        description: Accounting transactions (SALE, CANCEL, REINSTATE, AMEND, CASH). Reserved word, always quoted.
+        quoting: {identifier: true}
+      - {name: disbursement, description: Dealer-cost split per transaction, disbursement type and account holder.}
+      - {name: cancellation}
+      - {name: reinstatement}
+      - {name: claim, description: "Claim headers. Claims on legacy contracts carry legacy_contract_ref instead of contract_id."}
+      - {name: claim_component}
+      - {name: claim_payment_line, description: Claim payment lines (the grain of the one claims fact).}
+      - {name: claim_history}
+      - {name: claim_note}
+      - {name: complaint}
+      - {name: commission}
+      - {name: admin_user}
+      - {name: portal_user}
+      - {name: intake_file, description: One row per landing file the feed step processed (manifest checks).}
+      - {name: intake_reject, description: Landing rows the feed step rejected.}
+
+  - name: legacy_admin
+    description: >
+      Legacy admin system (SQLite): the book entered before the 2023-01-01 cutover, replicated by
+      updated_at watermark. Different keyspace (integer legacy_contract_id, zero-padded claim_no),
+      claim amounts stored negative, a stale product table. Data contract: contracts/legacy_admin.yml.
+    schema: raw_legacy_admin
+    config:
+      loaded_at_field: _loaded_at
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
+    tables:
+      - {name: dealers}
+      - {name: agents}
+      - {name: products, description: STALE product table (stops before the last legacy plan year). Never inner-join contracts to it.}
+      - {name: contracts}
+      - {name: claims}
+      - {name: cancellations}
+      - name: _quarantine
+        description: Legacy rows the ingest contract rejected, kept as raw JSON for replay.
+        config: {freshness: null}
+
+  - name: network_feed
+    description: >
+      Dealer-integration network landing files, copied untouched (all VARCHAR) by ingest. Rows from
+      files the feed step rejected are kept here; staging removes them by anti-joining _quarantine
+      on (_source_file, _row_number).
+    schema: raw_network_feed
+    config:
+      loaded_at_field: _loaded_at
+    tables:
+      - {name: deals}
+      - {name: remittance}
+      - {name: econtract_events}
+      - name: _manifest
+        config: {freshness: null}
+      - name: _quarantine
+        config: {freshness: null}
+
+  - name: crm
+    description: >
+      Call-center CRM export (calls, chats, e-mails), FULL first then a DELTA per day, copied as text
+      by ingest (ingest/intake.py). Rows that broke the data contract (contracts/crm_calls.yml), and
+      every row of a file whose checksum or row count failed, are in _quarantine; staging removes
+      them by anti-joining on (_source_file, _row_number). Customer key: contract_number and/or
+      phone_hash (sha256 of the phone digits); no raw phone number is ever delivered.
+    schema: raw_crm
+    config:
+      loaded_at_field: _loaded_at
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
+    tables:
+      - {name: calls, description: One row per delivered customer contact (all VARCHAR plus lineage columns).}
+      - name: _manifest
+        description: One row per export file with the file-level checks and rows_valid / rows_quarantined.
+        config: {freshness: null}
+      - name: _quarantine
+        config: {freshness: null}
+
+  - name: admin_api
+    description: >
+      Admin system REST API, paginated dealer-master extract (contracts/admin_api_dealer.yml). An
+      incomplete extract is quarantined whole (`incomplete_extract`); bad records are quarantined one
+      by one. Used as the independent dealer roster that dim_dealer is checked against.
+    schema: raw_admin_api
+    config:
+      loaded_at_field: _loaded_at
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
+    tables:
+      - {name: dealer, description: One row per delivered dealer record (one extract per day).}
+      - name: _extract
+        description: One row per extract with page and record completeness checks.
+        config: {freshness: null}
+      - name: _quarantine
+        config: {freshness: null}
+
+  - name: audit
+    description: Pipeline audit tables (ingest watermarks and run logs, diagnostics, reconciliation).
+    schema: audit
+    tables:
+      - {name: ingest_run}
+      - {name: ingest_watermark}
+      - {name: ingest_drop, description: One row per landing drop seen by ingest (loaded or unreadable).}

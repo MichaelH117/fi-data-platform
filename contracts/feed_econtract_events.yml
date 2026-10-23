@@ -1,0 +1,19 @@
+# Data contract: dealer-integration network -> landing `econtract_events.jsonl` (eContract events).
+# Owner: Data Engineer. Consumer: `python -m ingest.feed`. One JSON object per line; `payload`
+# is a nested object and is validated as its JSON text.
+# Business rules (ingest/feed.py): VOIDED voids a PENDING contract (status VOIDED, its sale
+# postings are soft-deleted); a void after the remittance was received is rejected as
+# `void_after_remittance` (it needs a cancellation instead); a void for an unknown contract is
+# `unknown_contract`. RATED and CONTRACTED are informational.
+version: 1
+source: network_feed
+file: econtract_events.jsonl
+tables:
+  econtract_events:
+    primary_key: [event_id]
+    columns:
+      event_id:        {type: string, required: true}
+      contract_number: {type: string, required: true}
+      event_type:      {type: string, required: true, accepted_values: [RATED, CONTRACTED, VOIDED], strict: true}
+      event_at:        {type: timestamp, required: true}
+      payload:         {type: string}

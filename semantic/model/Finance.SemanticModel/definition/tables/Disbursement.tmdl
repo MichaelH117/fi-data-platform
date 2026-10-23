@@ -1,0 +1,133 @@
+table Disbursement
+
+	column 'Disbursement Key'
+		dataType: string
+		isHidden
+		sourceColumn: DISBURSEMENT_KEY
+
+	column 'Txn Key'
+		dataType: string
+		isHidden
+		sourceColumn: TXN_KEY
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Account Holder Key'
+		dataType: string
+		isHidden
+		sourceColumn: ACCOUNT_HOLDER_KEY
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: SOURCE_SYSTEM
+
+	column 'Txn Type'
+		dataType: string
+		sourceColumn: TXN_TYPE
+
+	column 'Disbursement Type'
+		dataType: string
+		sourceColumn: DISBURSEMENT_TYPE
+
+	column 'Posted At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTED_AT
+
+	column 'Posted Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTED_DATE_KEY
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTING_PERIOD_START_DATE
+
+	column Amount
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: AMOUNT
+
+	column 'Reserve Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: RESERVE_AMOUNT
+
+	column 'Profit Share Reserve'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: PROFIT_SHARE_RESERVE
+
+	column 'Is Refundable'
+		dataType: boolean
+		sourceColumn: IS_REFUNDABLE
+
+	column 'Is Renewable'
+		dataType: boolean
+		sourceColumn: IS_RENEWABLE
+
+	partition Disbursement = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_DISBURSEMENT", Kind = "Table"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [POSTING_PERIOD_KEY] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [POSTING_PERIOD_KEY] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 10
+		incrementalGranularity: month
+		incrementalPeriods: 3
+		sourceExpression =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_DISBURSEMENT", Kind = "Table"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [POSTING_PERIOD_KEY] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [POSTING_PERIOD_KEY] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	annotation source_table = core.fct_disbursement
+	annotation table_kind = fact

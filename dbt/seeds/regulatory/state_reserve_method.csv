@@ -1,0 +1,52 @@
+state,state_name,has_requirement,method_code,reserve_rate,security_deposit_rate,default_basis,period_start_month,market_survey,notes
+AL,Alabama,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+AK,Alaska,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+AZ,Arizona,true,GROSS_CONSIDERATION,0.25,0.0,COVERAGE_COST,1,false,"Illustrative synthetic rule, not legal guidance. Reserve = 25% x gross consideration; no security deposit. Regulatory year Jan-Dec; coverage-cost basis by default."
+AR,Arkansas,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+CA,California,false,NONE,,,,1,true,No funded-reserve filing modeled for this state; skipped by the filing. Market survey requested.
+CO,Colorado,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+CT,Connecticut,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+DE,Delaware,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+DC,District of Columbia,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+FL,Florida,true,NET_OF_CLAIMS,0.4,0.05,COVERAGE_COST,9,false,"Illustrative synthetic rule, not legal guidance. Reserve = 40% x (gross consideration - claims paid); security deposit 5% of reserve. Regulatory year Sep-Aug; coverage-cost basis by default."
+GA,Georgia,true,NET_OF_CLAIMS,0.4,0.05,COVERAGE_COST,9,false,"Illustrative synthetic rule, not legal guidance. Reserve = 40% x (gross consideration - claims paid); security deposit 5% of reserve. Regulatory year Sep-Aug; coverage-cost basis by default."
+HI,Hawaii,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+ID,Idaho,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+IL,Illinois,true,GROSS_CONSIDERATION,0.3,0.05,COVERAGE_COST,1,false,"Illustrative synthetic rule, not legal guidance. Reserve = 30% x gross consideration; security deposit 5% of reserve. Regulatory year Jan-Dec; coverage-cost basis by default."
+IN,Indiana,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+IA,Iowa,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+KS,Kansas,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+KY,Kentucky,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+LA,Louisiana,true,NET_OF_CLAIMS,0.4,0.05,COVERAGE_COST,9,false,"Illustrative synthetic rule, not legal guidance. Reserve = 40% x (gross consideration - claims paid); security deposit 5% of reserve. Regulatory year Sep-Aug; coverage-cost basis by default."
+ME,Maine,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+MD,Maryland,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+MA,Massachusetts,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+MI,Michigan,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+MN,Minnesota,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+MS,Mississippi,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+MO,Missouri,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+MT,Montana,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+NE,Nebraska,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+NV,Nevada,true,GROSS_CONSIDERATION,0.25,0.0,COVERAGE_COST,1,false,"Illustrative synthetic rule, not legal guidance. Reserve = 25% x gross consideration; no security deposit. Regulatory year Jan-Dec; coverage-cost basis by default."
+NH,New Hampshire,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+NJ,New Jersey,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+NM,New Mexico,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+NY,New York,true,NET_OF_CLAIMS,0.5,0.1,RETAIL,1,true,"Illustrative synthetic rule, not legal guidance. Reserve = 50% x (gross consideration - claims paid); security deposit 10% of reserve. Regulatory year Jan-Dec; retail basis by default."
+NC,North Carolina,true,NET_OF_CLAIMS,0.4,0.05,COVERAGE_COST,9,false,"Illustrative synthetic rule, not legal guidance. Reserve = 40% x (gross consideration - claims paid); security deposit 5% of reserve. Regulatory year Sep-Aug; coverage-cost basis by default."
+ND,North Dakota,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+OH,Ohio,true,GROSS_CONSIDERATION,0.3,0.05,COVERAGE_COST,1,false,"Illustrative synthetic rule, not legal guidance. Reserve = 30% x gross consideration; security deposit 5% of reserve. Regulatory year Jan-Dec; coverage-cost basis by default."
+OK,Oklahoma,true,NET_OF_CLAIMS,0.4,0.05,COVERAGE_COST,9,false,"Illustrative synthetic rule, not legal guidance. Reserve = 40% x (gross consideration - claims paid); security deposit 5% of reserve. Regulatory year Sep-Aug; coverage-cost basis by default."
+OR,Oregon,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+PA,Pennsylvania,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+RI,Rhode Island,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+SC,South Carolina,true,NET_OF_CLAIMS,0.4,0.05,COVERAGE_COST,9,false,"Illustrative synthetic rule, not legal guidance. Reserve = 40% x (gross consideration - claims paid); security deposit 5% of reserve. Regulatory year Sep-Aug; coverage-cost basis by default."
+SD,South Dakota,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+TN,Tennessee,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+TX,Texas,true,NET_OF_CLAIMS,0.4,0.05,COVERAGE_COST,9,true,"Illustrative synthetic rule, not legal guidance. Reserve = 40% x (gross consideration - claims paid); security deposit 5% of reserve. Regulatory year Sep-Aug; coverage-cost basis by default."
+UT,Utah,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+VT,Vermont,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+VA,Virginia,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+WA,Washington,true,NET_OF_CLAIMS,0.5,0.1,RETAIL,7,false,"Illustrative synthetic rule, not legal guidance. Reserve = 50% x (gross consideration - claims paid); security deposit 10% of reserve. Regulatory year Jul-Jun; retail basis by default."
+WV,West Virginia,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.
+WI,Wisconsin,true,GROSS_CONSIDERATION,0.3,0.05,COVERAGE_COST,1,false,"Illustrative synthetic rule, not legal guidance. Reserve = 30% x gross consideration; security deposit 5% of reserve. Regulatory year Jan-Dec; coverage-cost basis by default."
+WY,Wyoming,false,NONE,,,,1,false,No funded-reserve filing modeled for this state; skipped by the filing.

@@ -1,0 +1,94 @@
+table 'Claim History'
+
+	column 'Claim History Key'
+		dataType: string
+		isHidden
+		sourceColumn: CLAIM_HISTORY_KEY
+
+	column 'Claim Key'
+		dataType: string
+		isHidden
+		sourceColumn: CLAIM_KEY
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Changed At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: CHANGED_AT
+
+	column 'Changed Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CHANGED_DATE_KEY
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTING_PERIOD_START_DATE
+
+	column 'From Status'
+		dataType: string
+		sourceColumn: FROM_STATUS
+
+	column 'To Status'
+		dataType: string
+		sourceColumn: TO_STATUS
+
+	column 'Pre Deductible Change'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: PRE_DEDUCTIBLE_CHANGE
+
+	column 'Post Deductible Change'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: POST_DEDUCTIBLE_CHANGE
+
+	column 'Collected Deductible'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: COLLECTED_DEDUCTIBLE
+
+	partition 'Claim History' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_CLAIM_HISTORY", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_claim_history
+	annotation table_kind = fact

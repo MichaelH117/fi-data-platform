@@ -1,0 +1,205 @@
+/// One row per claim from BOTH admin systems (legacy 2019-2022 and admin core). Claim counts, denial and severity come from here, by loss month (active) or reported month (inactive).
+table 'Claim Summary'
+
+	column 'Claim Key'
+		dataType: string
+		isHidden
+		sourceColumn: CLAIM_KEY
+
+	column 'Claim Number'
+		dataType: string
+		sourceColumn: CLAIM_NUMBER
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: SOURCE_SYSTEM
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Has Contract Key'
+		dataType: boolean
+		isHidden
+		sourceColumn: HAS_CONTRACT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Subcategory Code'
+		dataType: string
+		sourceColumn: SUBCATEGORY_CODE
+
+	column 'Category Code'
+		dataType: string
+		sourceColumn: CATEGORY_CODE
+
+	column Status
+		dataType: string
+		sourceColumn: STATUS
+
+	column Substatus
+		dataType: string
+		sourceColumn: SUBSTATUS
+
+	column 'Status Group'
+		dataType: string
+		sourceColumn: STATUS_GROUP
+
+	column 'Denied Reason'
+		dataType: string
+		sourceColumn: DENIED_REASON
+
+	column 'Denied Category'
+		dataType: string
+		sourceColumn: DENIED_CATEGORY
+
+	column 'Loss Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: LOSS_DATE
+
+	column 'Reported Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: REPORTED_DATE
+
+	column 'Loss Month'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: LOSS_MONTH
+
+	column 'Reported Month'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: REPORTED_MONTH
+
+	column 'Contract Effective Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: CONTRACT_EFFECTIVE_DATE
+
+	column 'Is Contract Matched'
+		dataType: boolean
+		sourceColumn: IS_CONTRACT_MATCHED
+
+	column 'Days From Effective'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: DAYS_FROM_EFFECTIVE
+
+	column 'Top Component'
+		dataType: string
+		sourceColumn: TOP_COMPONENT
+
+	column 'Component Source'
+		dataType: string
+		sourceColumn: COMPONENT_SOURCE
+
+	column 'Component Count'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: COMPONENT_COUNT
+
+	column 'Payment Lines'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: PAYMENT_LINES
+
+	column 'Authorized Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: AUTHORIZED_AMOUNT
+
+	column 'Inspection Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: INSPECTION_AMOUNT
+
+	column 'Paid Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: PAID_AMOUNT
+
+	column 'Pending Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: PENDING_AMOUNT
+
+	column 'Incurred Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: INCURRED_AMOUNT
+
+	column 'Closed At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: CLOSED_AT
+
+	column 'As Of Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: AS_OF_DATE
+
+	column 'Turnaround Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TURNAROUND_DAYS
+
+	column 'Early Claim Window Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARLY_CLAIM_WINDOW_DAYS
+
+	column 'Open Age Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: OPEN_AGE_DAYS
+
+	column 'Is Aged Open'
+		dataType: boolean
+		sourceColumn: IS_AGED_OPEN
+
+	column 'Open Age Band'
+		dataType: string
+		sourceColumn: OPEN_AGE_BAND
+
+	partition 'Claim Summary' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CLAIMS", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "MART_CLAIM_SUMMARY", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = claims.mart_claim_summary
+	annotation table_kind = fact

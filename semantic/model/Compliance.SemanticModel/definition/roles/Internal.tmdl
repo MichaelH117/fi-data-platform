@@ -1,0 +1,5 @@
+/// Employees (executive, finance, claims, compliance, field team). No row filter.
+role Internal
+	modelPermission: read
+
+	annotation security_group = sg-bi-internal-compliance

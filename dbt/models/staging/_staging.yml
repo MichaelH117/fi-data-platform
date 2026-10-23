@@ -1,0 +1,253 @@
+version: 2
+
+# Staging: 1:1 with raw. Latest _source_version per key, typed, cleaned; `is_deleted` carries the
+# raw delete marker and the source soft delete. PII is hashed or dropped here, except the fake
+# customer name on the two contract models (meta.contains_pii), kept for the pending-contracts mart.
+
+models:
+  - name: stg_admin_core__contract
+    meta: {contains_pii: true}
+    columns:
+      - name: contract_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__claim
+    columns:
+      - name: claim_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__dealer
+    columns:
+      - name: dealer_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__transaction
+    description: Admin Core `transaction` (a reserved word, quoted in the source definition).
+    columns:
+      - name: txn_id
+        data_tests: [unique, not_null]
+  - name: stg_legacy_admin__contracts
+    meta: {contains_pii: true}
+    description: Legacy contracts incl. rows replayed from quarantine (MM/DD/YYYY sale dates).
+    columns:
+      - name: legacy_contract_id
+        data_tests: [unique, not_null]
+  - name: stg_legacy_admin__claims
+    description: Legacy claims keyed by the normalized claim number; money sign flipped to positive.
+    columns:
+      - name: claim_number
+        data_tests: [unique, not_null]
+  - name: stg_legacy_admin__dealers
+    columns:
+      - name: dealer_code
+        data_tests: [unique, not_null]
+  - name: stg_network_feed__deals
+    columns:
+      - name: deal_id
+        data_tests: [unique, not_null]
+  - name: stg_network_feed__econtract_events
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+  - name: stg_crm__calls
+    description: >
+      Call-center CRM contacts minus quarantined rows, latest delivery per call_id. Customer key is
+      contract_number and/or phone_hash (hashed by the CRM; no raw phone).
+    columns:
+      - name: call_id
+        data_tests: [unique, not_null]
+      - name: call_at
+        data_tests: [not_null]
+      - name: tenant_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_tenant'), field: tenant_code}
+  - name: stg_admin_api__dealer
+    description: Admin-API dealer roster minus quarantined records and incomplete extracts, newest accepted record per dealer.
+    columns:
+      - name: dealer_number
+        data_tests: [unique, not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [ACTIVE, SUSPENDED, TERMINATED]
+
+  # Primary-key tests for every other staging model, from the primary_key of its data contract
+  # (contracts/*.yml). tests/test_pipeline.py fails when a stg_ model has no key test or the
+  # key drifts from the contract.
+  - name: stg_admin_core__account_holder
+    columns:
+      - name: account_holder_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__admin_user
+    columns:
+      - name: admin_user_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__administrator
+    columns:
+      - name: tenant_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__agent
+    columns:
+      - name: agent_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__cancellation
+    columns:
+      - name: cancel_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__cash_transaction
+    columns:
+      - name: cash_txn_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__claim_component
+    columns:
+      - name: claim_component_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__claim_history
+    columns:
+      - name: claim_history_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__claim_note
+    columns:
+      - name: note_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__claim_payment_line
+    columns:
+      - name: line_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__commission
+    columns:
+      - name: commission_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__complaint
+    columns:
+      - name: complaint_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__contract_amendment
+    columns:
+      - name: amendment_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__contract_option
+    columns:
+      - name: option_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__contract_status_history
+    columns:
+      - name: status_history_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__contract_surcharge
+    columns:
+      - name: surcharge_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__dealer_group
+    columns:
+      - name: dealer_group_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__disbursement
+    columns:
+      - name: disbursement_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__insurer
+    columns:
+      - name: insurer_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__intake_file
+    columns:
+      - name: intake_file_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__intake_reject
+    columns:
+      - name: reject_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__lienholder
+    columns:
+      - name: lienholder_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__obligor
+    columns:
+      - name: obligor_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__participation_entity
+    columns:
+      - name: entity_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__plan
+    columns:
+      - name: plan_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__portal_user
+    columns:
+      - name: portal_user_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__product
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__product_category
+    columns:
+      - name: category_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__product_subcategory
+    columns:
+      - name: subcategory_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__program
+    columns:
+      - name: program_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__rate
+    columns:
+      - name: rate_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__rate_component
+    columns:
+      - name: rate_component_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__reinstatement
+    columns:
+      - name: reinstatement_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__reinsurer
+    columns:
+      - name: reinsurer_id
+        data_tests: [unique, not_null]
+  - name: stg_admin_core__remit_batch
+    columns:
+      - name: remit_batch_id
+        data_tests: [unique, not_null]
+  - name: stg_legacy_admin__agents
+    columns:
+      - name: agent_code
+        data_tests: [unique, not_null]
+  - name: stg_legacy_admin__cancellations
+    columns:
+      - name: cancellation_id
+        data_tests: [unique, not_null]
+  - name: stg_legacy_admin__products
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [product_code, plan_year, term_months]}
+    columns:
+      - name: product_code
+        data_tests: [not_null]
+      - name: plan_year
+        data_tests: [not_null]
+      - name: term_months
+        data_tests: [not_null]
+  - name: stg_network_feed__manifest
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [feed_date, file_name]}
+    columns:
+      - name: feed_date
+        data_tests: [not_null]
+      - name: file_name
+        data_tests: [not_null]
+  - name: stg_network_feed__remittance
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [remit_batch_id, contract_number]}
+    columns:
+      - name: remit_batch_id
+        data_tests: [not_null]
+      - name: contract_number
+        data_tests: [not_null]

@@ -1,0 +1,658 @@
+# Governed metric definitions (dbt Semantic Layer / MetricFlow spec).
+# Single source of truth together with docs/METRICS.md. The gold marts precompute the same
+# formulas; tests/assert_loss_ratio_math.sql checks the two agree.
+
+semantic_models:
+  - name: contract_month
+    description: Contract x month earning and claims (gold.fct_contract_monthly).
+    model: ref('fct_contract_monthly')
+    config: {meta: {pbi: {table: Contract Month, domains: [Finance, Claims]}}}
+    defaults: {agg_time_dimension: month_start}
+    entities:
+      - {name: contract_month, type: primary, expr: contract_month_key}
+      - {name: contract, type: foreign, expr: contract_id}
+      - {name: dealer, type: foreign, expr: dealer_code}
+      - {name: product, type: foreign, expr: product_code}
+    dimensions:
+      - {name: month_start, type: time, type_params: {time_granularity: month}}
+      - {name: sale_month, type: time, type_params: {time_granularity: month}}
+      - {name: new_used, type: categorical}
+    measures:
+      - {name: written_premium, agg: sum, description: Reserve premium booked in the sale month.}
+      - {name: earned_premium, agg: sum, description: Pro-rata earned reserve premium.}
+      - {name: incurred_claims, agg: sum, description: "Paid + case reserve on open claims, by loss month."}
+      - {name: paid_claims, agg: sum}
+      - {name: claim_count, agg: sum, description: "Non-denied claims, by loss month."}
+      - {name: exposure_years, agg: sum, description: Earned contract-years (days in force / 365.25).}
+      - name: contracts_in_force
+        agg: sum_boolean
+        expr: is_in_force_eom
+        description: Contracts in force at month end (a balance, so it never sums across months).
+        non_additive_dimension: {name: month_start, window_choice: max}
+      - name: unearned_premium_balance
+        agg: sum
+        expr: unearned_premium_eom
+        description: Unearned reserve premium at month end (a balance, so it never sums across months).
+        non_additive_dimension: {name: month_start, window_choice: max}
+
+  - name: contract_sale
+    description: One row per contract sold (gold.fct_contract_sale).
+    model: ref('fct_contract_sale')
+    defaults: {agg_time_dimension: sale_date}
+    entities:
+      - {name: contract, type: primary, expr: contract_id}
+      - {name: dealer, type: foreign, expr: dealer_code}
+      - {name: product, type: foreign, expr: product_code}
+    dimensions:
+      - {name: sale_date, type: time, type_params: {time_granularity: day}}
+      - {name: new_used, type: categorical}
+      - {name: contract_status, type: categorical}
+    measures:
+      - {name: contracts_sold, agg: count, expr: contract_id}
+      - {name: contracts_cancelled, agg: sum, expr: "case when is_cancelled then 1 else 0 end"}
+      - {name: dealer_markup, agg: sum}
+
+  - name: claim
+    description: One row per valid claim (gold.fct_claim).
+    model: ref('fct_claim')
+    defaults: {agg_time_dimension: loss_date}
+    entities:
+      - {name: claim, type: primary, expr: claim_id}
+      - {name: contract, type: foreign, expr: contract_id}
+    dimensions:
+      - {name: loss_date, type: time, type_params: {time_granularity: day}}
+      - {name: claim_status, type: categorical}
+      - {name: repair_category, type: categorical}
+    measures:
+      - {name: claims_reported, agg: count, expr: claim_id}
+      - {name: paid_claim_count, agg: sum, expr: "case when claim_status = 'paid' then 1 else 0 end"}
+      - {name: claim_paid_amount, agg: sum, expr: paid_amount}
+
+  # ---------------------------------------------------------------- V3 core facts (posting-period grain)
+  # The Power BI generator (python -m semantic) reads config.meta.pbi: the Power BI table name and
+  # the domain models (Sales, Claims, Finance, Compliance) that carry the table.
+  - name: gross_premium
+    description: Contract x posting period of sale or amendment (core.fct_gross_premium).
+    model: ref('fct_gross_premium')
+    config: {meta: {pbi: {table: Gross Premium, domains: [Sales, Finance, Compliance]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - {name: gross_premium_line, type: primary, expr: "contract_key || '|' || cast(posting_period_key as varchar)"}
+      - {name: contract_key, type: foreign, expr: contract_key}
+      - {name: dealer_key, type: foreign, expr: dealer_key}
+      - {name: product_key, type: foreign, expr: product_key}
+    dimensions:
+      - name: posting_period
+        type: time
+        expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
+        type_params: {time_granularity: month}
+    measures:
+      - {name: contracts_written, agg: sum, description: Contracts written (sales only; amendments add 0).}
+      - {name: gross_coverage_cost, agg: sum, expr: coverage_cost, description: Gross consideration on the coverage-cost basis.}
+      - {name: gross_retail_price, agg: sum, expr: retail_price, description: Gross consideration on the retail basis.}
+      - {name: gross_purchase_price, agg: sum, expr: purchase_price}
+
+  - name: cancellation
+    description: One row per cancellation, posted to its posting period (core.fct_cancellation).
+    model: ref('fct_cancellation')
+    config: {meta: {pbi: {table: Cancellation, domains: [Sales, Finance, Compliance]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - {name: cancel_key, type: primary, expr: cancel_key}
+      - {name: contract_key, type: foreign, expr: contract_key}
+      - {name: dealer_key, type: foreign, expr: dealer_key}
+    dimensions:
+      - name: posting_period
+        type: time
+        expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
+        type_params: {time_granularity: month}
+      - {name: cancel_method, type: categorical, expr: method}
+    measures:
+      - {name: cancellations, agg: count, expr: cancel_key}
+      - {name: effective_cancellations, agg: sum_boolean, expr: is_effective_cancel, description: Cancels not later reinstated.}
+      - {name: customer_refunds, agg: sum, expr: customer_refund}
+      - {name: cancel_fees, agg: sum, expr: cancel_fee}
+      - {name: dealer_chargebacks, agg: sum, expr: dealer_portion, description: Dealer portion of the refund (chargeback).}
+      - {name: coverage_cost_refunds, agg: sum, expr: coverage_cost_refund}
+
+  - name: reinstatement
+    description: One row per reinstatement (core.fct_reinstatement).
+    model: ref('fct_reinstatement')
+    config: {meta: {pbi: {table: Reinstatement, domains: [Finance]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - {name: reinstatement_key, type: primary, expr: reinstatement_key}
+      - {name: contract_key, type: foreign, expr: contract_key}
+    dimensions:
+      - name: posting_period
+        type: time
+        expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
+        type_params: {time_granularity: month}
+    measures:
+      - {name: reinstatements, agg: count, expr: reinstatement_key}
+      - {name: reinstatement_reversals, agg: sum, expr: reversal_amount}
+
+  - name: claim_payment_line
+    description: THE claims fact at payment-line grain (core.fct_claim_payment_line).
+    model: ref('fct_claim_payment_line')
+    config: {meta: {pbi: {table: Claim Payment Line, domains: [Claims, Finance, Compliance]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - {name: line_key, type: primary, expr: line_key}
+      - {name: claim_key, type: foreign, expr: claim_key}
+      - {name: contract_key, type: foreign, expr: contract_key}
+    dimensions:
+      - name: posting_period
+        type: time
+        expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
+        type_params: {time_granularity: month}
+      - {name: line_type, type: categorical}
+      - {name: age_bin, type: categorical}
+    measures:
+      - {name: claims_paid, agg: sum, expr: paid_amount, description: Claim dollars paid (always positive after conforming).}
+      - {name: claims_incurred, agg: sum, expr: incurred_change, description: Paid plus change in case reserve (as posted).}
+      - {name: claims_reserve_change, agg: sum, expr: pending_amount, description: Change in outstanding case reserve.}
+      - {name: claims_with_activity, agg: count_distinct, expr: claim_key}
+      - {name: avg_claim_process_days, agg: average, expr: process_days}
+
+  - name: claim_history
+    description: >-
+      Claim status changes, as posted (core.fct_claim_history). Admin core only (status history starts at
+      the 2023 cutover; legacy claims have none), so claim COUNTS come from claim_summary, never from here.
+    model: ref('fct_claim_history')
+    config: {meta: {pbi: {table: Claim History, domains: [Claims, Compliance]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - {name: claim_history_key, type: primary, expr: claim_history_key}
+      - {name: claim_key, type: foreign, expr: claim_key}
+    dimensions:
+      - name: posting_period
+        type: time
+        expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
+        type_params: {time_granularity: month}
+      - {name: to_status, type: categorical}
+    measures:
+      - {name: collected_deductibles, agg: sum, expr: collected_deductible}
+
+  - name: claim_summary
+    description: >-
+      One row per claim from BOTH admin systems (claims.mart_claim_summary), the same population as
+      fct_claim_payment_line and the site's claims KPIs. Dated by loss month (the KPI basis); the
+      reported month is a role-playing date (config.meta.pbi.date_role) for intake counts.
+    model: ref('mart_claim_summary')
+    config: {meta: {pbi: {table: Claim Summary, domains: [Claims, Finance, Compliance]}}}
+    defaults: {agg_time_dimension: loss_month}
+    entities:
+      - {name: claim_key, type: primary, expr: claim_key}
+      - {name: contract_key, type: foreign, expr: contract_key}
+      - {name: dealer_key, type: foreign, expr: dealer_key}
+    dimensions:
+      - {name: loss_month, type: time, type_params: {time_granularity: month}}
+      - {name: reported_month, type: time, type_params: {time_granularity: month}}
+      - {name: status_group, type: categorical}
+    measures:
+      - {name: claims_opened, agg: count, expr: claim_key, description: "Claims reported (both systems)."}
+      - {name: claims_reported_loss_month, agg: count, expr: claim_key, description: "Claims reported, by loss month."}
+      - {name: claims_denied, agg: sum, expr: "case when status_group = 'denied' then 1 else 0 end"}
+      - {name: claims_closed_paid, agg: sum, expr: "case when status_group = 'paid' then 1 else 0 end"}
+      - {name: paid_on_paid_claims, agg: sum, expr: "case when status_group = 'paid' then paid_amount else 0 end"}
+      - {name: open_claims, agg: sum, expr: "case when status_group = 'open' then 1 else 0 end", description: Claims open as of the as-of date.}
+      - {name: open_claims_aged_30_plus, agg: sum_boolean, expr: is_aged_open, description: "Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days)."}
+      - {name: avg_claim_turnaround_days, agg: average, expr: turnaround_days, description: "Reported to closed, closed claims only (open claims have no turnaround)."}
+
+  - name: dealer_scorecard
+    description: Dealer x month scorecard (dealer.mart_dealer_scorecard), the site's watchlist and early-claim source.
+    model: ref('mart_dealer_scorecard')
+    config: {meta: {pbi: {table: Dealer Scorecard, domains: [Sales]}}}
+    defaults: {agg_time_dimension: month_start}
+    entities:
+      - {name: dealer_month, type: primary, expr: "dealer_key || '|' || cast(month_key as varchar)"}
+      - {name: dealer_key, type: foreign, expr: dealer_key}
+    dimensions:
+      - {name: month_start, type: time, type_params: {time_granularity: month}}
+    measures:
+      - {name: scorecard_claims_reported, agg: sum, expr: claims_reported}
+      - {name: scorecard_early_claims, agg: sum, expr: early_claims, description: "Claims within the headline early-claim window (seed early_claim_headline_days)."}
+      - name: dealers_on_watch
+        agg: sum_boolean
+        expr: is_watch
+        description: Dealers on the watchlist in the month (a balance, so it never sums across months).
+        non_additive_dimension: {name: month_start, window_choice: max}
+      - name: dealers_on_loss_ratio_watch
+        agg: sum_boolean
+        expr: is_watch_loss_ratio
+        description: Dealers on the loss-ratio watch in the month (a balance, so it never sums across months).
+        non_additive_dimension: {name: month_start, window_choice: max}
+      # Monthly additive columns: the scorecard ratios are built from these, so the T12M calculation item
+      # gives the trailing-12 view (the mart's rolling t12_* columns are not imported).
+      - {name: scorecard_contracts_written, agg: sum, expr: contracts_written, description: "Contracts written in the month (entered-month cohort)."}
+      - {name: scorecard_contracts_cancelled, agg: sum, expr: contracts_cancelled, description: "Of the contracts written in the month, those since cancelled (sale cohort)."}
+      - {name: scorecard_earned_claims_reserve, agg: sum, expr: earned_claims_reserve, description: "Earned claims reserve by earned month (the scorecard loss-ratio denominator)."}
+      - {name: scorecard_incurred_claims, agg: sum, expr: incurred_claims, description: "Incurred claims by loss month."}
+      - {name: scorecard_remittances, agg: sum, expr: remittances}
+      - {name: scorecard_late_remittances, agg: sum, expr: late_remittances}
+      - {name: scorecard_days_late_total, agg: sum, expr: days_late_total, description: "Days past the late threshold, summed over late remittances."}
+      - name: scorecard_loss_ratio_peer_pct
+        agg: max
+        expr: t12_loss_ratio_peer_pct
+        description: Peer percentile of the dealer's trailing-12 loss ratio at month end (a rank, so never aggregated).
+        non_additive_dimension: {name: month_start, window_choice: max}
+
+  - name: funded_reserve_filing
+    description: >-
+      Funded-reserve filing lines (regulatory.mart_funded_reserve_summary): state x provider x scope
+      (ITD | PERIOD) x basis x filing window. Measures read the state's default basis only; slice Scope
+      and Period Label, never sum across windows.
+    model: ref('mart_funded_reserve_summary')
+    config: {meta: {pbi: {table: Funded Reserve Filing, domains: [Compliance]}}}
+    defaults: {agg_time_dimension: period_end}
+    entities:
+      - {name: filing_line_key, type: primary, expr: filing_line_key}
+      - {name: provider_key, type: foreign, expr: provider_key}
+    dimensions:
+      - {name: period_end, type: time, type_params: {time_granularity: day}}
+      - {name: scope, type: categorical}
+      - {name: basis, type: categorical}
+    measures:
+      - {name: filing_calculated_reserve, agg: sum, expr: "case when is_default_basis then calculated_reserve else 0 end"}
+      - {name: filing_current_reserve, agg: sum, expr: "case when is_default_basis then current_reserve else 0 end"}
+      - {name: filing_reserve_shortfall, agg: sum, expr: "case when is_default_basis then reserve_shortfall else 0 end"}
+      - {name: filing_complaints_received, agg: sum, expr: "case when is_default_basis then complaints_received else 0 end"}
+
+  - name: regulatory_line_value
+    description: Every filed line value (regulatory.mart_regulatory_line_values), funded reserve and market survey.
+    model: ref('mart_regulatory_line_values')
+    config: {meta: {pbi: {table: Regulatory Line Value, domains: [Compliance]}}}
+    defaults: {agg_time_dimension: window_end}
+    entities:
+      - {name: regulatory_line, type: primary, expr: "report_id || '|' || state || '|' || window_id || '|' || provider_key || '|' || line_item"}
+      - {name: provider_key, type: foreign, expr: provider_key}
+    dimensions:
+      - {name: window_end, type: time, type_params: {time_granularity: day}}
+      - {name: report_id, type: categorical}
+      - {name: line_item, type: categorical}
+    measures:
+      - {name: filing_line_value, agg: sum, expr: value, description: "The filed value; slice to one report, window and line first."}
+
+  - name: cash_transaction
+    description: Remittance cash with the entered -> sent -> received lifecycle (core.fct_cash_transaction).
+    model: ref('fct_cash_transaction')
+    config: {meta: {pbi: {table: Cash Transaction, domains: [Finance, Sales]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - {name: cash_txn_key, type: primary, expr: cash_txn_key}
+      - {name: contract_key, type: foreign, expr: contract_key}
+      - {name: dealer_key, type: foreign, expr: dealer_key}
+    dimensions:
+      - name: posting_period
+        type: time
+        expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
+        type_params: {time_granularity: month}
+    measures:
+      - {name: remitted_cash, agg: sum, expr: amount}
+      - {name: remittances, agg: count, expr: cash_txn_key}
+      - {name: late_remittances, agg: sum_boolean, expr: is_late}
+      - {name: late_fees, agg: sum, expr: late_fee}
+      - {name: avg_remit_age_days, agg: average, expr: remit_age_days}
+
+  - name: disbursement
+    description: Transaction x disbursement type x account holder (core.fct_disbursement).
+    model: ref('fct_disbursement')
+    config: {meta: {pbi: {table: Disbursement, domains: [Finance]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - {name: disbursement_key, type: primary, expr: disbursement_key}
+      - {name: contract_key, type: foreign, expr: contract_key}
+    dimensions:
+      - name: posting_period
+        type: time
+        expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
+        type_params: {time_granularity: month}
+      - {name: disbursement_type, type: categorical}
+    measures:
+      - {name: disbursed_amount, agg: sum, expr: amount}
+      - {name: disbursed_claims_reserve, agg: sum, expr: reserve_amount}
+      - {name: disbursed_profit_share_reserve, agg: sum, expr: profit_share_reserve}
+
+  - name: earned_disbursement
+    description: Contract x disbursement type x posting period earned (core.fct_earned_disbursement).
+    model: ref('fct_earned_disbursement')
+    config: {meta: {pbi: {table: Earned Disbursement, domains: [Finance]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - name: earned_disbursement_line
+        type: primary
+        expr: "contract_key || '|' || disbursement_type || '|' || cast(posting_period_key as varchar)"
+      - {name: contract_key, type: foreign, expr: contract_key}
+    dimensions:
+      - {name: posting_period, type: time, expr: month_start, type_params: {time_granularity: month}}
+    measures:
+      - {name: earned_disbursement_amount, agg: sum, expr: earned_amount}
+      - {name: earned_reserve, agg: sum}
+      # pnl_group ADMIN / ACQUISITION from seed pnl_line_map (tests/test_semantic.py checks the lists match).
+      - {name: earned_admin_fee, agg: sum, expr: "case when disbursement_type = 'ADMIN_FEE' then earned_amount else 0 end"}
+      - name: earned_acquisition_cost
+        agg: sum
+        expr: "case when disbursement_type in ('COMMISSION', 'INSURER_FEE', 'PREMIUM_TAX') then earned_amount else 0 end"
+
+  - name: commission
+    description: Agent commissions (core.fct_commission).
+    model: ref('fct_commission')
+    config: {meta: {pbi: {table: Commission, domains: [Finance, Sales]}}}
+    defaults: {agg_time_dimension: posting_period}
+    entities:
+      - {name: commission_key, type: primary, expr: commission_key}
+      - {name: contract_key, type: foreign, expr: contract_key}
+    dimensions:
+      - name: posting_period
+        type: time
+        expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
+        type_params: {time_granularity: month}
+    measures:
+      - {name: commissions, agg: sum, expr: amount}
+      - {name: commission_advances, agg: sum, expr: "case when is_advance then amount else 0 end"}
+
+# Governance (config.meta, checked by tests/test_semantic.py): every metric names an owner (a role
+# title from docs/V3_DESIGN.md) and certified: true | false. A certified metric is the one definition
+# of record for an executive or site headline KPI: it carries a description and definition_of_record
+# (a docs/METRICS.md section), and every headline tile maps to one (semantic/spec.py HEADLINE_KPIS).
+metrics:
+  - name: written_premium
+    label: Written premium
+    type: simple
+    type_params: {measure: written_premium}
+    config: {meta: {owner: "Data Scientist", certified: false, pbi: {folder: Premium}}}
+
+  - name: earned_premium
+    label: Earned premium (pro-rata)
+    type: simple
+    type_params: {measure: earned_premium}
+    config: {meta: {owner: "Data Scientist", certified: false, pbi: {folder: Premium}}}
+
+  - name: incurred_claims
+    label: Incurred claims
+    type: simple
+    type_params: {measure: incurred_claims}
+    config: {meta: {owner: "Data Scientist", certified: false, pbi: {name: Incurred Claims (accident month), folder: Claims}}}
+
+  - name: loss_ratio
+    label: Loss ratio (on earned premium)
+    description: Incurred claims divided by EARNED premium (never written). Not comparable with the loss ratio on claims reserve.
+    type: ratio
+    type_params: {numerator: incurred_claims, denominator: earned_premium}
+    config: {meta: {owner: "Data Scientist", certified: true, definition_of_record: "docs/METRICS.md#loss-ratios", pbi: {name: Loss Ratio (on earned premium), folder: Ratios}}}
+
+  - name: t12_earned_premium
+    label: Earned premium, trailing 12 months
+    type: cumulative
+    type_params: {measure: earned_premium, cumulative_type_params: {window: 12 months}}
+    config: {meta: {owner: "Data Scientist", certified: false, pbi: {calculation_item: T12M, base_metric: earned_premium}}}
+
+  - name: t12_incurred_claims
+    label: Incurred claims, trailing 12 months
+    type: cumulative
+    type_params: {measure: incurred_claims, cumulative_type_params: {window: 12 months}}
+    config: {meta: {owner: "Data Scientist", certified: false, pbi: {calculation_item: T12M, base_metric: incurred_claims}}}
+
+  - name: t12_loss_ratio
+    label: Loss ratio (on earned premium), trailing 12 months
+    type: derived
+    type_params:
+      expr: t12_incurred_claims / t12_earned_premium
+      metrics: [{name: t12_incurred_claims}, {name: t12_earned_premium}]
+    config: {meta: {owner: "Data Scientist", certified: false, pbi: {calculation_item: T12M, base_metric: loss_ratio}}}
+
+  - name: claim_frequency
+    label: Claim frequency (claims per earned contract-year)
+    description: "Non-denied claims per earned contract-year, accident-month basis (claims page tile)."
+    type: ratio
+    type_params:
+      numerator: {name: claim_count_metric}
+      denominator: {name: exposure_years_metric}
+    config: {meta: {owner: "Data Scientist", certified: true, definition_of_record: "docs/METRICS.md#claims", pbi: {format: decimal, folder: Ratios, domains: [Claims, Finance]}}}
+
+  - name: claim_count_metric
+    label: Claims (non-denied)
+    type: simple
+    type_params: {measure: claim_count}
+    config: {meta: {owner: "Data Scientist", certified: false, pbi: {name: Claim Count (accident month), format: integer, folder: Claims}}}
+
+  - name: exposure_years_metric
+    label: Earned contract-years
+    type: simple
+    type_params: {measure: exposure_years}
+    config: {meta: {owner: "Data Scientist", certified: false, pbi: {name: Exposure Years, format: decimal, folder: Exposure}}}
+
+  - name: paid_claim_count
+    label: Paid claims
+    type: simple
+    type_params: {measure: paid_claim_count}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false}}
+
+  - name: claim_paid_amount
+    label: Claim dollars paid
+    type: simple
+    type_params: {measure: claim_paid_amount}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false}}
+
+  - name: claim_severity
+    label: Claim severity (paid per paid claim)
+    type: ratio
+    type_params: {numerator: claim_paid_amount, denominator: paid_claim_count}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false}}
+
+  - name: contracts_sold
+    label: Contracts sold
+    type: simple
+    type_params: {measure: contracts_sold}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false}}
+
+  - name: contracts_cancelled
+    label: Contracts cancelled
+    type: simple
+    type_params: {measure: contracts_cancelled}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false}}
+
+  - name: cancel_rate
+    label: Cancel rate (cancelled / sold, by sale date)
+    description: "Contracts cancelled so far / contracts sold, by sale cohort (executive overview tile). Not the period view: see effective_cancel_rate."
+    type: ratio
+    type_params: {numerator: contracts_cancelled, denominator: contracts_sold}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#cancellations-and-reinstatements"}}
+
+  # ---------------------------------------------------------------- V3 metrics on the core facts
+  # Posting-period basis: every metric below reconciles to the ledger. Time variants (MTD, QTD, YTD,
+  # PY, YoY %, T12M) are NOT metrics: the semantic model's one calculation group applies them.
+  # config.meta.pbi keys: name (measure name), folder (display folder), format (currency | integer |
+  # decimal | percent), domains (override the semantic model's domain list).
+  - {name: contracts_written, label: Contracts written, description: "Contracts sold in the posting period (sales only; amendments add 0), from core.fct_gross_premium.", type: simple, type_params: {measure: contracts_written}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#remittance-commissions-and-dealer-operations", pbi: {format: integer, folder: Sales}}}}
+  - {name: gross_coverage_cost, label: Gross coverage cost, description: "Coverage cost (dealer cost) written in the posting period. The executive overview shows it as Written coverage cost.", type: simple, type_params: {measure: gross_coverage_cost}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#premium-and-earning", pbi: {folder: Sales}}}}
+  - {name: gross_retail_price, label: Gross retail price, type: simple, type_params: {measure: gross_retail_price}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Sales}}}}
+  - {name: gross_purchase_price, label: Gross purchase price, type: simple, type_params: {measure: gross_purchase_price}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Sales}}}}
+  - name: avg_coverage_cost
+    label: Average coverage cost per contract written
+    type: ratio
+    type_params: {numerator: gross_coverage_cost, denominator: contracts_written}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {format: currency, folder: Sales, domains: [Sales]}}}
+  - name: dealer_markup_written
+    label: Dealer markup on written business (retail - coverage cost)
+    description: "Retail price minus coverage cost on business written in the posting period."
+    type: derived
+    type_params:
+      expr: gross_retail_price - gross_coverage_cost
+      metrics: [{name: gross_retail_price}, {name: gross_coverage_cost}]
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#premium-and-earning", pbi: {format: currency, folder: Sales, domains: [Sales]}}}
+  - name: contracts_in_force
+    label: Contracts in force (month end)
+    description: "Contracts in force at month end (a balance: it never sums across months)."
+    type: simple
+    type_params: {measure: contracts_in_force}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#remittance-commissions-and-dealer-operations", pbi: {format: integer, folder: Portfolio, domains: [Sales, Finance, Compliance]}}}
+  - name: unearned_premium_balance
+    label: Unearned premium (month end)
+    type: simple
+    type_params: {measure: unearned_premium_balance}
+    config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Premium}}}
+
+  - {name: cancellations, label: Cancellations, type: simple, type_params: {measure: cancellations}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+  - {name: effective_cancellations, label: Effective cancellations, type: simple, type_params: {measure: effective_cancellations}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+  - {name: customer_refunds, label: Customer refunds, type: simple, type_params: {measure: customer_refunds}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+  - {name: cancel_fees, label: Cancel fees, type: simple, type_params: {measure: cancel_fees}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+  - {name: dealer_chargebacks, label: Dealer chargebacks, type: simple, type_params: {measure: dealer_chargebacks}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+  - {name: coverage_cost_refunds, label: Coverage cost refunds, type: simple, type_params: {measure: coverage_cost_refunds}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+  - name: effective_cancel_rate
+    label: Effective cancel rate (effective cancels / contracts written, same period)
+    type: ratio
+    type_params: {numerator: effective_cancellations, denominator: contracts_written}
+    config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations, domains: [Sales, Finance]}}}
+  - name: net_coverage_cost
+    label: Net coverage cost (gross - coverage cost refunds)
+    type: derived
+    type_params:
+      expr: gross_coverage_cost - coverage_cost_refunds
+      metrics: [{name: gross_coverage_cost}, {name: coverage_cost_refunds}]
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {format: currency, folder: Sales, domains: [Sales, Finance, Compliance]}}}
+  - {name: reinstatements, label: Reinstatements, type: simple, type_params: {measure: reinstatements}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+  - {name: reinstatement_reversals, label: Reinstatement reversals, type: simple, type_params: {measure: reinstatement_reversals}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+
+  - {name: claims_paid, label: Claims paid, type: simple, type_params: {measure: claims_paid}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Claims}}}}
+  - {name: claims_incurred, label: Claims incurred (posted), type: simple, type_params: {measure: claims_incurred}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Claims}}}}
+  - {name: claims_reserve_change, label: Change in case reserve, type: simple, type_params: {measure: claims_reserve_change}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Claims}}}}
+  - {name: claims_with_activity, label: Claims with posted activity, type: simple, type_params: {measure: claims_with_activity}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Claims}}}}
+  - {name: avg_claim_process_days, label: Average claim process days, type: simple, type_params: {measure: avg_claim_process_days}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {format: decimal, folder: Claims}}}}
+  # Claim counts: one row per claim, both admin systems (claim_summary). Loss month unless date_role says otherwise.
+  - name: claims_opened
+    label: Claims opened (reported month)
+    type: simple
+    type_params: {measure: claims_opened}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {format: integer, folder: Claims, date_role: reported_month}}}
+  - {name: claims_reported_loss_month, label: Claims reported (loss month), description: "Claims reported, one row per claim from both admin systems, by loss month.", type: simple, type_params: {measure: claims_reported_loss_month}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#claims", pbi: {name: Claims Reported (loss month), format: integer, folder: Claims}}}}
+  - {name: claims_denied, label: Claims denied (loss month), type: simple, type_params: {measure: claims_denied}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {format: integer, folder: Claims}}}}
+  - {name: claims_closed_paid, label: Paid claims (loss month), type: simple, type_params: {measure: claims_closed_paid}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Paid Claim Count, format: integer, folder: Claims}}}}
+  - {name: paid_on_paid_claims, label: Claim dollars paid on paid claims (loss month), type: simple, type_params: {measure: paid_on_paid_claims}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Claims}}}}
+  - {name: open_claims, label: Open claims (as of date), description: "Claims open as of the as-of date.", type: simple, type_params: {measure: open_claims}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#claims", pbi: {format: integer, folder: Claims}}}}
+  - {name: open_claims_aged_30_plus, label: Open claims aged 30+ (as of date), description: "Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days).", type: simple, type_params: {measure: open_claims_aged_30_plus}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#claims", pbi: {name: Open Claims Aged 30 Plus, format: integer, folder: Claims}}}}
+  - {name: avg_claim_turnaround_days, label: Average turnaround days (reported to closed), description: "Average days from reported to closed, closed claims only.", type: simple, type_params: {measure: avg_claim_turnaround_days}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#claims", pbi: {name: Average Turnaround Days, format: decimal, folder: Claims}}}}
+  - {name: collected_deductibles, label: Collected deductibles (admin core status history), type: simple, type_params: {measure: collected_deductibles}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Claims}}}}
+  - name: denial_rate
+    label: Denial rate (denied / reported, loss month)
+    description: Same definition as the claims KPI page and mart_claims_kpi.denial_rate.
+    type: ratio
+    type_params: {numerator: claims_denied, denominator: claims_reported_loss_month}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#claims", pbi: {folder: Ratios}}}
+  - name: paid_claim_severity
+    label: Paid severity (paid on paid claims / paid claims, loss month)
+    description: Numerator and denominator are the same population (paid claims). Same as mart_claims_kpi.claim_severity.
+    type: ratio
+    type_params: {numerator: paid_on_paid_claims, denominator: claims_closed_paid}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#claims", pbi: {format: currency, folder: Ratios}}}
+  - name: posted_loss_ratio
+    label: Loss ratio (on claims reserve), posted
+    description: Ledger view, claims incurred as posted / earned claims reserve. Not comparable with the loss ratio on earned premium (the accident-month actuarial view).
+    type: ratio
+    type_params: {numerator: claims_incurred, denominator: earned_reserve}
+    config: {meta: {owner: "Financial Analyst II", certified: true, definition_of_record: "docs/METRICS.md#loss-ratios", pbi: {name: Loss Ratio (on claims reserve), folder: Ratios}}}
+
+  - {name: remitted_cash, label: Remitted cash, type: simple, type_params: {measure: remitted_cash}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Remittance}}}}
+  - {name: remittances, label: Remittances, type: simple, type_params: {measure: remittances}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Remittance}}}}
+  - {name: late_remittances, label: Late remittances, type: simple, type_params: {measure: late_remittances}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Remittance}}}}
+  - {name: late_fees, label: Late fees, type: simple, type_params: {measure: late_fees}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Remittance}}}}
+  - {name: avg_remit_age_days, label: Average remit age (days), type: simple, type_params: {measure: avg_remit_age_days}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {format: decimal, folder: Remittance}}}}
+  - name: late_remittance_rate
+    label: Late remittance rate (late / all remittances)
+    type: ratio
+    type_params: {numerator: late_remittances, denominator: remittances}
+    config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Remittance}}}
+
+  - {name: disbursed_amount, label: Disbursed amount, type: simple, type_params: {measure: disbursed_amount}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Disbursements}}}}
+  - {name: disbursed_claims_reserve, label: Claims reserve disbursed, type: simple, type_params: {measure: disbursed_claims_reserve}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Disbursements}}}}
+  - {name: disbursed_profit_share_reserve, label: Profit-share reserve disbursed, type: simple, type_params: {measure: disbursed_profit_share_reserve}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Disbursements}}}}
+  - {name: earned_disbursement_amount, label: Earned disbursements, description: "All earned cost-split buckets in the posting period. The executive overview and the P&L call it Earned premium; it is the combined-ratio denominator.", type: simple, type_params: {measure: earned_disbursement_amount}, config: {meta: {owner: "Financial Analyst II", certified: true, definition_of_record: "docs/METRICS.md#premium-and-earning", pbi: {folder: Disbursements}}}}
+  - {name: earned_reserve, label: Earned reserve, description: "Earned claims reserve in the posting period, the denominator of the posted loss ratio.", type: simple, type_params: {measure: earned_reserve}, config: {meta: {owner: "Financial Analyst II", certified: true, definition_of_record: "docs/METRICS.md#premium-and-earning", pbi: {folder: Disbursements}}}}
+  - {name: earned_admin_fee, label: Earned admin fee, type: simple, type_params: {measure: earned_admin_fee}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Disbursements}}}}
+  - {name: earned_acquisition_cost, label: Earned acquisition cost (commission + insurer fee + premium tax), type: simple, type_params: {measure: earned_acquisition_cost}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Disbursements}}}}
+  - name: combined_ratio
+    label: Combined ratio (claims + acquisition + admin fee, on earned premium)
+    description: Same as finance.mart_pnl_by_product.combined_ratio and the executive overview. Above 100% the book lost money.
+    type: derived
+    type_params:
+      expr: (claims_incurred + earned_acquisition_cost + earned_admin_fee) / earned_disbursement_amount
+      metrics: [{name: claims_incurred}, {name: earned_acquisition_cost}, {name: earned_admin_fee}, {name: earned_disbursement_amount}]
+    config: {meta: {owner: "Financial Analyst II", certified: true, definition_of_record: "docs/METRICS.md#loss-ratios", pbi: {format: percent, folder: Ratios, domains: [Finance]}}}
+
+  # Dealer scorecard (watchlist) and early claims.
+  - {name: scorecard_claims_reported, label: Claims reported (dealer scorecard), type: simple, type_params: {measure: scorecard_claims_reported}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Claims Reported, format: integer, folder: Dealer Scorecard}}}}
+  - {name: early_claims, label: Early claims (headline window), type: simple, type_params: {measure: scorecard_early_claims}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {format: integer, folder: Dealer Scorecard}}}}
+  - name: early_claim_rate
+    label: Early-claim rate (early claims / claims reported, headline window)
+    description: "Early claims / claims reported, headline early-claim window (seed early_claim_headline_days)."
+    type: ratio
+    type_params: {numerator: early_claims, denominator: scorecard_claims_reported}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#claims", pbi: {folder: Dealer Scorecard}}}
+  - {name: dealers_on_watch, label: Dealers on watch (month end), description: "Dealers on any scorecard watch (loss ratio, late remittance or early claims) at month end.", type: simple, type_params: {measure: dealers_on_watch}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#remittance-commissions-and-dealer-operations", pbi: {format: integer, folder: Dealer Scorecard}}}}
+  - name: dealers_on_loss_ratio_watch
+    label: Dealers on loss-ratio watch (month end)
+    description: Dealers whose T12 loss ratio (on earned claims reserve) is above the scorecard watch threshold, with at least the seed minimum T12 earned claims reserve. The executive overview tile and the dealer scorecard use this one rule.
+    type: simple
+    type_params: {measure: dealers_on_loss_ratio_watch}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: true, definition_of_record: "docs/METRICS.md#remittance-commissions-and-dealer-operations", pbi: {name: Dealers on Loss-Ratio Watch, format: integer, folder: Dealer Scorecard}}}
+  # Scorecard KPIs as measures over the monthly additive columns. Use them with the T12M calculation item
+  # for the site's trailing-12 scorecard (one dealer, a dealer group, a tenant or the portfolio).
+  - {name: scorecard_contracts_written, label: "Contracts written (dealer scorecard, entered month)", type: simple, type_params: {measure: scorecard_contracts_written}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Contracts Written, format: integer, folder: Dealer Scorecard}}}}
+  - {name: scorecard_contracts_cancelled, label: "Contracts cancelled (dealer scorecard, sale cohort)", type: simple, type_params: {measure: scorecard_contracts_cancelled}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Contracts Cancelled, format: integer, folder: Dealer Scorecard}}}}
+  - {name: scorecard_earned_claims_reserve, label: Earned claims reserve (dealer scorecard), type: simple, type_params: {measure: scorecard_earned_claims_reserve}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Earned Claims Reserve, folder: Dealer Scorecard}}}}
+  - {name: scorecard_incurred_claims, label: "Incurred claims (dealer scorecard, loss month)", type: simple, type_params: {measure: scorecard_incurred_claims}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Incurred Claims, folder: Dealer Scorecard}}}}
+  - {name: scorecard_remittances, label: Remittances (dealer scorecard), type: simple, type_params: {measure: scorecard_remittances}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Remittances, format: integer, folder: Dealer Scorecard}}}}
+  - {name: scorecard_late_remittances, label: Late remittances (dealer scorecard), type: simple, type_params: {measure: scorecard_late_remittances}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Late Remittances, format: integer, folder: Dealer Scorecard}}}}
+  - {name: scorecard_days_late_total, label: Total days late (dealer scorecard), type: simple, type_params: {measure: scorecard_days_late_total}, config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Days Late Total, format: integer, folder: Dealer Scorecard}}}}
+  - name: scorecard_loss_ratio
+    label: Dealer loss ratio (on earned claims reserve, dealer scorecard)
+    description: Incurred claims (loss month) / earned claims reserve (earned month). With the T12M calculation item this is the watch rule's T12 loss ratio, per dealer or rolled up.
+    type: ratio
+    type_params: {numerator: scorecard_incurred_claims, denominator: scorecard_earned_claims_reserve}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Loss Ratio (on claims reserve), folder: Dealer Scorecard}}}
+  - name: scorecard_cancel_rate
+    label: Cancel rate (dealer scorecard, cancelled / written by entered month)
+    description: Of the contracts written in the months in context, the share since cancelled (sale-cohort basis, as metric cancel_rate).
+    type: ratio
+    type_params: {numerator: scorecard_contracts_cancelled, denominator: scorecard_contracts_written}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {folder: Dealer Scorecard}}}
+  - name: scorecard_late_remit_rate
+    label: Late remittance rate (dealer scorecard)
+    type: ratio
+    type_params: {numerator: scorecard_late_remittances, denominator: scorecard_remittances}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Late Remit Rate, folder: Dealer Scorecard}}}
+  - name: scorecard_avg_days_late
+    label: Average days late (dealer scorecard, late remittances only)
+    type: ratio
+    type_params: {numerator: scorecard_days_late_total, denominator: scorecard_late_remittances}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Scorecard Average Days Late, format: decimal, folder: Dealer Scorecard}}}
+  - name: loss_ratio_peer_percentile
+    label: Loss-ratio peer percentile (dealer scorecard, month end)
+    description: The dealer's rank among peers on the trailing-12 loss ratio at the last closed month. A rank, so it shows for one dealer only (blank on totals).
+    type: simple
+    type_params: {measure: scorecard_loss_ratio_peer_pct}
+    config: {meta: {owner: "Senior Data Analyst (dealer & claims)", certified: false, pbi: {name: Loss-Ratio Peer Percentile, format: percent, folder: Dealer Scorecard, single_value: [dealer_key]}}}
+
+  # Regulatory filings (Compliance). Default basis only; Scope defaults to ITD unless one Scope is sliced.
+  - {name: calculated_reserve, label: Calculated reserve (funded-reserve filing), description: "Funded-reserve filing: required reserve on the state's default basis.", type: simple, type_params: {measure: filing_calculated_reserve}, config: {meta: {owner: "Senior Data Analyst (regulatory)", certified: true, definition_of_record: "docs/METRICS.md#regulatory", pbi: {folder: Filings, default_filter: {scope: ITD}}}}}
+  - {name: current_reserve, label: Current reserve held (funded-reserve filing), type: simple, type_params: {measure: filing_current_reserve}, config: {meta: {owner: "Senior Data Analyst (regulatory)", certified: false, pbi: {name: Current Reserve Held, folder: Filings, default_filter: {scope: ITD}}}}}
+  - {name: reserve_shortfall, label: Reserve shortfall (funded-reserve filing), description: "Funded-reserve filing: calculated reserve minus current reserve held, when positive.", type: simple, type_params: {measure: filing_reserve_shortfall}, config: {meta: {owner: "Senior Data Analyst (regulatory)", certified: true, definition_of_record: "docs/METRICS.md#regulatory", pbi: {folder: Filings, default_filter: {scope: ITD}}}}}
+  - {name: complaints_received, label: Complaints received (funded-reserve filing), description: "Funded-reserve filing: complaints received (slice Scope and Period Label, never sum across windows).", type: simple, type_params: {measure: filing_complaints_received}, config: {meta: {owner: "Senior Data Analyst (regulatory)", certified: true, definition_of_record: "docs/METRICS.md#regulatory", pbi: {format: integer, folder: Filings, default_filter: {scope: ITD}}}}}
+  - name: filing_line_value
+    label: Filing line value (one report line)
+    description: One filed line. Blank unless one report, line item, scope and basis are in context; across several windows it is blank, except a LAST line (in force), which shows the latest window.
+    type: simple
+    type_params: {measure: filing_line_value}
+    config:
+      meta:
+        owner: "Senior Data Analyst (regulatory)"
+        certified: false
+        pbi:
+          format: decimal
+          folder: Filings
+          single_value: [report_id, line_item, scope, basis]
+          window: {column: window_id, order_by: window_end, last_when: {aggregation: LAST}}
+
+  - {name: commissions, label: Commissions, type: simple, type_params: {measure: commissions}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Commissions}}}}
+  - {name: commission_advances, label: Commission advances, type: simple, type_params: {measure: commission_advances}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Commissions}}}}

@@ -1,0 +1,8 @@
+category_code,subcategory_code,new_used,method,curve_id,rationale
+*,*,*,pro_rata,,Default: risk spread evenly over the term (also the usual legal basis for refunds)
+VSC,*,NEW,custom,vsc_new_warranty_overlap,New vehicles: the manufacturer warranty covers the early months so claims arrive late
+VSC,*,USED,custom,vsc_used_early_wear,Used vehicles: wear-related claims start soon after sale and level off
+GAP,*,*,rule_of_78s,,GAP: the loan balance and so the gap exposure is largest early in the term
+MAINTENANCE,*,*,pro_rata_mileage,,Maintenance: services are used by mileage as much as by time
+SPECIALTY,*,*,pro_rata_mileage,,RV and powersports: usage varies widely so earn on the greater of time and mileage
+ANCILLARY,TECH,*,pro_rata_mileage,,Technology coverage carries a mileage limit

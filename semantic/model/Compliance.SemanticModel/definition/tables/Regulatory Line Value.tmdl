@@ -1,0 +1,99 @@
+/// Every filed line value (funded reserve and market survey). Filing Line Value is blank until one Report Id, Line Item, Scope and Basis are in context; across windows only a LAST line (in force) shows, at its latest window.
+table 'Regulatory Line Value'
+
+	column 'Report ID'
+		dataType: string
+		isHidden
+		sourceColumn: REPORT_ID
+
+	column State
+		dataType: string
+		sourceColumn: STATE
+
+	column Scope
+		dataType: string
+		sourceColumn: SCOPE
+
+	column 'Window ID'
+		dataType: string
+		isHidden
+		sourceColumn: WINDOW_ID
+
+	column 'Window Label'
+		dataType: string
+		sourceColumn: WINDOW_LABEL
+
+	column 'Window Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: WINDOW_START
+
+	column 'Window End'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: WINDOW_END
+
+	column 'Is Final'
+		dataType: boolean
+		sourceColumn: IS_FINAL
+
+	column 'Provider Key'
+		dataType: string
+		isHidden
+		sourceColumn: PROVIDER_KEY
+
+	column 'Provider Name'
+		dataType: string
+		sourceColumn: PROVIDER_NAME
+
+	column Section
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: SECTION
+
+	column 'Line No'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: LINE_NO
+
+	column 'Line Item'
+		dataType: string
+		sourceColumn: LINE_ITEM
+
+	column Label
+		dataType: string
+		sourceColumn: LABEL
+
+	column Measure
+		dataType: string
+		sourceColumn: MEASURE
+
+	column Basis
+		dataType: string
+		sourceColumn: BASIS
+
+	column Aggregation
+		dataType: string
+		sourceColumn: AGGREGATION
+
+	column Value
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: VALUE
+
+	partition 'Regulatory Line Value' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "REGULATORY", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "MART_REGULATORY_LINE_VALUES", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = regulatory.mart_regulatory_line_values
+	annotation table_kind = fact

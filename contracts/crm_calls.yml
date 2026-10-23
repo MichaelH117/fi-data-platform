@@ -1,0 +1,34 @@
+# Data contract: call-center CRM -> intake `crm/<date>/calls.csv` -> raw_crm.calls.
+# Owner: Data Engineer. Producer: the CRM's nightly export (FULL first, then DELTA per day).
+# Consumer: `python -m ingest` (ingest/intake.py).
+#
+# File level: the manifest's sha256 and row_count must match the file, else the whole file is
+# rejected (every row quarantined, nothing loaded as valid). A file is loaded once (watermark =
+# sequence_no).
+# Row level (enforced here): required, type, pattern and strict accepted_values. Also enforced in
+# ingest/intake.py: at least one customer key (contract_number or phone_hash, else
+# `no_customer_key`) and a call_id that is unique within the file (`duplicate_call_id`).
+# Rejected rows go to raw_crm._quarantine with reject_reason and raw_json.
+# Keys: contract_number joins Admin Core contracts; phone_hash is sha256 of the digits of the
+# customer phone (generator/intake.py phone_hash), so a consumer can bridge calls with no contract
+# number through the same rule. No raw phone number ever leaves the CRM.
+version: 1
+source: crm
+file: calls.csv
+tables:
+  calls:
+    primary_key: [call_id]
+    columns:
+      call_id:               {type: string, required: true, pattern: 'CC[0-9]{13}'}
+      call_at:               {type: timestamp, required: true}
+      channel:               {type: string, required: true, accepted_values: [PHONE, CHAT, EMAIL], strict: true}
+      queue:                 {type: string, required: true}
+      reason:                {type: string, required: true, strict: true,
+                              accepted_values: [COMPLAINT, CANCEL_REQUEST, CLAIM_STATUS, COVERAGE_QUESTION, BILLING]}
+      disposition:           {type: string, accepted_values: [RESOLVED, ESCALATED, CALLBACK, TRANSFERRED]}
+      tenant_code:           {type: string, required: true, pattern: '[A-Z]{3}'}
+      contract_number:       {type: string, pattern: '[A-Z]{2,4}-[0-9]{8}'}
+      phone_hash:            {type: string, pattern: '[0-9a-f]{64}'}
+      complaint_category:    {type: string}
+      is_regulator_referral: {type: integer}
+      handle_seconds:        {type: integer}

@@ -1,0 +1,7 @@
+disbursement_type,pnl_line,pnl_group,sort_order,notes
+CLAIMS_RESERVE,Earned claims reserve,RESERVE,10,Posted-loss-ratio denominator (metrics.yml posted_loss_ratio; loss_ratio uses earned premium).
+ADMIN_FEE,Administration fee,ADMIN,20,Administrator revenue.
+COMMISSION,Commission,ACQUISITION,30,Agent commission expense.
+INSURER_FEE,Insurer fee,ACQUISITION,40,Contractual liability insurance fee.
+PREMIUM_TAX,Premium tax,ACQUISITION,50,State premium tax.
+PROFIT_SHARE_RESERVE,Profit-share reserve,PROFIT_SHARE,60,Held for dealer participation or the administrator.

@@ -1,0 +1,61 @@
+version: 2
+
+# Finance counting rules (docs/V3_DESIGN.md 2.4 Seeds): every rule the statements use lives here,
+# never in a code comment or a spreadsheet note.
+
+seeds:
+  - name: participation_structure_terms
+    description: Statement terms per dealer participation structure (who owns the reserve, dealer share, ceding fee, seasoning).
+    config:
+      column_types: {structure_type: varchar, owns_claims_reserve: boolean, default_dealer_share_pct: double,
+                     ceding_fee_pct: double, min_seasoning_months: integer, notes: varchar}
+    columns:
+      - name: structure_type
+        data_tests: [unique, not_null]
+      - name: default_dealer_share_pct
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "default_dealer_share_pct between 0 and 1"}
+
+  - name: pnl_line_map
+    description: Maps each cost-split bucket (disbursement_type) to a P&L line and group.
+    config:
+      column_types: {disbursement_type: varchar, pnl_line: varchar, pnl_group: varchar, sort_order: integer, notes: varchar}
+    columns:
+      - name: disbursement_type
+        data_tests: [unique, not_null]
+      - name: pnl_group
+        data_tests:
+          - accepted_values:
+              arguments: {values: [RESERVE, ADMIN, ACQUISITION, PROFIT_SHARE]}
+
+  - name: remit_aging_buckets
+    description: Remittance aging buckets (days from contract entry to cash receipt).
+    config:
+      column_types: {aging_bucket: varchar, min_days: integer, max_days: integer, sort_order: integer, notes: varchar}
+    columns:
+      - name: aging_bucket
+        data_tests: [unique, not_null]
+
+  - name: control_tolerances
+    description: Tolerances for the finance close controls (mart_disbursement_control_totals).
+    config:
+      column_types: {control_id: varchar, tolerance: double, notes: varchar}
+    columns:
+      - name: control_id
+        data_tests: [unique, not_null]
+
+  - name: profit_share_payout_schedule
+    description: >
+      When profit share is paid out per structure: once a year in payout_month, the share earned up
+      to the prior December (never paid twice; a later drop in the share is not clawed back here, it
+      shows as a negative closing balance until future surplus covers it).
+    config:
+      column_types: {structure_type: varchar, payout_month: integer, notes: varchar}
+    columns:
+      - name: structure_type
+        data_tests: [unique, not_null]
+      - name: payout_month
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "payout_month between 1 and 12"}

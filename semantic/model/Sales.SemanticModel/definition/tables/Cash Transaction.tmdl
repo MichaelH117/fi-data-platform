@@ -1,0 +1,124 @@
+table 'Cash Transaction'
+
+	column 'Cash Txn Key'
+		dataType: string
+		isHidden
+		sourceColumn: CASH_TXN_KEY
+
+	column 'Cash Txn ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CASH_TXN_ID
+
+	column 'Remit Batch ID'
+		dataType: string
+		isHidden
+		sourceColumn: REMIT_BATCH_ID
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Remit Status'
+		dataType: string
+		sourceColumn: REMIT_STATUS
+
+	column 'Remit Source'
+		dataType: string
+		sourceColumn: REMIT_SOURCE
+
+	column 'Entered At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: ENTERED_AT
+
+	column 'Sent At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: SENT_AT
+
+	column 'Received At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: RECEIVED_AT
+
+	column 'Posted At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTED_AT
+
+	column 'Posted Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTED_DATE_KEY
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTING_PERIOD_START_DATE
+
+	column 'Contract Entered Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: CONTRACT_ENTERED_DATE
+
+	column Amount
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: AMOUNT
+
+	column 'Remit Age Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: REMIT_AGE_DAYS
+
+	column 'Is Late'
+		dataType: boolean
+		sourceColumn: IS_LATE
+
+	column 'Late Fee'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: LATE_FEE
+
+	partition 'Cash Transaction' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_CASH_TRANSACTION", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_cash_transaction
+	annotation table_kind = fact

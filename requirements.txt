@@ -1,0 +1,14 @@
+# Local stack (no servers). Verified on Python 3.13.0 / Windows 11:
+# dbt-core 1.10.13 + dbt-duckdb 1.10.0 install and run cleanly on 3.13.
+duckdb==1.4.1
+dbt-core==1.10.13
+dbt-duckdb==1.10.0
+pandas==2.3.3
+numpy==2.3.4
+faker==37.11.0
+pyyaml==6.0.3
+jinja2==3.1.6
+plotly==6.3.1
+openpyxl==3.1.5
+pytest==8.4.2
+ruff==0.14.1

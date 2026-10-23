@@ -1,0 +1,52 @@
+# In-repo profile: run with --profiles-dir dbt. No secrets live here: every credential is an env var.
+# WAREHOUSE_PATH (absolute) wins; `python -m pipeline.run` always sets it.
+#
+# Targets (pick with --target or DBT_TARGET in Airflow):
+#   duckdb     the default and the only target run locally and in CI
+#   postgres   server warehouse (docker-compose `warehouse` service). Needs: pip install dbt-postgres
+#   snowflake  stub for the Snowflake layout in warehouse/snowflake/. Needs: pip install dbt-snowflake
+# The postgres and snowflake targets are written but not executed here (no servers, no paid accounts).
+# Environments: the duckdb target serves dev, UAT and prod locally; `python -m pipeline.run --env dev|uat|prod`
+# sets WAREHOUSE_PATH and DBT_TARGET_PATH per environment (pipeline/envs.py). tools/env_diff.py compares UAT with prod.
+warranty:
+  target: duckdb
+  outputs:
+    duckdb:
+      type: duckdb
+      path: "{{ env_var('WAREHOUSE_PATH', 'data/warehouse/warehouse.duckdb') }}"
+      threads: 4
+
+    # Server target. Standard libpq variable names, so psql and dbt read the same environment.
+    # Row-level security for it: warehouse/postgres/rls.sql.
+    postgres:
+      type: postgres
+      host: "{{ env_var('PGHOST', 'localhost') }}"
+      port: "{{ env_var('PGPORT', '5432') | int }}"
+      user: "{{ env_var('PGUSER', 'warehouse') }}"
+      password: "{{ env_var('PGPASSWORD', '') }}"
+      dbname: "{{ env_var('PGDATABASE', 'warehouse') }}"
+      schema: public
+      sslmode: "{{ env_var('PGSSLMODE', 'prefer') }}"
+      connect_timeout: 30
+      retries: 2
+      threads: 4
+
+    # Snowflake stub (warehouse/snowflake/README.md). Key-pair auth for the SVC_TRANSFORMER service
+    # user; the private key file lives in the orchestrator's secret store, never in the repo.
+    # Dev builds: SNOWFLAKE_DATABASE=ANALYTICS_DEV. UAT: ANALYTICS_UAT. Prod: ANALYTICS (default).
+    snowflake:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', 'SVC_TRANSFORMER') }}"
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH', '') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORMER') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'TRANSFORMING') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'ANALYTICS') }}"
+      schema: STAGING
+      threads: 8
+      query_tag: warranty_dbt
+      client_session_keep_alive: false
+      reuse_connections: true
+      connect_retries: 3
+      connect_timeout: 30

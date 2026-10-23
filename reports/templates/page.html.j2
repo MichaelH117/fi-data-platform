@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page.title }} · VSC Portfolio Reports</title>
+<meta name="description" content="{{ page.lede }}">
+<script>try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="stylesheet" href="{{ root }}assets/site.css">
+<script src="{{ root }}assets/plotly.min.js"></script>
+</head>
+{% macro cell(c) -%}
+  {%- if c is mapping and c.href is defined -%}<a href="{{ root }}{{ c.href }}">{{ c.text }}</a>
+  {%- elif c is mapping and c.status is defined and c.status -%}<span class="status status-{{ c.status }}"><span class="status-icon" aria-hidden="true"></span>{{ c.text }}</span>
+  {%- elif c is mapping -%}<span class="{{ c.cls | default('') }}">{{ c.text }}</span>
+  {%- else -%}{{ c }}{%- endif -%}
+{%- endmacro %}
+{% macro table(s) -%}
+<div class="table-wrap" tabindex="0" role="region" aria-label="{{ s.title }} table">
+<table>
+  <thead><tr>{% for c in s.cols %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row in s.rows %}
+    <tr>{% for c in row %}{% if loop.first %}<th scope="row">{{ cell(c) }}</th>{% else %}<td{% if c is string and c and c[:1] not in '0123456789$-' and c != 'n/a' %} class="text"{% endif %}>{{ cell(c) }}</td>{% endif %}{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{%- endmacro %}
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="{{ root }}index.html"><span class="brand-mark" aria-hidden="true"></span>VSC Portfolio Reports</a>
+    <nav aria-label="Reports">
+      {% for href, label in nav %}
+      <a href="{{ root }}{{ href }}"{% if href == active %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><span aria-hidden="true">◐</span></button>
+  </div>
+</header>
+<main id="main">
+  <div class="page-head">
+    {% if page.nav %}<p class="crumb"><a href="{{ root }}{{ page.nav }}">← {{ page.crumb or 'All dealers' }}</a></p>{% endif %}
+    <h1>{{ page.title }}</h1>
+    <p class="lede">{{ page.lede }}</p>
+  </div>
+
+  {% if page.kpis %}
+  <section class="kpis" aria-label="Key figures">
+    {% for k in page.kpis %}
+    <div class="kpi">
+      <p class="kpi-label">{{ k.label }}</p>
+      <p class="kpi-value">{{ k.value }}</p>
+      {% if k.status %}<p class="status status-{{ k.status }}"><span class="status-icon" aria-hidden="true"></span>{{ {'good': 'On track', 'warning': 'Watch', 'critical': 'Action needed'}[k.status] }}</p>{% endif %}
+      {% if k.sub %}<p class="kpi-sub">{{ k.sub }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <div class="grid">
+  {% for s in page.sections %}
+    <section class="card{% if s.wide %} wide{% endif %}" aria-labelledby="s{{ loop.index }}">
+      <h2 id="s{{ loop.index }}">{{ s.title }}</h2>
+      <p class="what">{{ s.caption }}</p>
+      {% if s.chart %}
+        {{ chart(s.chart) }}
+        {% if s.rows %}
+        <details class="data-view"><summary>Show data</summary>{{ table(s) }}</details>
+        {% endif %}
+      {% elif s.rows %}
+        {{ table(s) }}
+      {% endif %}
+      {% if s.note %}<p class="note">{{ s.note }}</p>{% endif %}
+    </section>
+  {% endfor %}
+  </div>
+</main>
+<footer class="foot">
+  <p>Synthetic data for a portfolio project. Data as of {{ as_of.strftime('%b %d, %Y') }}; complete months through {{ last_month }}.
+  Metric definitions: docs/METRICS.md. Built by <code>python -m reports</code>.</p>
+</footer>
+<script src="{{ root }}assets/site.js"></script>
+</body>
+</html>

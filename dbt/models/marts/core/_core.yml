@@ -1,0 +1,387 @@
+version: 2
+
+# Core star schema (schema `core`). Build new work on these models only.
+# Every financial fact carries posting_period_key (INTEGER yyyymm, FK to dim_posting_period).
+# Only reportable rows are here: demo dealers and test ranges are removed once, in
+# intermediate.int_reportable_scope. Unknown members use key '-1'.
+
+models:
+  - name: dim_date
+    description: Calendar day dimension and the MetricFlow time spine.
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+      - name: date_day
+        granularity: day
+        data_tests: [unique, not_null]
+
+  - name: dim_posting_period
+    description: Accounting months with close date and is_closed (period lock, docs/V3_DESIGN.md 2.5).
+    columns:
+      - name: posting_period_key
+        data_tests: [unique, not_null]
+
+  - name: dim_tenant
+    description: White-label administrators and their branding (tenant_key = Admin Core tenant_id).
+    columns:
+      - name: tenant_key
+        data_tests: [unique, not_null]
+      - name: tenant_code
+        data_tests: [unique, not_null]
+
+  - name: dim_dealer
+    description: >
+      Current dealer rows (history in snapshots.snap_dealer); demo dealers excluded; '-1' = unknown.
+      Dealer participation (who carries the risk) comes from dim_participation_entity, the same
+      entities finance's cession / experience mart reports; reinsurance_company is a legacy
+      free-text attribute kept for lineage only.
+    columns:
+      - name: dealer_key
+        data_tests: [unique, not_null]
+      - name: dealer_number
+        data_tests: [unique, not_null]
+      - name: participation_entity_key
+        description: The dealer's participation entity (NULL = no dealer participation).
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_participation_entity'), field: participation_entity_key}
+          - relationships:
+              name: dim_dealer_participation_in_cession_experience
+              arguments: {to: ref('mart_cession_experience'), field: participation_entity_key}
+      - name: participation_structure
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [DEALER_OWNED_OBLIGOR, CFC, NCFC, PORC, RETRO, PROFIT_SHARE]
+      - name: participation_label
+        description: "Display label: '<entity name>, <structure>', or 'no dealer participation'. Never NULL."
+        data_tests: [not_null]
+      - name: reinsurance_company
+        description: LEGACY admin-system free text (not a finance participation entity). Lineage only.
+
+  - name: dim_dealer_group
+    columns:
+      - name: dealer_group_key
+        data_tests: [unique, not_null]
+
+  - name: dim_agent
+    columns:
+      - name: agent_key
+        data_tests: [unique, not_null]
+
+  - name: dim_product
+    description: Product hierarchy at plan x program grain, from the complete Admin Core catalog.
+    columns:
+      - name: product_key
+        data_tests: [unique, not_null]
+
+  - name: dim_account_holder
+    columns:
+      - name: account_holder_key
+        data_tests: [unique, not_null]
+
+  - name: dim_obligor
+    columns:
+      - name: obligor_key
+        data_tests: [unique, not_null]
+
+  - name: dim_insurer
+    columns:
+      - name: insurer_key
+        data_tests: [unique, not_null]
+
+  - name: dim_participation_entity
+    columns:
+      - name: participation_entity_key
+        data_tests: [unique, not_null]
+
+  - name: dim_contract
+    description: Contract core, one row per reportable contract from both systems, plus '-1'.
+    columns:
+      - name: contract_key
+        description: md5('<source_system>|<source contract id>') (int_contract_key_bridge).
+        data_tests: [unique, not_null]
+      - name: dealer_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_dealer'), field: dealer_key}
+      - name: product_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_product'), field: product_key}
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [PENDING, INFORCE, CANCELLED, EXPIRED, VOIDED, DENIED, REINSTATEMENT_VOIDED, REINSTATEMENT_DENIED]
+              config: {where: "contract_key <> '-1'"}
+      - name: obligor_basis
+        description: SOURCE (obligor on the record), CONVERSION_STATE_MAP (legacy book, mapped at conversion) or MISSING.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [SOURCE, CONVERSION_STATE_MAP, MISSING]
+              config: {where: "contract_key <> '-1'"}
+
+  - name: dim_contract_terms
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+  - name: dim_contract_finance
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+  - name: dim_contract_vehicle
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+  - name: dim_contract_actuarial_class
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+  - name: dim_contract_claim_summary
+    description: Per-contract claim roll-up DERIVED from fct_claim_payment_line.
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+
+  - name: dim_claim
+    description: One row per claim (both systems, converted claims once). No money columns.
+    columns:
+      - name: claim_key
+        description: md5('claim|' || ltrim(claim_no, '0')) (int_claim_number_bridge).
+        data_tests: [unique, not_null]
+      - name: contract_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_contract'), field: contract_key}
+
+  - name: fct_transaction
+    description: One row per accounting transaction (coverage-cost basis).
+    columns:
+      - name: txn_key
+        data_tests: [unique, not_null]
+      - name: posting_period_key
+        data_tests: [not_null]
+      - name: txn_type
+        data_tests:
+          - accepted_values:
+              arguments: {values: [SALE, CANCEL, REINSTATE, AMEND, CASH]}
+
+  - name: fct_disbursement
+    description: Transaction x disbursement type x account holder.
+    columns:
+      - name: disbursement_key
+        data_tests: [unique, not_null]
+      - name: posting_period_key
+        data_tests: [not_null]
+
+  - name: fct_earned_disbursement
+    description: >
+      Contract x disbursement type x posting period x earned month (pro-rata default, R78 via var),
+      plus a cancel true-up in the cancel's posting period so earned + refunded = written once
+      cancelled. Earning a month already closed when the contract activated is booked in the first
+      open period (earned_month_key keeps the true month); a VOID after activation posts a reversal.
+      Closed periods are never restated (test core_earned_never_restates_closed_periods).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [contract_key, disbursement_type, posting_period_key, earned_month_key]}
+    columns:
+      - name: posting_period_key
+        data_tests: [not_null]
+      - name: earned_month_key
+        data_tests:
+          - not_null
+          - expression_is_true:
+              arguments: {expression: "earned_month_key <= posting_period_key"}
+
+  - name: fct_gross_premium
+    description: Contract x posting period of sale or amendment.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [contract_key, posting_period_key]}
+    columns:
+      - name: posting_period_key
+        data_tests: [not_null]
+
+  - name: fct_cancellation
+    columns:
+      - name: cancel_key
+        data_tests: [unique, not_null]
+      - name: posting_period_key
+        data_tests: [not_null]
+
+  - name: fct_reinstatement
+    columns:
+      - name: reinstatement_key
+        data_tests: [unique, not_null]
+      - name: posting_period_key
+        data_tests: [not_null]
+
+  - name: fct_claim_payment_line
+    description: THE claims fact (payment-line grain). Every claim roll-up is derived from it.
+    columns:
+      - name: line_key
+        data_tests: [unique, not_null]
+      - name: claim_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_claim'), field: claim_key}
+      - name: posting_period_key
+        data_tests: [not_null]
+      - name: paid_amount
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "paid_amount >= 0"}
+
+  - name: fct_claim_history
+    columns:
+      - name: claim_history_key
+        data_tests: [unique, not_null]
+      - name: posting_period_key
+        data_tests: [not_null]
+
+  - name: fct_cash_transaction
+    columns:
+      - name: cash_txn_key
+        data_tests: [unique, not_null]
+      - name: posting_period_key
+        data_tests: [not_null]
+
+  - name: fct_commission
+    columns:
+      - name: commission_key
+        data_tests: [unique, not_null]
+      - name: posting_period_key
+        data_tests: [not_null]
+
+  - name: fct_contract_monthly
+    description: >
+      Contract x month earning and claims (accident-month basis). Kept for actuarial/. row_type EARN
+      is one row per contract x month; VOID_REVERSAL reverses a contract voided after activation;
+      WRITTEN_CATCH_UP books a later AMEND (written + its share of months already booked) in the
+      AMEND's posting period, so an AMEND never re-prices a closed period.
+      posting_period_key is where the month is booked (catch-up into the first open period when the
+      month was closed at activation); month_start / earned_month_key is the month being earned.
+    columns:
+      - name: contract_month_key
+        data_tests: [unique, not_null]
+      - name: posting_period_key
+        data_tests: [not_null]
+      - name: row_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [EARN, VOID_REVERSAL, WRITTEN_CATCH_UP]
+
+  - name: dim_reporting_date
+    description: One row with the as-of date, cutover date and current / last closed posting period.
+    data_tests:
+      - expression_is_true:
+          arguments: {expression: "as_of_date is not null"}
+
+  - name: dim_user_dealer_access
+    description: RLS map portal user -> tenant, dealer (semantic RLS table, dealer packets, portal).
+    columns:
+      - name: user_key
+        data_tests: [unique, not_null]
+      - name: dealer_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_dealer'), field: dealer_key}
+
+  - name: mart_migration_parallel_run
+    description: >
+      Migration parallel run at cutover: the same claims and contracts counted in the legacy system
+      and in Admin Core (rows, dollars, difference, documented exclusion, status).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [entity, posting_period_key]}
+    columns:
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [TIED, TIED_AFTER_EXCLUSIONS, NOT_MIGRATED, BREAK]
+
+  - name: fct_call_center_contact
+    description: >
+      Call-center contacts from the CRM export, one row per call_id. Contract resolved by contract
+      number, else a unique phone hash (int_call_contract_bridge); '-1' = unresolved. Demo / test
+      contracts excluded. claim_key = the claim a CLAIM_STATUS contact is about (NULL otherwise).
+    columns:
+      - name: call_key
+        data_tests: [unique, not_null]
+      - name: call_id
+        data_tests: [unique, not_null]
+      - name: call_date
+        data_tests: [not_null]
+      - name: contract_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_contract'), field: contract_key}
+      - name: dealer_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_dealer'), field: dealer_key}
+      - name: claim_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_claim'), field: claim_key}
+      - name: contract_match_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [CONTRACT_NUMBER, PHONE_HASH, UNRESOLVED]
+      - name: reason
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [COMPLAINT, CANCEL_REQUEST, CLAIM_STATUS, COVERAGE_QUESTION, BILLING]
+
+  - name: mart_claim_contact_by_dealer
+    description: >
+      Call-center contacts per claim, by dealer and claim-reported month, from the CRM go-live:
+      claim_contact_rate = claims_contacted / claims_reported, repeat_contact_rate =
+      repeat_contact_claims / claims_contacted, contacts_per_claim = claim_status_contacts /
+      claims_reported. Ties to fct_call_center_contact (dbt/tests/reconciliation/recon_call_contacts_tie.sql).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [dealer_key, reported_month]}
+      - expression_is_true:
+          arguments: {expression: "claims_contacted <= claims_reported and repeat_contact_claims <= claims_contacted"}
+    columns:
+      - name: dealer_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_dealer'), field: dealer_key}
+
+
+  - name: mart_intake_quarantine
+    description: >
+      One row per rejected intake row, all sources: reject reason and control family, the row's
+      business key, and its resolution (replayed = key later accepted from a corrected or re-sent
+      file; duplicate_dropped = an accepted copy exists; recovered = legacy row replayed by staging;
+      open = still missing). Feeds the data quality page.
+    columns:
+      - name: reject_row_key
+        data_tests: [unique, not_null]
+      - name: source_system
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [network_feed, crm, admin_api, legacy_admin]
+      - name: resolution_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [replayed, duplicate_dropped, recovered, open]

@@ -1,0 +1,20 @@
+# Data contract: dealer-integration network -> landing `remittance.csv` (dealer remittance register).
+# Owner: Data Engineer. Consumer: `python -m ingest.feed`.
+# File-level rules as in feed_deals.yml. Business rules (ingest/feed.py): the contract must exist
+# in Admin Core (else `unknown_contract`, e.g. a remittance without a deal), must still be PENDING
+# (VOIDED/DENIED -> `contract_not_remittable`, already paid -> `duplicate_remittance`) and must
+# belong to the remitting dealer (`dealer_mismatch`). A late remittance is valid: lateness and
+# late fees are computed downstream from entered/sent/received dates.
+version: 1
+source: network_feed
+file: remittance.csv
+tables:
+  remittance:
+    primary_key: [remit_batch_id, contract_number]
+    columns:
+      remit_batch_id:  {type: string, required: true}
+      dealer_number:   {type: string, required: true, pattern: 'D[0-9]{4}'}
+      contract_number: {type: string, required: true}
+      remit_amount:    {type: number, required: true}
+      remit_date:      {type: date, required: true}   # date the dealer sent the batch
+      entered_date:    {type: date}                   # date the dealer entered the batch

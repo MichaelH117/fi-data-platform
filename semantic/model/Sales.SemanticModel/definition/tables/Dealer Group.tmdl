@@ -1,0 +1,41 @@
+table 'Dealer Group'
+
+	column 'Dealer Group Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: DEALER_GROUP_KEY
+
+	column 'Dealer Group ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: DEALER_GROUP_ID
+
+	column 'Group Code'
+		dataType: string
+		sourceColumn: GROUP_CODE
+
+	column 'Group Name'
+		dataType: string
+		sourceColumn: GROUP_NAME
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	partition 'Dealer Group' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_DEALER_GROUP", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_dealer_group
+	annotation table_kind = dim

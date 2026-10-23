@@ -1,0 +1,52 @@
+/// One row: as-of date and current period. Caps the calculation group at the as-of period.
+table 'Reporting Date'
+
+	column 'As Of Date'
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		sourceColumn: AS_OF_DATE
+
+	column 'As Of Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: AS_OF_DATE_KEY
+
+	column 'Cutover Date'
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		sourceColumn: CUTOVER_DATE
+
+	column 'Current Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CURRENT_PERIOD_KEY
+
+	column 'Last Closed Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: LAST_CLOSED_PERIOD_KEY
+
+	column 'Last Complete Month'
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		sourceColumn: LAST_COMPLETE_MONTH
+
+	partition 'Reporting Date' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_REPORTING_DATE", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_reporting_date
+	annotation table_kind = helper

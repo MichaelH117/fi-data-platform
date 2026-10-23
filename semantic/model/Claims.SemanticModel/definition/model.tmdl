@@ -1,0 +1,35 @@
+/// Claims domain model: Claims at payment-line grain, status flow, severity and denial, plus accident-month loss ratio.
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+	annotation domain = Claims
+	annotation generated_by = python -m semantic (from dbt/models/metrics.yml)
+	annotation storage_mode = import; incremental refresh on large facts (semantic/README.md)
+
+ref table Measures
+ref table 'Time Intelligence'
+ref table 'Drill Level'
+ref table 'Claim Payment Line'
+ref table 'Claim History'
+ref table 'Contract Month'
+ref table 'Claim Summary'
+ref table 'Posting Period'
+ref table Tenant
+ref table Dealer
+ref table 'Dealer Group'
+ref table Product
+ref table Contract
+ref table 'Contract Vehicle'
+ref table 'Contract Actuarial Class'
+ref table 'Contract Claim Summary'
+ref table Claim
+ref table 'Account Holder'
+ref table 'Security User Access'
+ref table 'Reporting Date'
+ref table 'Payee Dealer Access'
+
+ref role Internal
+ref role 'Tenant Partner'
+ref role 'Dealer User'

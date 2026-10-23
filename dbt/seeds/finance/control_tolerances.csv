@@ -1,0 +1,2 @@
+control_id,tolerance,notes
+split_rounding_per_line,0.005,Each cost-split bucket is rounded to the cent on its own; a prorated cancel can leave up to half a cent per split line.

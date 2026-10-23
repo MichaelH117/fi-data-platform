@@ -1,0 +1,168 @@
+/// Funded-reserve filing lines (state x provider x scope x basis x filing window). The filing measures read the default basis and, unless one Scope is sliced, the ITD rows only (each state's latest filing), so ITD and PERIOD are never added together.
+table 'Funded Reserve Filing'
+
+	column 'Filing Line Key'
+		dataType: string
+		isHidden
+		sourceColumn: FILING_LINE_KEY
+
+	column State
+		dataType: string
+		sourceColumn: STATE
+
+	column 'Provider Key'
+		dataType: string
+		isHidden
+		sourceColumn: PROVIDER_KEY
+
+	column 'Provider Name'
+		dataType: string
+		sourceColumn: PROVIDER_NAME
+
+	column Scope
+		dataType: string
+		sourceColumn: SCOPE
+
+	column Basis
+		dataType: string
+		sourceColumn: BASIS
+
+	column 'Is Default Basis'
+		dataType: boolean
+		sourceColumn: IS_DEFAULT_BASIS
+
+	column 'Period Label'
+		dataType: string
+		sourceColumn: PERIOD_LABEL
+
+	column 'Period Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: PERIOD_START
+
+	column 'Period End'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: PERIOD_END
+
+	column 'Is Final'
+		dataType: boolean
+		sourceColumn: IS_FINAL
+
+	column 'Method Code'
+		dataType: string
+		sourceColumn: METHOD_CODE
+
+	column 'Reserve Rate'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: RESERVE_RATE
+
+	column 'Security Deposit Rate'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: SECURITY_DEPOSIT_RATE
+
+	column 'Contracts In Force'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CONTRACTS_IN_FORCE
+
+	column 'New Contracts Written'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: NEW_CONTRACTS_WRITTEN
+
+	column 'Complaints Received'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: COMPLAINTS_RECEIVED
+
+	column 'Claims Paid Count'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CLAIMS_PAID_COUNT
+
+	column 'Claims Denied Count'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CLAIMS_DENIED_COUNT
+
+	column 'Claims Paid Amount All'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CLAIMS_PAID_AMOUNT_ALL
+
+	column 'Gross Consideration'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: GROSS_CONSIDERATION
+
+	column 'Claims Paid Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CLAIMS_PAID_AMOUNT
+
+	column 'Net Consideration'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: NET_CONSIDERATION
+
+	column 'Calculated Reserve'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CALCULATED_RESERVE
+
+	column 'Security Deposit'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: SECURITY_DEPOSIT
+
+	column 'Current Reserve'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CURRENT_RESERVE
+
+	column 'Reserve Shortfall'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: RESERVE_SHORTFALL
+
+	column 'Mapped Contracts'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: MAPPED_CONTRACTS
+
+	column Notes
+		dataType: string
+		sourceColumn: NOTES
+
+	partition 'Funded Reserve Filing' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "REGULATORY", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "MART_FUNDED_RESERVE_SUMMARY", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = regulatory.mart_funded_reserve_summary
+	annotation table_kind = fact

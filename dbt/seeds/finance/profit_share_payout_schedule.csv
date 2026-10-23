@@ -1,0 +1,7 @@
+structure_type,payout_month,notes
+DEALER_OWNED_OBLIGOR,3,Annual release: the surplus earned to the prior December is released to the dealer in March.
+CFC,3,Annual dividend from the reinsurer: surplus earned to the prior December paid in March.
+NCFC,3,Annual dividend from the reinsurer: surplus earned to the prior December paid in March.
+PORC,3,Annual dividend from the reinsurer: surplus earned to the prior December paid in March.
+RETRO,3,Annual retrospective settlement in March on the share earned to the prior December.
+PROFIT_SHARE,3,Annual profit-share check in March on the share earned to the prior December.

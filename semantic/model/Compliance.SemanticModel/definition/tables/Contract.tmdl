@@ -1,0 +1,171 @@
+/// Contract core only; terms, finance, vehicle, class and claim summary are separate dims.
+table Contract
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: CONTRACT_KEY
+
+	column 'Contract Number'
+		dataType: string
+		sourceColumn: CONTRACT_NUMBER
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: SOURCE_SYSTEM
+
+	column 'Source Contract ID'
+		dataType: string
+		isHidden
+		sourceColumn: SOURCE_CONTRACT_ID
+
+	column Status
+		dataType: string
+		sourceColumn: STATUS
+
+	column 'Entered Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: ENTERED_DATE
+
+	column 'Entered Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: ENTERED_DATE_KEY
+
+	column 'Effective Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: EFFECTIVE_DATE
+
+	column 'Effective Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: EFFECTIVE_DATE_KEY
+
+	column 'Expiration Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: EXPIRATION_DATE
+
+	column 'Expiration Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: EXPIRATION_DATE_KEY
+
+	column 'Entered Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: ENTERED_YEAR
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Dealer Number'
+		dataType: string
+		sourceColumn: DEALER_NUMBER
+
+	column 'Agent Key'
+		dataType: string
+		isHidden
+		sourceColumn: AGENT_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Product Code'
+		dataType: string
+		sourceColumn: PRODUCT_CODE
+
+	column 'Subcategory Code'
+		dataType: string
+		sourceColumn: SUBCATEGORY_CODE
+
+	column 'Category Code'
+		dataType: string
+		sourceColumn: CATEGORY_CODE
+
+	column 'Plan Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: PLAN_YEAR
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Reportable State'
+		dataType: string
+		sourceColumn: REPORTABLE_STATE
+
+	column 'Original Obligor Key'
+		dataType: string
+		isHidden
+		sourceColumn: ORIGINAL_OBLIGOR_KEY
+
+	column 'Current Obligor Key'
+		dataType: string
+		isHidden
+		sourceColumn: CURRENT_OBLIGOR_KEY
+
+	column 'Obligor Basis'
+		dataType: string
+		sourceColumn: OBLIGOR_BASIS
+
+	column 'Insurer Key'
+		dataType: string
+		isHidden
+		sourceColumn: INSURER_KEY
+
+	column 'Deal ID'
+		dataType: string
+		isHidden
+		sourceColumn: DEAL_ID
+
+	column 'Cancel Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: CANCEL_DATE
+
+	column 'Cancel Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CANCEL_DATE_KEY
+
+	column 'Is Cancelled'
+		dataType: boolean
+		sourceColumn: IS_CANCELLED
+
+	column 'Is Dealer Code Missing'
+		dataType: boolean
+		sourceColumn: IS_DEALER_CODE_MISSING
+
+	column 'Is Recovered From Quarantine'
+		dataType: boolean
+		sourceColumn: IS_RECOVERED_FROM_QUARANTINE
+
+	partition Contract = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_CONTRACT", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract
+	annotation table_kind = dim

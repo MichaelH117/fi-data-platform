@@ -1,0 +1,84 @@
+table Reinstatement
+
+	column 'Reinstatement Key'
+		dataType: string
+		isHidden
+		sourceColumn: REINSTATEMENT_KEY
+
+	column 'Reinstatement ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: REINSTATEMENT_ID
+
+	column 'Cancel Key'
+		dataType: string
+		isHidden
+		sourceColumn: CANCEL_KEY
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column Status
+		dataType: string
+		sourceColumn: STATUS
+
+	column 'Reinstated At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: REINSTATED_AT
+
+	column 'Reinstated Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: REINSTATED_DATE_KEY
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTING_PERIOD_START_DATE
+
+	column 'Reversal Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: REVERSAL_AMOUNT
+
+	partition Reinstatement = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_REINSTATEMENT", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_reinstatement
+	annotation table_kind = fact

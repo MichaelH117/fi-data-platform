@@ -1,0 +1,72 @@
+/// Accounting calendar. The only table the calculation group filters.
+table 'Posting Period'
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		isKey
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Period Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: PERIOD_START
+
+	column 'Period End'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: PERIOD_END
+
+	column 'Close Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: CLOSE_DATE
+
+	column 'Is Closed'
+		dataType: boolean
+		sourceColumn: IS_CLOSED
+
+	column 'Fiscal Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: FISCAL_YEAR
+
+	column 'Fiscal Quarter'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: FISCAL_QUARTER
+
+	column 'Fiscal Month'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: FISCAL_MONTH
+
+	column 'Period Label'
+		dataType: string
+		sourceColumn: PERIOD_LABEL
+
+	hierarchy 'Fiscal Calendar'
+
+		level 'Fiscal Year'
+			column: 'Fiscal Year'
+
+		level 'Fiscal Quarter'
+			column: 'Fiscal Quarter'
+
+		level 'Period Label'
+			column: 'Period Label'
+
+	partition 'Posting Period' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_POSTING_PERIOD", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_posting_period
+	annotation table_kind = dim

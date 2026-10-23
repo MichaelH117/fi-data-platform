@@ -1,0 +1,120 @@
+/// Largest table (contract x type x period); never restated after close, ideal for incremental.
+table 'Earned Disbursement'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Disbursement Type'
+		dataType: string
+		sourceColumn: DISBURSEMENT_TYPE
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTING_PERIOD_START_DATE
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: MONTH_START
+
+	column 'Earned Month Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_MONTH_KEY
+
+	column 'Written Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: WRITTEN_AMOUNT
+
+	column 'Earned Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_PCT
+
+	column 'Earned Pct Cumulative'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_PCT_CUMULATIVE
+
+	column 'Earned Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_AMOUNT
+
+	column 'Cancel True Up Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CANCEL_TRUE_UP_AMOUNT
+
+	column 'Earned Reserve'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: EARNED_RESERVE
+
+	partition 'Earned Disbursement' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_EARNED_DISBURSEMENT", Kind = "Table"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [POSTING_PERIOD_KEY] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [POSTING_PERIOD_KEY] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 10
+		incrementalGranularity: month
+		incrementalPeriods: 3
+		sourceExpression =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_EARNED_DISBURSEMENT", Kind = "Table"]}[Data],
+				    Filtered = Table.SelectRows(Data, each
+				        [POSTING_PERIOD_KEY] >= Date.Year(RangeStart) * 100 + Date.Month(RangeStart)
+				        and [POSTING_PERIOD_KEY] < Date.Year(RangeEnd) * 100 + Date.Month(RangeEnd))
+				in
+				    Filtered
+
+	annotation source_table = core.fct_earned_disbursement
+	annotation table_kind = fact

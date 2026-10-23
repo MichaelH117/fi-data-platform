@@ -1,0 +1,43 @@
+/// White-label administrator and branding.
+table Tenant
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		isKey
+		sourceColumn: TENANT_KEY
+
+	column 'Tenant Code'
+		dataType: string
+		sourceColumn: TENANT_CODE
+
+	column 'Reportable Name'
+		dataType: string
+		sourceColumn: REPORTABLE_NAME
+
+	column 'Logo Path'
+		dataType: string
+		sourceColumn: LOGO_PATH
+
+	column 'Primary Color'
+		dataType: string
+		sourceColumn: PRIMARY_COLOR
+
+	column 'Secondary Color'
+		dataType: string
+		sourceColumn: SECONDARY_COLOR
+
+	partition Tenant = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_TENANT", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_tenant
+	annotation table_kind = dim

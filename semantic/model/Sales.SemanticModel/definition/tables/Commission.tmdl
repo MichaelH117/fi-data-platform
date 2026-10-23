@@ -1,0 +1,90 @@
+table Commission
+
+	column 'Commission Key'
+		dataType: string
+		isHidden
+		sourceColumn: COMMISSION_KEY
+
+	column 'Commission ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: COMMISSION_ID
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Agent Key'
+		dataType: string
+		isHidden
+		sourceColumn: AGENT_KEY
+
+	column 'Posted At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTED_AT
+
+	column 'Posted Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTED_DATE_KEY
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTING_PERIOD_START_DATE
+
+	column Amount
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: AMOUNT
+
+	column 'Share Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: SHARE_PCT
+
+	column 'Is Advance'
+		dataType: boolean
+		sourceColumn: IS_ADVANCE
+
+	partition Commission = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_COMMISSION", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_commission
+	annotation table_kind = fact

@@ -1,0 +1,49 @@
+table Agent
+
+	column 'Agent Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: AGENT_KEY
+
+	column 'Agent ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: AGENT_ID
+
+	column 'Agent Code'
+		dataType: string
+		sourceColumn: AGENT_CODE
+
+	column 'Agent Name'
+		dataType: string
+		sourceColumn: AGENT_NAME
+
+	column Territory
+		dataType: string
+		sourceColumn: TERRITORY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Has Advance Agreement'
+		dataType: boolean
+		sourceColumn: HAS_ADVANCE_AGREEMENT
+
+	partition Agent = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_AGENT", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_agent
+	annotation table_kind = dim

@@ -1,0 +1,162 @@
+table Claim
+
+	column 'Claim Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: CLAIM_KEY
+
+	column 'Claim Number'
+		dataType: string
+		sourceColumn: CLAIM_NUMBER
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: SOURCE_SYSTEM
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Has Contract Key'
+		dataType: boolean
+		isHidden
+		sourceColumn: HAS_CONTRACT_KEY
+
+	column 'Is Converted'
+		dataType: boolean
+		sourceColumn: IS_CONVERTED
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column Status
+		dataType: string
+		sourceColumn: STATUS
+
+	column Substatus
+		dataType: string
+		sourceColumn: SUBSTATUS
+
+	column 'Status Group'
+		dataType: string
+		sourceColumn: STATUS_GROUP
+
+	column 'Denied Reason'
+		dataType: string
+		sourceColumn: DENIED_REASON
+
+	column 'Denied Category'
+		dataType: string
+		sourceColumn: DENIED_CATEGORY
+
+	column 'Adjuster User ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: ADJUSTER_USER_ID
+
+	column 'Repair Facility Key'
+		dataType: string
+		isHidden
+		sourceColumn: REPAIR_FACILITY_KEY
+
+	column 'Repair Facility ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: REPAIR_FACILITY_ID
+
+	column 'Repair Category'
+		dataType: string
+		sourceColumn: REPAIR_CATEGORY
+
+	column 'Repair Order'
+		dataType: string
+		sourceColumn: REPAIR_ORDER
+
+	column 'Is Goodwill'
+		dataType: boolean
+		sourceColumn: IS_GOODWILL
+
+	column 'Is Towing'
+		dataType: boolean
+		sourceColumn: IS_TOWING
+
+	column 'Is Authorization Required'
+		dataType: boolean
+		sourceColumn: IS_AUTHORIZATION_REQUIRED
+
+	column 'Loss Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: LOSS_DATE
+
+	column 'Loss Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: LOSS_DATE_KEY
+
+	column 'Reported Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: REPORTED_DATE
+
+	column 'Reported Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: REPORTED_DATE_KEY
+
+	column 'Odometer At Loss'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: ODOMETER_AT_LOSS
+
+	column 'Requested Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: REQUESTED_AMOUNT
+
+	column 'Deductible Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: DEDUCTIBLE_AMOUNT
+
+	column 'Report Lag Days'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: REPORT_LAG_DAYS
+
+	column 'Is Late Reported'
+		dataType: boolean
+		sourceColumn: IS_LATE_REPORTED
+
+	column 'Aging 30 Plus'
+		dataType: boolean
+		sourceColumn: AGING_30_PLUS
+
+	column 'Is Amount Sign Fixed'
+		dataType: boolean
+		isHidden
+		sourceColumn: IS_AMOUNT_SIGN_FIXED
+
+	partition Claim = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_CLAIM", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_claim
+	annotation table_kind = dim

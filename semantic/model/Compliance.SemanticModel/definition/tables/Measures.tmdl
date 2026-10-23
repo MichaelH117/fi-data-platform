@@ -1,0 +1,286 @@
+/// Every measure is generated from dbt/models/metrics.yml (annotation dbt_metric).
+table Measures
+
+	/// Contracts sold in the posting period (sales only; amendments add 0), from core.fct_gross_premium.
+	measure 'Contracts Written' = SUM('Gross Premium'[Contracts Written])
+		formatString: #,0
+		displayFolder: Sales
+		annotation dbt_metric = contracts_written
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Coverage cost (dealer cost) written in the posting period. The executive overview shows it as Written coverage cost.
+	measure 'Gross Coverage Cost' = SUM('Gross Premium'[Coverage Cost])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Sales
+		annotation dbt_metric = gross_coverage_cost
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Gross consideration on the retail basis.
+	measure 'Gross Retail Price' = SUM('Gross Premium'[Retail Price])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Sales
+		annotation dbt_metric = gross_retail_price
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Gross purchase price
+	measure 'Gross Purchase Price' = SUM('Gross Premium'[Purchase Price])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Sales
+		annotation dbt_metric = gross_purchase_price
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Contracts in force at month end (a balance: it never sums across months).
+	measure 'Contracts In Force' =
+			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
+			VAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)
+			RETURN
+			    CALCULATE(CALCULATE(COUNTROWS('Contract Month'), 'Contract Month'[Is In Force Eom] = TRUE()), 'Posting Period'[Posting Period Key] = _period)
+		formatString: #,0
+		displayFolder: Portfolio
+		annotation dbt_metric = contracts_in_force
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Cancellations
+	measure Cancellations = COUNTROWS('Cancellation')
+		formatString: #,0
+		displayFolder: Cancellations
+		annotation dbt_metric = cancellations
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Cancels not later reinstated.
+	measure 'Effective Cancellations' = CALCULATE(COUNTROWS('Cancellation'), 'Cancellation'[Is Effective Cancel] = TRUE())
+		formatString: #,0
+		displayFolder: Cancellations
+		annotation dbt_metric = effective_cancellations
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Customer refunds
+	measure 'Customer Refunds' = SUM('Cancellation'[Customer Refund])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = customer_refunds
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Cancel fees
+	measure 'Cancel Fees' = SUM('Cancellation'[Cancel Fee])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = cancel_fees
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Dealer portion of the refund (chargeback).
+	measure 'Dealer Chargebacks' = SUM('Cancellation'[Dealer Portion])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = dealer_chargebacks
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Coverage cost refunds
+	measure 'Coverage Cost Refunds' = SUM('Cancellation'[Coverage Cost Refund])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Cancellations
+		annotation dbt_metric = coverage_cost_refunds
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Net coverage cost (gross - coverage cost refunds)
+	measure 'Net Coverage Cost' = [Gross Coverage Cost] - [Coverage Cost Refunds]
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Sales
+		annotation dbt_metric = net_coverage_cost
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claim dollars paid (always positive after conforming).
+	measure 'Claims Paid' = SUM('Claim Payment Line'[Paid Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_paid
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Paid plus change in case reserve (as posted).
+	measure 'Claims Incurred' = SUM('Claim Payment Line'[Incurred Change])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_incurred
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Change in outstanding case reserve.
+	measure 'Claims Reserve Change' = SUM('Claim Payment Line'[Pending Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_reserve_change
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims with posted activity
+	measure 'Claims With Activity' = DISTINCTCOUNT('Claim Payment Line'[Claim Key])
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_with_activity
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Average claim process days
+	measure 'Average Claim Process Days' = AVERAGE('Claim Payment Line'[Process Days])
+		formatString: #,0.00
+		displayFolder: Claims
+		annotation dbt_metric = avg_claim_process_days
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims reported (both systems).
+	measure 'Claims Opened' = CALCULATE(COUNTROWS('Claim Summary'), USERELATIONSHIP('Claim Summary'[Reported Month], 'Posting Period'[Period Start]))
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_opened
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims reported, one row per claim from both admin systems, by loss month.
+	measure 'Claims Reported (loss month)' = COUNTROWS('Claim Summary')
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_reported_loss_month
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Claims denied (loss month)
+	measure 'Claims Denied' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "denied")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_denied
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Paid claims (loss month)
+	measure 'Paid Claim Count' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "paid")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_closed_paid
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claim dollars paid on paid claims (loss month)
+	measure 'Paid On Paid Claims' = CALCULATE(SUM('Claim Summary'[Paid Amount]), 'Claim Summary'[Status Group] = "paid")
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = paid_on_paid_claims
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims open as of the as-of date.
+	measure 'Open Claims' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "open")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = open_claims
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days).
+	measure 'Open Claims Aged 30 Plus' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Is Aged Open] = TRUE())
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = open_claims_aged_30_plus
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Average days from reported to closed, closed claims only.
+	measure 'Average Turnaround Days' = AVERAGE('Claim Summary'[Turnaround Days])
+		formatString: #,0.00
+		displayFolder: Claims
+		annotation dbt_metric = avg_claim_turnaround_days
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Collected deductibles (admin core status history)
+	measure 'Collected Deductibles' = SUM('Claim History'[Collected Deductible])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = collected_deductibles
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Same definition as the claims KPI page and mart_claims_kpi.denial_rate.
+	measure 'Denial Rate' = DIVIDE([Claims Denied], [Claims Reported (loss month)])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = denial_rate
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Numerator and denominator are the same population (paid claims). Same as mart_claims_kpi.claim_severity.
+	measure 'Paid Claim Severity' = DIVIDE([Paid On Paid Claims], [Paid Claim Count])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Ratios
+		annotation dbt_metric = paid_claim_severity
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Funded-reserve filing: required reserve on the state's default basis.
+	measure 'Calculated Reserve' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Calculated Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Calculated Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Filings
+		annotation dbt_metric = calculated_reserve
+		annotation metric_owner = Senior Data Analyst (regulatory)
+		annotation certified = true
+
+	/// Current reserve held (funded-reserve filing)
+	measure 'Current Reserve Held' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Current Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Current Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Filings
+		annotation dbt_metric = current_reserve
+		annotation metric_owner = Senior Data Analyst (regulatory)
+		annotation certified = false
+
+	/// Funded-reserve filing: calculated reserve minus current reserve held, when positive.
+	measure 'Reserve Shortfall' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Reserve Shortfall]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Reserve Shortfall]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Filings
+		annotation dbt_metric = reserve_shortfall
+		annotation metric_owner = Senior Data Analyst (regulatory)
+		annotation certified = true
+
+	/// Funded-reserve filing: complaints received (slice Scope and Period Label, never sum across windows).
+	measure 'Complaints Received' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Complaints Received]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Complaints Received]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
+		formatString: #,0
+		displayFolder: Filings
+		annotation dbt_metric = complaints_received
+		annotation metric_owner = Senior Data Analyst (regulatory)
+		annotation certified = true
+
+	/// One filed line. Blank unless one report, line item, scope and basis are in context; across several windows it is blank, except a LAST line (in force), which shows the latest window.
+	measure 'Filing Line Value' =
+			IF(HASONEVALUE('Regulatory Line Value'[Report ID]) && HASONEVALUE('Regulatory Line Value'[Line Item]) && HASONEVALUE('Regulatory Line Value'[Scope]) && HASONEVALUE('Regulatory Line Value'[Basis]),
+			    IF(HASONEVALUE('Regulatory Line Value'[Window ID]), SUM('Regulatory Line Value'[Value]),
+			        IF(SELECTEDVALUE('Regulatory Line Value'[Aggregation]) = "LAST",
+			            VAR _end = MAX('Regulatory Line Value'[Window End])
+			            VAR _w = CALCULATE(MAX('Regulatory Line Value'[Window ID]), 'Regulatory Line Value'[Window End] = _end)
+			            RETURN
+			                CALCULATE(SUM('Regulatory Line Value'[Value]), 'Regulatory Line Value'[Window ID] = _w))))
+		formatString: #,0.00
+		displayFolder: Filings
+		annotation dbt_metric = filing_line_value
+		annotation metric_owner = Senior Data Analyst (regulatory)
+		annotation certified = false
+
+	column Value
+		dataType: string
+		isHidden
+		sourceColumn: [Value]
+
+	partition Measures = calculated
+		mode: import
+		source = ROW("Value", BLANK())

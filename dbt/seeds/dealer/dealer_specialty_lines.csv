@@ -1,0 +1,3 @@
+subcategory_code,line_name,requires_chassis_vin,notes
+RV,Recreational vehicle,true,Coach and chassis are separate VINs; the chassis VIN is required for drivetrain claims
+PSP,Powersports,false,Single VIN

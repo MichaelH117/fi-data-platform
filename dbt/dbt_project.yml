@@ -1,0 +1,89 @@
+name: warranty
+version: "3.0.0"
+config-version: 2
+profile: warranty
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+analysis-paths: ["analyses"]
+clean-targets: [target, logs]
+
+flags:
+  # Local, offline platform: never call home (a blocked network can stall dbt start-up).
+  send_anonymous_usage_stats: false
+
+vars:
+  # Reporting date. Default (null) = latest source activity (max updated_at over both contract
+  # sources), so reruns on the same data are deterministic. Override: --vars '{as_of_date: "2026-06-30"}'
+  as_of_date: null
+  # Admin Core went live on this date; older contracts live in the legacy admin system.
+  cutover_date: "2023-01-01"
+  # First month of the fiscal year (1 = calendar year). Regulatory periods are report-definition seeds.
+  fiscal_year_start_month: 1
+  # A posting period closes at the end of this business day of the following month.
+  period_close_business_day: 5
+  # Default earning method for fct_earned_disbursement: pro_rata | r78.
+  earning_method: pro_rata
+  # A claim reported more than this many days after the loss counts as "late reported".
+  late_report_days: 90
+  # Trailing-12 loss ratio above this flags a dealer for review.
+  high_loss_ratio_threshold: 0.80
+  # Flat cancellation fee in the V1 refund formula.
+  cancel_fee: 50
+  # Remittance received more than this many days after the contract was entered is late.
+  remit_late_days: 30
+  # Late fee on a late remittance: a share of the remitted amount.
+  remit_late_fee_pct: 0.015
+  # Diagnostics thresholds (section 5 of docs/V3_DESIGN.md).
+  min_product_match_rate: 0.995
+  min_contract_bridge_coverage: 0.99
+  min_claim_contract_coverage: 0.98
+  max_raw_age_hours: 48
+
+models:
+  warranty:
+    +persist_docs: {relation: true, columns: true}
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +materialized: table
+      core:
+        +schema: core
+        v1_compat:
+          # Deprecated V1 names kept for one release so V1 consumers keep running while they
+          # migrate to `core`. Do not build anything new on these.
+          +tags: [v1_compat, deprecated]
+          +materialized: view
+      finance:
+        +schema: finance
+      claims:
+        +schema: claims
+      dealer:
+        +schema: dealer
+      regulatory:
+        +schema: regulatory
+
+seeds:
+  warranty:
+    +schema: seeds
+
+snapshots:
+  warranty:
+    +schema: snapshots
+
+data_tests:
+  warranty:
+    +severity: error
+    # Gates (docs/V3_DESIGN.md section 5): excluded from the dbt build step and run by
+    # `python -m pipeline.diagnostics` / `python -m pipeline.reconcile`, which block publishing.
+    diagnostics:
+      +tags: [diagnostics, gate]
+    reconciliation:
+      +tags: [reconciliation, gate]

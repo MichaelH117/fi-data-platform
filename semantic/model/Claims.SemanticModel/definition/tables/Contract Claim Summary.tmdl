@@ -1,0 +1,80 @@
+table 'Contract Claim Summary'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: CONTRACT_KEY
+
+	column 'Claims Reported'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: CLAIMS_REPORTED
+
+	column 'Claim Count'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: CLAIM_COUNT
+
+	column 'Claims Denied'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: CLAIMS_DENIED
+
+	column 'Paid To Date'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: PAID_TO_DATE
+
+	column 'Incurred To Date'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: INCURRED_TO_DATE
+
+	column 'First Loss Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: FIRST_LOSS_DATE
+
+	column 'First Claim Days'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: FIRST_CLAIM_DAYS
+
+	column 'Is Early Claim 30'
+		dataType: boolean
+		sourceColumn: IS_EARLY_CLAIM_30
+
+	column 'Is Early Claim 60'
+		dataType: boolean
+		sourceColumn: IS_EARLY_CLAIM_60
+
+	column 'Is Early Claim 90'
+		dataType: boolean
+		sourceColumn: IS_EARLY_CLAIM_90
+
+	column 'Is Early Claim 120'
+		dataType: boolean
+		sourceColumn: IS_EARLY_CLAIM_120
+
+	column 'Is Early Claim 150'
+		dataType: boolean
+		sourceColumn: IS_EARLY_CLAIM_150
+
+	column 'Is Early Claim 180'
+		dataType: boolean
+		sourceColumn: IS_EARLY_CLAIM_180
+
+	partition 'Contract Claim Summary' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_CONTRACT_CLAIM_SUMMARY", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract_claim_summary
+	annotation table_kind = dim

@@ -1,0 +1,142 @@
+# Data contract: legacy admin system (SQLite) -> raw_legacy_admin (bronze).
+# Owner: Data Engineer. Consumers: Data Engineering Manager (dbt staging stg_legacy_admin__*).
+#
+# Enforced by `python -m ingest` on every batch (watermark: updated_at):
+#   - schema:   a missing required column fails that table's batch (watermark not advanced);
+#               a missing optional column loads as NULL with a warning; undeclared source
+#               columns are dropped with a warning (schema drift).
+#   - required: rows with a null in a required column are quarantined.
+#   - type:     values that cannot be cast are quarantined (raw_legacy_admin._quarantine keeps the
+#               raw record as JSON for replay), e.g. the old MM/DD/YYYY sale_date export.
+#   - accepted_values: out-of-list values are counted and logged as warnings only.
+#   - deletes:  every run also diffs the source keys against raw; a key that disappeared gets a
+#               tombstone row with _is_deleted = true (the legacy system can hard delete).
+# Not enforced here (by design, fixed once in dbt staging/intermediate):
+#   - keyspace: integer legacy_contract_id, zero-padded 7-digit claim_no (0000123);
+#   - claim amounts are stored NEGATIVE (amount_requested, amount_paid);
+#   - producer = servicing agent code, producer_code = writing agent code (they differ for
+#     reassigned books; commission follows producer_code);
+#   - the products table is stale (no rows after an old plan year): never inner join to it;
+#   - duplicate rows, bad VINs, lowercase/padded/blank dealer codes, claims dated before the
+#     sale, a few negative refunds, demo dealers (D9xxx) and the test-id range >= 99990000.
+# Types: string | integer | number | date (YYYY-MM-DD) | timestamp (YYYY-MM-DD HH:MM:SS)
+version: 2
+source: legacy_admin
+freshness:
+  watermark_column: updated_at
+  warn_after_hours: 24
+  error_after_hours: 48
+
+tables:
+  agents:
+    primary_key: [agent_id]
+    columns:
+      agent_id:            {type: string, required: true}
+      agent_name:          {type: string, pii: true}
+      territory:           {type: string}
+      email:               {type: string, pii: true}
+      created_at:          {type: timestamp, required: true}
+      updated_at:          {type: timestamp, required: true}
+      removed_from_source: {type: integer}
+
+  dealers:
+    primary_key: [dealer_code]
+    columns:
+      dealer_code:         {type: string, required: true}
+      dealer_name:         {type: string}
+      city:                {type: string}
+      state:               {type: string}
+      agent_id:            {type: string}
+      reinsurance_company: {type: string}
+      status:              {type: string, accepted_values: [active, suspended, terminated]}
+      onboarded_date:      {type: date}
+      created_at:          {type: timestamp, required: true}
+      updated_at:          {type: timestamp, required: true}
+      removed_from_source: {type: integer}
+
+  products:
+    primary_key: [product_code, plan_year, term_months]
+    columns:
+      product_code:        {type: string, required: true}
+      plan_year:           {type: integer, required: true}
+      coverage_tier:       {type: string}
+      term_months:         {type: integer, required: true}
+      term_miles:          {type: integer}
+      deductible:          {type: number}
+      admin_fee:           {type: number}
+      reserve_amount:      {type: number}
+      commission:          {type: number}
+      suggested_retail:    {type: number}
+      created_at:          {type: timestamp, required: true}
+      updated_at:          {type: timestamp, required: true}
+      removed_from_source: {type: integer}
+
+  contracts:
+    primary_key: [legacy_contract_id]
+    columns:
+      legacy_contract_id:  {type: integer, required: true}
+      contract_no:         {type: string}
+      dealer_code:         {type: string}
+      producer:            {type: string}
+      producer_code:       {type: string}
+      product_code:        {type: string, required: true}
+      plan_year:           {type: integer}
+      term_months:         {type: integer}
+      term_miles:          {type: integer}
+      deductible:          {type: number}
+      sale_date:           {type: date, required: true}
+      effective_date:      {type: date}
+      expiration_date:     {type: date}
+      customer_first_name: {type: string, pii: true}
+      customer_last_name:  {type: string, pii: true}
+      customer_email:      {type: string, pii: true}
+      customer_phone:      {type: string, pii: true}
+      customer_zip:        {type: string, pii: true}
+      customer_state:      {type: string}
+      vin:                 {type: string, pii: true}
+      vehicle_make:        {type: string}
+      vehicle_model:       {type: string}
+      vehicle_year:        {type: integer}
+      new_used:            {type: string, accepted_values: [NEW, USED]}
+      odometer_at_sale:    {type: integer}
+      retail_price:        {type: number}
+      dealer_cost:         {type: number}
+      admin_fee:           {type: number}
+      reserve_amount:      {type: number}
+      commission:          {type: number}
+      status:              {type: string, accepted_values: [active, cancelled, expired]}
+      created_at:          {type: timestamp, required: true}
+      updated_at:          {type: timestamp, required: true}
+      removed_from_source: {type: integer}
+
+  claims:
+    primary_key: [claim_no]
+    columns:
+      claim_no:            {type: string, required: true}
+      legacy_contract_id:  {type: integer, required: true}
+      loss_date:           {type: date, required: true}
+      reported_date:       {type: date}
+      paid_date:           {type: date}
+      odometer_at_loss:    {type: integer}
+      repair_category:     {type: string}
+      amount_requested:    {type: number}
+      amount_paid:         {type: number}
+      status:              {type: string, accepted_values: [open, paid, denied]}
+      created_at:          {type: timestamp, required: true}
+      updated_at:          {type: timestamp, required: true}
+      removed_from_source: {type: integer}
+
+  cancellations:
+    primary_key: [cancellation_id]
+    columns:
+      cancellation_id:     {type: string, required: true}
+      legacy_contract_id:  {type: integer, required: true}
+      cancel_date:         {type: date, required: true}
+      cancel_reason:       {type: string}
+      cancel_method:       {type: string, accepted_values: [PRORATED, FULL_REFUND, R78]}
+      odometer_at_cancel:  {type: integer}
+      refund_amount:       {type: number}
+      cancel_fee:          {type: number}
+      created_at:          {type: timestamp, required: true}
+      updated_at:          {type: timestamp, required: true}
+      removed_from_source: {type: integer}

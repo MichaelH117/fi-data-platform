@@ -1,0 +1,86 @@
+version: 2
+
+# Regulatory marts (schema `regulatory`): the state funded-reserve / provider renewal filing and the
+# state market survey. Counting rules come from seeds/regulatory (report definitions, status sets,
+# state method matrix); nothing here hard-codes a status list or a rate. Reports read these marts.
+
+models:
+  - name: mart_regulatory_windows
+    description: Reporting windows per report and state (FUNDED_RESERVE ITD + regulatory year; MARKET_SURVEY calendar years, the current one year-to-date through the last closed posting period).
+    meta: {grain: "report_id x state x window_id", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [report_id, state, window_id]}
+      - expression_is_true:
+          arguments: {expression: "window_start is null or window_start <= window_end"}
+    columns:
+      - name: scope
+        data_tests:
+          - accepted_values:
+              arguments: {values: [ITD, PERIOD]}
+
+  - name: mart_funded_reserve_contracts
+    description: >
+      Regulatory contract detail, every reportable contract and state, with the resolved provider
+      (current obligor, or the state provider map for legacy contracts) and the filing window flags.
+    meta: {grain: contract, contains_pii: false}
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+      - name: provider_basis
+        data_tests:
+          - accepted_values:
+              arguments: {values: [CONTRACT_OBLIGOR, STATE_PROVIDER_MAP, UNRESOLVED]}
+
+  - name: mart_funded_reserve_claims
+    description: Regulatory claim detail (claims on reportable contracts) with close date and windowed paid amounts.
+    meta: {grain: claim, contains_pii: false}
+    data_tests:
+      - expression_is_true:
+          arguments: {expression: "paid_to_date >= 0"}
+      - expression_is_true:
+          arguments: {expression: "paid_itd is null or paid_itd >= paid_in_period"}
+    columns:
+      - name: claim_key
+        data_tests: [unique, not_null]
+
+  - name: mart_regulatory_line_values
+    description: The line engine. One value per report line x window x provider, zero-filled.
+    meta: {grain: "report_id x state x window x provider x line_item x basis", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [report_id, state, window_id, provider_key, line_item, basis]}
+      - expression_is_true:
+          arguments: {expression: "value >= 0"}
+
+  - name: mart_funded_reserve_summary
+    description: >
+      Funded-reserve filing summary per state x provider x scope x basis: Section 2 business
+      activity, Section 3 computation and the methodology notes column.
+    meta: {grain: "state x provider x scope x basis", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [state, provider_key, scope, basis]}
+      - expression_is_true:
+          arguments: {expression: "abs(net_consideration - (gross_consideration - claims_paid_amount)) < 0.01"}
+      - expression_is_true:
+          arguments: {expression: "calculated_reserve >= 0 and security_deposit >= 0"}
+      - expression_is_true:
+          arguments:
+            expression: "scope = 'PERIOD' or new_contracts_written >= contracts_in_force"
+      # Section 3 claims paid (in-force block) is a subset of Section 2 claims paid on all contracts
+      - expression_is_true:
+          arguments:
+            expression: "claims_paid_amount <= claims_paid_amount_all + 0.01"
+    columns:
+      - name: filing_line_key
+        data_tests: [unique, not_null]
+      - name: notes
+        data_tests: [not_null]
+
+  - name: mart_market_survey
+    description: State market survey, numbered items by provider x calendar year.
+    meta: {grain: "state x provider x calendar_year x item_no", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [state, provider_key, calendar_year, item_no]}

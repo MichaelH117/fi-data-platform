@@ -1,0 +1,53 @@
+/// Dynamic RLS map user -> tenant, dealer. Hidden and disconnected; roles read it.
+table 'Security User Access'
+
+	column 'User Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: USER_KEY
+
+	column 'User Login'
+		dataType: string
+		isHidden
+		sourceColumn: USER_LOGIN
+
+	column Role
+		dataType: string
+		isHidden
+		sourceColumn: ROLE
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Tenant Code'
+		dataType: string
+		isHidden
+		sourceColumn: TENANT_CODE
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Dealer Number'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_NUMBER
+
+	partition 'Security User Access' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_USER_DEALER_ACCESS", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_user_dealer_access
+	annotation table_kind = security

@@ -1,0 +1,103 @@
+table 'Contract Finance'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: CONTRACT_KEY
+
+	column 'Purchase Price'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: PURCHASE_PRICE
+
+	column 'Coverage Cost'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: COVERAGE_COST
+
+	column 'Retail Price'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: RETAIL_PRICE
+
+	column 'Dealer Markup'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: DEALER_MARKUP
+
+	column MSRP
+		dataType: double
+		summarizeBy: none
+		sourceColumn: MSRP
+
+	column 'Finance Type'
+		dataType: string
+		sourceColumn: FINANCE_TYPE
+
+	column 'Finance Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: FINANCE_AMOUNT
+
+	column APR
+		dataType: double
+		summarizeBy: none
+		sourceColumn: APR
+
+	column 'Lienholder Code'
+		dataType: string
+		sourceColumn: LIENHOLDER_CODE
+
+	column 'Lienholder Name'
+		dataType: string
+		sourceColumn: LIENHOLDER_NAME
+
+	column 'Admin Fee'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: ADMIN_FEE
+
+	column 'Reserve Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: RESERVE_AMOUNT
+
+	column Commission
+		dataType: double
+		summarizeBy: none
+		sourceColumn: COMMISSION
+
+	column 'Insurer Fee'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: INSURER_FEE
+
+	column 'Premium Tax'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: PREMIUM_TAX
+
+	column 'Profit Share Reserve'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: PROFIT_SHARE_RESERVE
+
+	column 'Is Amount Sign Fixed'
+		dataType: boolean
+		isHidden
+		sourceColumn: IS_AMOUNT_SIGN_FIXED
+
+	partition 'Contract Finance' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_CONTRACT_FINANCE", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract_finance
+	annotation table_kind = dim

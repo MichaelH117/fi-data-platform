@@ -1,0 +1,13 @@
+# Server-target orchestration (optional, Docker only). NOT installed in the local .venv.
+# Install inside the Airflow image against the official constraints file, e.g.
+#   pip install -r requirements-airflow.txt \
+#     --constraint https://raw.githubusercontent.com/apache/airflow/constraints-3.1.0/constraints-3.12.txt
+# Airflow pins its own dependency tree, so keep it out of the local stack.
+apache-airflow==3.1.0
+apache-airflow-providers-postgres==6.2.3
+astronomer-cosmos==1.10.2
+dbt-core==1.10.13
+dbt-postgres==1.9.1
+duckdb==1.4.1
+pandas==2.3.3
+pyyaml==6.0.3

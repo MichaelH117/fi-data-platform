@@ -1,0 +1,39 @@
+table Obligor
+
+	column 'Obligor Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: OBLIGOR_KEY
+
+	column 'Obligor ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: OBLIGOR_ID
+
+	column 'Entity Type'
+		dataType: string
+		sourceColumn: ENTITY_TYPE
+
+	column 'Obligor Name'
+		dataType: string
+		sourceColumn: OBLIGOR_NAME
+
+	column State
+		dataType: string
+		sourceColumn: STATE
+
+	partition Obligor = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_OBLIGOR", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_obligor
+	annotation table_kind = dim

@@ -1,0 +1,46 @@
+version: 2
+
+# Claims marts (schema `claims`). Owner: Senior Data Analyst (dealer & claims).
+# Every model here is DERIVED from core.fct_claim_payment_line (the only claims fact) and dim_claim.
+# Formulas: dbt/models/metrics.yml + docs/METRICS.md; mart-vs-metric checks in dbt/tests/claims/.
+
+models:
+  - name: mart_claim_summary
+    description: One row per claim with paid/incurred roll-ups, turnaround, early-claim window, open aging.
+    meta: {grain: claim, contains_pii: false}
+    columns:
+      - name: claim_key
+        data_tests: [unique, not_null]
+      - name: paid_amount
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "paid_amount >= 0"}
+      - name: turnaround_days
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "turnaround_days >= 0", where_clause: "turnaround_days is not null"}
+
+  - name: mart_claims_kpi
+    description: >
+      Claims KPI cube by tenant x subcategory x loss month: frequency, severity, denial rate, early
+      claims (30-180 days), open claims aged 30+, average turnaround.
+    meta: {grain: "tenant x subcategory x loss month", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, subcategory_code, month_start]}
+      - expression_is_true:
+          arguments: {expression: "claims_reported = claim_count + claims_denied"}
+      - expression_is_true:
+          arguments: {expression: "early_claims_30 <= early_claims_90 and early_claims_90 <= early_claims_180"}
+    columns:
+      - name: denial_rate
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "denial_rate between 0 and 1", where_clause: "denial_rate is not null"}
+
+  - name: mart_claim_components
+    description: Claim components (itemized for Admin Core, repair category for legacy) by status group and loss month.
+    meta: {grain: "component x status_group x loss month", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [component_code, status_group, month_start]}

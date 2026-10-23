@@ -1,0 +1,10 @@
+band_set,band_order,band_label,min_days,max_days
+PENDING,1,0-15 days,0,15
+PENDING,2,16-30 days,16,30
+PENDING,3,31-60 days,31,60
+PENDING,4,61-90 days,61,90
+PENDING,5,90+ days,91,999999
+CLAIM_OPEN,1,0-29 days,0,29
+CLAIM_OPEN,2,30-59 days,30,59
+CLAIM_OPEN,3,60-89 days,60,89
+CLAIM_OPEN,4,90+ days,90,999999

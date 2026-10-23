@@ -1,0 +1,12 @@
+rule_id,rule_value,notes
+early_claim_windows,30|60|90|120|150|180,A claim is early when its loss date is within N days of the contract effective date
+early_claim_headline_days,90,Window shown as the headline early-claim KPI
+open_aging_threshold_days,30,An open claim reported MORE than this many days before the as-of date counts as aged 30+ (same rule as core dim_claim.aging_30_plus)
+top_component_count,10,Components shown on the claims KPI page
+scorecard_watch_loss_ratio,0.80,Dealer scorecard: watch when the T12 loss ratio (incurred / earned claims reserve) is above this
+scorecard_min_t12_earned,10000,Dealer scorecard: the loss-ratio watch needs at least this much T12 earned claims reserve
+scorecard_watch_late_rate,0.50,Dealer scorecard: watch when more than this share of T12 remittances were late
+scorecard_early_claim_ae_window_days,180,Dealer early-claim watch of record: contracts with a first claim (denied included) within this many days of effective; same window as the Actuarial page dealer list
+scorecard_early_claim_min_exposed,30,Dealer early-claim watch: needs at least this many contracts effective for the whole window (actuarial early_claim_by_dealer min_exposed)
+scorecard_early_claim_min_ae,1.5,Dealer early-claim watch: actual-to-expected early-claim contracts at or above this (expected = portfolio rate of each contract's own product segment)
+scorecard_early_claim_min_z,2,Dealer early-claim watch: Poisson z score (actual - expected) / sqrt(expected) at or above this

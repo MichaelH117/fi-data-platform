@@ -1,0 +1,207 @@
+/// Every measure is generated from dbt/models/metrics.yml (annotation dbt_metric).
+table Measures
+
+	/// Reserve premium booked in the sale month.
+	measure 'Written Premium' = SUM('Contract Month'[Written Premium])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Premium
+		annotation dbt_metric = written_premium
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Pro-rata earned reserve premium.
+	measure 'Earned Premium' = SUM('Contract Month'[Earned Premium])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Premium
+		annotation dbt_metric = earned_premium
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Paid + case reserve on open claims, by loss month.
+	measure 'Incurred Claims (accident month)' = SUM('Contract Month'[Incurred Claims])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = incurred_claims
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Incurred claims divided by EARNED premium (never written). Not comparable with the loss ratio on claims reserve.
+	measure 'Loss Ratio (on earned premium)' = DIVIDE([Incurred Claims (accident month)], [Earned Premium])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = loss_ratio
+		annotation metric_owner = Data Scientist
+		annotation certified = true
+
+	/// Non-denied claims per earned contract-year, accident-month basis (claims page tile).
+	measure 'Claim Frequency' = DIVIDE([Claim Count (accident month)], [Exposure Years])
+		formatString: #,0.00
+		displayFolder: Ratios
+		annotation dbt_metric = claim_frequency
+		annotation metric_owner = Data Scientist
+		annotation certified = true
+
+	/// Non-denied claims, by loss month.
+	measure 'Claim Count (accident month)' = SUM('Contract Month'[Claim Count])
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claim_count_metric
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Earned contract-years (days in force / 365.25).
+	measure 'Exposure Years' = SUM('Contract Month'[Exposure Years])
+		formatString: #,0.00
+		displayFolder: Exposure
+		annotation dbt_metric = exposure_years_metric
+		annotation metric_owner = Data Scientist
+		annotation certified = false
+
+	/// Unearned reserve premium at month end (a balance, so it never sums across months).
+	measure 'Unearned Premium Balance' =
+			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
+			VAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)
+			RETURN
+			    CALCULATE(SUM('Contract Month'[Unearned Premium Eom]), 'Posting Period'[Posting Period Key] = _period)
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Premium
+		annotation dbt_metric = unearned_premium_balance
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Claim dollars paid (always positive after conforming).
+	measure 'Claims Paid' = SUM('Claim Payment Line'[Paid Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_paid
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Paid plus change in case reserve (as posted).
+	measure 'Claims Incurred' = SUM('Claim Payment Line'[Incurred Change])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_incurred
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Change in outstanding case reserve.
+	measure 'Claims Reserve Change' = SUM('Claim Payment Line'[Pending Amount])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_reserve_change
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims with posted activity
+	measure 'Claims With Activity' = DISTINCTCOUNT('Claim Payment Line'[Claim Key])
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_with_activity
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Average claim process days
+	measure 'Average Claim Process Days' = AVERAGE('Claim Payment Line'[Process Days])
+		formatString: #,0.00
+		displayFolder: Claims
+		annotation dbt_metric = avg_claim_process_days
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims reported (both systems).
+	measure 'Claims Opened' = CALCULATE(COUNTROWS('Claim Summary'), USERELATIONSHIP('Claim Summary'[Reported Month], 'Posting Period'[Period Start]))
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_opened
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims reported, one row per claim from both admin systems, by loss month.
+	measure 'Claims Reported (loss month)' = COUNTROWS('Claim Summary')
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_reported_loss_month
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Claims denied (loss month)
+	measure 'Claims Denied' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "denied")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_denied
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Paid claims (loss month)
+	measure 'Paid Claim Count' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "paid")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = claims_closed_paid
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claim dollars paid on paid claims (loss month)
+	measure 'Paid On Paid Claims' = CALCULATE(SUM('Claim Summary'[Paid Amount]), 'Claim Summary'[Status Group] = "paid")
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = paid_on_paid_claims
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Claims open as of the as-of date.
+	measure 'Open Claims' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "open")
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = open_claims
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days).
+	measure 'Open Claims Aged 30 Plus' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Is Aged Open] = TRUE())
+		formatString: #,0
+		displayFolder: Claims
+		annotation dbt_metric = open_claims_aged_30_plus
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Average days from reported to closed, closed claims only.
+	measure 'Average Turnaround Days' = AVERAGE('Claim Summary'[Turnaround Days])
+		formatString: #,0.00
+		displayFolder: Claims
+		annotation dbt_metric = avg_claim_turnaround_days
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Collected deductibles (admin core status history)
+	measure 'Collected Deductibles' = SUM('Claim History'[Collected Deductible])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Claims
+		annotation dbt_metric = collected_deductibles
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = false
+
+	/// Same definition as the claims KPI page and mart_claims_kpi.denial_rate.
+	measure 'Denial Rate' = DIVIDE([Claims Denied], [Claims Reported (loss month)])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = denial_rate
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	/// Numerator and denominator are the same population (paid claims). Same as mart_claims_kpi.claim_severity.
+	measure 'Paid Claim Severity' = DIVIDE([Paid On Paid Claims], [Paid Claim Count])
+		formatString: \$#,0;(\$#,0);\$#,0
+		displayFolder: Ratios
+		annotation dbt_metric = paid_claim_severity
+		annotation metric_owner = Senior Data Analyst (dealer & claims)
+		annotation certified = true
+
+	column Value
+		dataType: string
+		isHidden
+		sourceColumn: [Value]
+
+	partition Measures = calculated
+		mode: import
+		source = ROW("Value", BLANK())

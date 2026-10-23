@@ -1,0 +1,142 @@
+version: 2
+
+# Regulatory counting rules as data (docs/V3_DESIGN.md 2.4 Seeds). Rules that used to live in
+# spreadsheet comments live here and are tested; the regulatory marts read them, never hard-code them.
+seeds:
+  - name: state_reserve_method
+    description: >
+      State -> funded-reserve method matrix: all 50 states + DC, one row each. States with
+      has_requirement = false are skipped by the filing. Rates are illustrative synthetic values
+      for the portfolio demo, not legal guidance. method_code NET_OF_CLAIMS: reserve =
+      reserve_rate x (gross consideration - claims paid); GROSS_CONSIDERATION: reserve =
+      reserve_rate x gross consideration; both floored at zero. The regulatory year starts on
+      period_start_month (9 = Sep-Aug). market_survey = the state asked for the market survey.
+    config:
+      column_types:
+        state: varchar
+        state_name: varchar
+        has_requirement: boolean
+        method_code: varchar
+        reserve_rate: double
+        security_deposit_rate: double
+        default_basis: varchar
+        period_start_month: integer
+        market_survey: boolean
+        notes: varchar
+    columns:
+      - name: state
+        data_tests: [unique, not_null]
+      - name: method_code
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [NET_OF_CLAIMS, GROSS_CONSIDERATION, NONE]
+      - name: default_basis
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [COVERAGE_COST, RETAIL]
+      - name: period_start_month
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                quote: false
+
+  - name: report_status_sets
+    description: >
+      Named status sets. A report line names one set instead of listing statuses inline.
+      IN_FORCE = statuses a contract can have once it went live (the date window decides whether
+      it was in force on a given day); WRITTEN = pending, in force, cancelled, expired (voided and
+      denied never count as written); CONTRACT_ANY = every
+      contract status (claim dollar lines that must tie to a claim count, which has no contract
+      status filter); CLAIM_PAID = closed fully or partially paid.
+    config:
+      column_types:
+        status_set_id: varchar
+        applies_to: varchar
+        status: varchar
+    columns:
+      - name: status_set_id
+        data_tests: [not_null]
+      - name: applies_to
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [CONTRACT, CLAIM]
+      - name: status
+        data_tests: [not_null]
+
+  - name: report_definitions
+    description: >
+      One row per report line x scope x basis. scope ITD = inception to the window end, PERIOD =
+      within the window. basis picks the dollar column (COVERAGE_COST or RETAIL); blank = not a
+      dollar line. measure: CONTRACT_COUNT, CONTRACT_AMOUNT, RESERVE_HELD, CLAIM_COUNT,
+      CLAIM_PAID_AMOUNT, COMPLAINT_COUNT, or DERIVED (computed from other lines plus the state
+      method, see mart_funded_reserve_summary). date_rule: IN_FORCE_AT_END,
+      ENTERED_IN_WINDOW, IN_FORCE_ENTERED_IN_WINDOW, PAID_IN_WINDOW (contract lines);
+      REPORTED_IN_WINDOW, CLOSED_IN_WINDOW (claim lines); RECEIVED_IN_WINDOW (complaints).
+      category_filter / subcategory_exclude are '|'-separated product codes (blank = no filter).
+      aggregation says how a multi-window total is formed (SUM, or LAST for point-in-time counts).
+    config:
+      column_types:
+        report_id: varchar
+        section: integer
+        line_no: integer
+        line_item: varchar
+        label: varchar
+        measure: varchar
+        date_rule: varchar
+        status_set_id: varchar
+        scope: varchar
+        basis: varchar
+        category_filter: varchar
+        subcategory_exclude: varchar
+        aggregation: varchar
+        notes: varchar
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [report_id, line_item, scope, basis]
+    columns:
+      - name: report_id
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [FUNDED_RESERVE, MARKET_SURVEY]
+      - name: scope
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [ITD, PERIOD]
+      - name: basis
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [COVERAGE_COST, RETAIL]
+      - name: measure
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [CONTRACT_COUNT, CONTRACT_AMOUNT, RESERVE_HELD, CLAIM_COUNT, CLAIM_PAID_AMOUNT,
+                         COMPLAINT_COUNT, DERIVED]
+      - name: date_rule
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [IN_FORCE_AT_END, ENTERED_IN_WINDOW, IN_FORCE_ENTERED_IN_WINDOW, PAID_IN_WINDOW,
+                         REPORTED_IN_WINDOW, CLOSED_IN_WINDOW, RECEIVED_IN_WINDOW]
+      - name: status_set_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('report_status_sets')
+                field: status_set_id
+      - name: aggregation
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [SUM, LAST]

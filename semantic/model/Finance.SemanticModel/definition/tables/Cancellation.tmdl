@@ -1,0 +1,158 @@
+table Cancellation
+
+	column 'Cancel Key'
+		dataType: string
+		isHidden
+		sourceColumn: CANCEL_KEY
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: SOURCE_SYSTEM
+
+	column 'Source Cancel ID'
+		dataType: string
+		isHidden
+		sourceColumn: SOURCE_CANCEL_ID
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: CONTRACT_KEY
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_KEY
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: PRODUCT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Cancel Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: CANCEL_DATE
+
+	column 'Cancel Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CANCEL_DATE_KEY
+
+	column 'Posting Period Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: POSTING_PERIOD_KEY
+
+	column 'Posting Period Start Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: POSTING_PERIOD_START_DATE
+
+	column 'Initiated By'
+		dataType: string
+		sourceColumn: INITIATED_BY
+
+	column Reason
+		dataType: string
+		sourceColumn: REASON
+
+	column Method
+		dataType: string
+		sourceColumn: METHOD
+
+	column Odometer
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: ODOMETER
+
+	column 'Contract Age Days'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CONTRACT_AGE_DAYS
+
+	column 'Refund Pct'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: REFUND_PCT
+
+	column 'Cancel Fee'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CANCEL_FEE
+
+	column 'Customer Refund'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CUSTOMER_REFUND
+
+	column 'Admin Portion'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: ADMIN_PORTION
+
+	column 'Dealer Portion'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: DEALER_PORTION
+
+	column 'Coverage Cost Refund'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: COVERAGE_COST_REFUND
+
+	column 'Dealer Profit Refund'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: DEALER_PROFIT_REFUND
+
+	column 'Admin Withheld Claims'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: ADMIN_WITHHELD_CLAIMS
+
+	column 'Is Reinstated'
+		dataType: boolean
+		sourceColumn: IS_REINSTATED
+
+	column 'Is Effective Cancel'
+		dataType: boolean
+		sourceColumn: IS_EFFECTIVE_CANCEL
+
+	column 'Is Amount Sign Fixed'
+		dataType: boolean
+		isHidden
+		sourceColumn: IS_AMOUNT_SIGN_FIXED
+
+	partition Cancellation = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "FCT_CANCELLATION", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.fct_cancellation
+	annotation table_kind = fact

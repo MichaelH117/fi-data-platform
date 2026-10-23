@@ -1,0 +1,14 @@
+report_id,status,notes
+DEALER_PRODUCTION,PENDING,Written business: a sold contract counts in its entered month even before paperwork is finished
+DEALER_PRODUCTION,INFORCE,Written business
+DEALER_PRODUCTION,CANCELLED,Written business: a later cancel does not remove the sale from production
+DEALER_PRODUCTION,EXPIRED,Written business
+DEALER_PENDING,PENDING,Only contracts still waiting on dealer paperwork or remittance
+SPECIALTY_LINE,PENDING,All live and historical specialty contracts except voided and denied ones
+SPECIALTY_LINE,INFORCE,
+SPECIALTY_LINE,CANCELLED,
+SPECIALTY_LINE,EXPIRED,
+SURCHARGE_AUDIT,PENDING,Audit every contract a dealer has written; voided and denied rows never priced
+SURCHARGE_AUDIT,INFORCE,
+SURCHARGE_AUDIT,CANCELLED,
+SURCHARGE_AUDIT,EXPIRED,

@@ -1,0 +1,7 @@
+rule_id,source_system,rule_type,dealer_number,id_from,id_to,contract_number_pattern,reason
+DEMO-DEALERS-FLAG,admin_core,dealer_flag,,,,,Admin Core dealers flagged is_demo = 1 (training dealers)
+DEMO-D9001,any,dealer_number,D9001,,,,Training dealer 1
+DEMO-D9002,any,dealer_number,D9002,,,,Training dealer 2
+DEMO-D9003,any,dealer_number,D9003,,,,Training dealer 3
+TEST-LEGACY-IDS,legacy_admin,contract_id_range,,99990000,99999999,,Legacy test contract-id range
+TEST-CORE-NUMBERS,admin_core,contract_number_pattern,,,,^[A-Z]+-9999[0-9]{4}$,Admin Core test contract-number range (<prefix>-9999xxxx)

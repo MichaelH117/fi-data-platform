@@ -1,0 +1,25 @@
+[project]
+name = "warranty-data-platform"
+version = "0.1.0"
+description = "Synthetic vehicle service contract data platform: source -> bronze -> dbt silver/gold -> actuarial -> publish -> reports."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "slow: end-to-end source -> raw runs (deselect with -m \"not slow\")",
+    "warehouse: needs a built warehouse at WAREHOUSE_PATH (skips when absent)",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["_private", "site", "dbt/target", "dbt/dbt_packages"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Frozen dataclass, safe as a default argument.
+extend-immutable-calls = ["publish.suppression.Rules"]

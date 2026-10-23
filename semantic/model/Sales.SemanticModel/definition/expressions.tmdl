@@ -1,0 +1,10 @@
+/// Deployment-pipeline parameters: Dev binds AnalyticsDatabase = ANALYTICS_DEV, Prod = ANALYTICS.
+expression SnowflakeServer = "your-account.snowflakecomputing.com" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+
+expression SnowflakeWarehouse = "REPORTING" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+
+expression AnalyticsDatabase = "ANALYTICS" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+
+expression RangeStart = #datetime(2019, 1, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]
+
+expression RangeEnd = #datetime(2030, 1, 1, 0, 0, 0) meta [IsParameterQuery = true, Type = "DateTime", IsParameterQueryRequired = true]

@@ -1,0 +1,49 @@
+table 'Contract Actuarial Class'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: CONTRACT_KEY
+
+	column 'Class Code'
+		dataType: string
+		sourceColumn: CLASS_CODE
+
+	column 'Odometer Band'
+		dataType: string
+		sourceColumn: ODOMETER_BAND
+
+	column 'Vehicle Age Band'
+		dataType: string
+		sourceColumn: VEHICLE_AGE_BAND
+
+	column 'Term Band'
+		dataType: string
+		sourceColumn: TERM_BAND
+
+	column 'New Used'
+		dataType: string
+		sourceColumn: NEW_USED
+
+	column 'Subcategory Code'
+		dataType: string
+		sourceColumn: SUBCATEGORY_CODE
+
+	column 'Rating Cell'
+		dataType: string
+		sourceColumn: RATING_CELL
+
+	partition 'Contract Actuarial Class' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_CONTRACT_ACTUARIAL_CLASS", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract_actuarial_class
+	annotation table_kind = dim

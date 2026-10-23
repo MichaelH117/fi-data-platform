@@ -1,0 +1,23 @@
+# Data contract: admin system REST API -> intake `admin_api/<date>/dealer/page_NNNN.json` -> raw_admin_api.dealer.
+# Owner: Data Engineer. Producer: a paginated extract of `GET /api/v1/dealers?page=N` (one JSON page
+# per file, each with page, page_count, total_records and records). Consumer: `python -m ingest`.
+#
+# Extract level: pages 1..page_count must all be present and the records must add up to
+# total_records, else the whole extract is rejected (rows quarantined as `incomplete_extract`) and
+# the next day's extract is used. An extract is loaded once (watermark = sequence_no).
+# Record level (enforced here): required, type and pattern. Rejected records go to
+# raw_admin_api._quarantine with reject_reason and raw_json.
+version: 1
+source: admin_api
+file: dealer/page_NNNN.json
+tables:
+  dealer:
+    primary_key: [dealer_number]
+    columns:
+      dealer_number: {type: string, required: true, pattern: 'D[0-9]{4}'}
+      dealer_name:   {type: string, required: true}
+      tenant_code:   {type: string, required: true, pattern: '[A-Z]{3}'}
+      state:         {type: string, required: true, pattern: '[A-Z]{2}'}
+      status:        {type: string, required: true, accepted_values: [ACTIVE, SUSPENDED, TERMINATED]}
+      remit_rule:    {type: string, accepted_values: [WEEKLY, MONTHLY]}
+      updated_at:    {type: timestamp, required: true}

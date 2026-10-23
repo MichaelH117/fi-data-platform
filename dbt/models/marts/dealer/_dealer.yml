@@ -1,0 +1,139 @@
+version: 2
+
+# Dealer marts (schema `dealer`). Owner: Senior Data Analyst (dealer & claims).
+# Built only on core marts (already scoped to reportable rows by int_reportable_scope) and the
+# dealer seeds. Counting rules (status sets, surcharge rules, age bands) live in dbt/seeds/dealer/.
+
+models:
+  - name: mart_dealer_production
+    description: Contracts written per dealer x product subcategory x entered month (production pivot).
+    meta: {grain: "tenant x dealer x subcategory x month", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, dealer_key, subcategory_code, month_start]}
+      - expression_is_true:
+          arguments:
+            expression: "contracts_written >= contracts_pending + contracts_in_force + contracts_cancelled"
+    columns:
+      - name: dealer_key
+        data_tests: [not_null]
+      - name: month_start
+        data_tests: [not_null]
+      - name: contracts_written
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "contracts_written > 0"}
+
+  - name: mart_dealer_pending_contracts
+    description: >
+      Contract-level list of PENDING contracts for the dealer to finish. Carries FAKE customer names
+      from the synthetic generator (the one documented PII exception past staging); VINs stay hashed.
+    meta: {grain: contract, contains_pii: true}
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+      - name: customer_last_name
+        meta: {contains_pii: true}
+      - name: customer_first_name
+        meta: {contains_pii: true}
+      - name: pending_age_band
+        data_tests: [not_null]
+      - name: days_pending
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "days_pending >= 0"}
+
+  - name: mart_surcharge_audit
+    description: >
+      Contract x surcharge code expected by the vehicle rules or charged on the contract, with a
+      finding (OK, MISSING, NOT_EXPECTED, AMOUNT_MISMATCH). Admin Core contracts only.
+    meta: {grain: "contract x surcharge_code", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [contract_key, surcharge_code]}
+      - expression_is_true:
+          arguments: {expression: "is_expected or is_charged"}
+    columns:
+      - name: finding
+        data_tests:
+          - accepted_values:
+              arguments: {values: [OK, MISSING, NOT_EXPECTED, AMOUNT_MISMATCH]}
+
+  - name: mart_specialty_line
+    description: Specialty-line contracts (RV with a separate chassis VIN, powersports); contract grain.
+    meta: {grain: contract, contains_pii: false}
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+      - name: subcategory_code
+        data_tests:
+          - relationships:
+              arguments: {to: "ref('dealer_specialty_lines')", field: subcategory_code}
+
+  - name: mart_remittance_aging
+    description: Remittance aging per dealer x posting period x age band, with late fees.
+    meta: {grain: "tenant x dealer x posting period x age band", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, dealer_key, posting_period_key, age_band_order]}
+    columns:
+      - name: age_band
+        data_tests: [not_null]
+      - name: posting_period_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: "ref('dim_posting_period')", field: posting_period_key}
+
+  - name: mart_dealer_early_claim_ae
+    description: >
+      Dealer early-claim watch of record, per tenant x dealer x month: early-claim incidence per contract
+      (first loss within the seed window of effective, denied claims included) as actual vs expected, where
+      expected uses the portfolio rate of each contract's own product segment (category x subcategory x
+      new/used). Each month is evaluated at its month end (the as-of date for the current month), so the
+      as-of row is the same test as the Actuarial page dealer list (actuarial early_claim_by_dealer).
+      Thresholds: seed dealer_claim_kpi_rules (scorecard_early_claim_*). mart_dealer_scorecard takes its
+      is_watch_early_claims from here.
+    meta: {grain: "tenant x dealer x month", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, dealer_key, month_key]}
+      - expression_is_true:
+          arguments: {expression: "early_claim_contracts <= contracts_exposed and contracts_exposed > 0"}
+      - expression_is_true:
+          arguments: {expression: "not is_flagged or (actual_to_expected >= 1.5 and z_score >= 2 and contracts_exposed >= 30)"}
+    columns:
+      - name: dealer_key
+        data_tests: [not_null]
+      - name: month_key
+        data_tests: [not_null]
+      - name: reference_date
+        data_tests: [not_null]
+
+  - name: mart_dealer_scorecard
+    description: >
+      Dealer scorecard per tenant x dealer x month: production and cohort cancel rate (entered month),
+      earned claims reserve, incurred claims and loss ratio on claims reserve (earned month), claims and early-claim rate (loss
+      month), remittance late rate, days late and late fees (posting period), effective cancels posted,
+      plus trailing-12 versions, a peer percentile of the T12 loss ratio and watch flags. Thresholds:
+      seed dealer_claim_kpi_rules (scorecard_*). Ties out in dbt/tests/dealer/.
+    meta: {grain: "tenant x dealer x month", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, dealer_key, month_key]}
+      - expression_is_true:
+          arguments: {expression: "contracts_cancelled <= contracts_written and late_remittances <= remittances and early_claims <= claims_reported"}
+      - expression_is_true:
+          arguments: {expression: "is_watch = (is_watch_loss_ratio or is_watch_late_remit or is_watch_early_claims)"}
+    columns:
+      - name: dealer_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: "ref('dim_dealer')", field: dealer_key}
+      - name: month_key
+        data_tests: [not_null]
+      - name: t12_loss_ratio_peer_pct
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "t12_loss_ratio_peer_pct between 0 and 1", where_clause: "t12_loss_ratio_peer_pct is not null"}

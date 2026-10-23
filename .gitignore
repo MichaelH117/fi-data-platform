@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets / private notes (never commit)
+.env
+_private/
+
+# Generated data (rebuilt by `python -m pipeline.run`)
+data/
+
+# dbt build artifacts
+dbt/target/
+dbt/logs/
+# per-agent dbt artifacts (docs/V3_DESIGN.md 4.2: DBT_TARGET_PATH=dbt/target_<role>)
+dbt/target_*/
+# DBT_TARGET_PATH resolves relative to --project-dir, so "dbt/target_x" lands in dbt/dbt/target_x
+dbt/dbt/
+dbt/logs_*/
+dbt/dbt_packages/
+logs/
+
+# Report site build output (rebuilt by `python -m reports`)
+site/
+
+# BI binaries
+*.pbix
+
+# Snowflake key-pair private keys (warehouse/snowflake/03_roles_grants.sql)
+*.p8

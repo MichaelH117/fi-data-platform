@@ -1,0 +1,7 @@
+structure_type,owns_claims_reserve,default_dealer_share_pct,ceding_fee_pct,min_seasoning_months,notes
+DEALER_OWNED_OBLIGOR,true,1.00,0.000,12,Dealer owns the obligor; the full claims reserve is ceded and the dealer keeps the whole underwriting result.
+CFC,true,1.00,0.020,12,Controlled foreign reinsurer owned by the dealer; ceding fee is a share of earned reserve.
+NCFC,true,1.00,0.020,12,Non-controlled foreign reinsurer; same economics as CFC for the statement.
+PORC,true,1.00,0.015,12,Producer-owned reinsurer; ceding fee is a share of earned reserve.
+RETRO,true,0.50,0.000,24,Retrospective arrangement; entity profit_share_pct wins when present.
+PROFIT_SHARE,false,0.50,0.000,24,Reserve stays with the obligor; the dealer earns a share of the positive underwriting result.

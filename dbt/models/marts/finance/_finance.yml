@@ -1,0 +1,159 @@
+version: 2
+
+# Finance marts (schema `finance`). Built only on `core` facts and dims plus the seeds in
+# seeds/finance/. Every dollar column ties back to the cost-split ledger, the claims fact or the
+# cash fact; the singular tests in dbt/tests/finance/ prove it. FA II reviews and signs off FA I work.
+
+models:
+  - name: mart_cession_experience
+    description: >
+      Cession / experience per participation entity x posting period: earned reserve, claims,
+      loss ratio (incurred / earned reserve), funded reserve balance (written - claims paid -
+      claims-reserve surplus released by distributions), unearned reserve, ITD underwriting result,
+      profit share earned ITD (itd_profit_share_due, gross), distributions paid and closing profit
+      share due (earned - paid, the same figure as the profit-share statement). Terms from seed
+      participation_structure_terms; payouts from seed profit_share_payout_schedule.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [participation_entity_key, posting_period_key]}
+    columns:
+      - name: participation_entity_key
+        data_tests: [not_null]
+      - name: posting_period_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_posting_period'), field: posting_period_key}
+      - name: itd_profit_share_due
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "itd_profit_share_due >= 0"}
+      - name: claims_reserve_released
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "claims_reserve_released >= 0"}
+
+  - name: mart_profit_share_statement
+    description: >
+      Profit-share statement per participation entity x posting period: opening due, period
+      movement, distributions paid (seed profit_share_payout_schedule), closing due, funded
+      profit-share reserve and funding gap. due_category separates what the administrator owes
+      (PAYABLE) from surplus already held by dealer-owned entities (DEALER_ENTITY_SURPLUS). FINAL
+      once the period is closed, PRELIMINARY otherwise.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [participation_entity_key, posting_period_key]}
+      - expression_is_true:
+          arguments:
+            expression: "abs(opening_profit_share_due + period_profit_share - distributions_paid - closing_profit_share_due) < 0.005"
+      - expression_is_true:
+          arguments: {expression: "distributions_paid >= 0"}
+    columns:
+      - name: statement_status
+        data_tests:
+          - accepted_values:
+              arguments: {values: [FINAL, PRELIMINARY]}
+      - name: due_category
+        data_tests:
+          - accepted_values:
+              arguments: {values: [PAYABLE, DEALER_ENTITY_SURPLUS]}
+
+  - name: mart_reserve_rollforward
+    description: >
+      Claims-reserve roll-forward per tenant x product category x posting period: funded reserve
+      (written, amended, cancelled, reinstated, claims paid, surplus released by profit-share
+      distributions) and unearned reserve (net written, earned).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, category_code, posting_period_key]}
+      - expression_is_true:
+          arguments:
+            expression: "abs(opening_funded_reserve + net_reserve_written - claims_paid - surplus_released - closing_funded_reserve) < 0.01"
+      - expression_is_true:
+          arguments:
+            expression: "abs(opening_unearned_reserve + net_reserve_written - reserve_earned - closing_unearned_reserve) < 0.01"
+
+  - name: mart_commission_statement
+    description: >
+      Commission statement per agent x posting period: commission written (paid + advances paid),
+      commission expensed (cash basis: standard commission paid at sale plus advances earned down on
+      the contract's commission curve), chargebacks (always negative), advances paid, advance
+      recoveries (the earning-down), advances net, net commission (= cash, ties to fct_commission),
+      chargeback rate on commission written, commission earned on the cost-split curve (the P&L
+      basis) with the bridge expensed_ahead_of_curve, and the running advance balance (unearned
+      advance). One reconciling row per tenant x period x source system (is_no_agent_ledger) carries
+      cost-split commission on contracts with no agent-ledger line (the legacy book), so the
+      statement ties to the cost-split COMMISSION bucket.
+      Contract counts: contracts_commissioned is per period only (not additive over periods);
+      contracts_first_commissioned (per agent) and contracts_first_commissioned_primary (each contract
+      once, for its primary agent) count a contract in the period of its first positive line, so they
+      sum over periods (test fin_commission_contracts_within_sales).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [agent_key, tenant_key, source_system, posting_period_key]}
+      - expression_is_true:
+          arguments:
+            expression: "abs(commission_expensed + commission_chargebacks + advances_net - net_commission) < 0.01"
+      - expression_is_true:
+          arguments:
+            expression: "abs(commission_expensed - commission_earned_on_curve - expensed_ahead_of_curve) < 0.01"
+      - expression_is_true:
+          arguments: {expression: "commission_chargebacks <= 0 and advance_recoveries >= -0.01"}
+    columns:
+      - name: agent_key
+        data_tests: [not_null]
+
+  - name: mart_pnl_by_product
+    description: >
+      P&L by product code x tenant x posting period: written and refunded coverage cost, earned
+      premium by P&L line (seed pnl_line_map), paid and incurred claims, reserve margin, program
+      margin before and after dealer participation, posted_loss_ratio (incurred / earned claims
+      reserve), loss_ratio (incurred / earned premium) and combined ratio. The admin fee is a program
+      cost in both program_margin and combined_ratio, so program_margin / earned_premium = 1 -
+      combined_ratio (test fin_pnl_margin_matches_combined_ratio); administrator_result = admin fee +
+      margin after participation. Written side is the posted
+      ledger: refunds on every cancel and approved reinstatements added back in their own period.
+      Claims with no contract key are one reconciling row (product_code UNMATCHED,
+      is_unmatched_claims), not a product.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, product_code, posting_period_key]}
+      - expression_is_true:
+          arguments:
+            expression: >
+              abs(earned_claims_reserve + earned_admin_fee + earned_acquisition_cost
+              + earned_profit_share_reserve - earned_premium) < 0.01
+
+  - name: mart_remittance_late_fees
+    description: >
+      Remittance aging (days from contract entry to cash receipt, seed remit_aging_buckets) and the
+      dealer late-fee bill per dealer x posting period x aging bucket.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [dealer_key, posting_period_key, aging_bucket]}
+    columns:
+      - name: late_fee_billed
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "late_fee_billed >= 0"}
+
+  - name: mart_disbursement_control_totals
+    description: >
+      Close control totals: transaction amount vs the sum of its cost split, per posting period x
+      source system x transaction type, one column per bucket. is_balanced within $0.01.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [posting_period_key, source_system, txn_type]}
+
+  - name: mart_funded_reserve_reconciliation
+    description: >
+      Funded claims-reserve reconciliation per tenant x posting period. Each side is computed on its
+      own: participation reserve balance (mart_cession_experience), the rest of the book recomputed
+      from the core facts (CLAIMS_RESERVE cost split less claim payments on contracts with no
+      participation entity, and claim payments with no contract key), and the book-wide closing
+      funded reserve (mart_reserve_rollforward). difference must be 0.00. The earned surplus is
+      recomputed from the facts (ITD earned claims reserve - claims paid - surplus released) and
+      checked against closing funded - closing unearned (earned_surplus_difference).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, posting_period_key]}

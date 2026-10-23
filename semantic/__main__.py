@@ -1,0 +1,87 @@
+"""CLI: ``python -m semantic [--out DIR] [--warehouse PATH] [--check] [--refresh-columns]``.
+
+Builds ``semantic/model/`` (TMDL-style Sales / Claims / Finance / Compliance models) from
+``dbt/models/metrics.yml``. Column names and types come from ``semantic/columns.lock.json``, so the
+build is deterministic and works without a warehouse.
+
+When the warehouse exists the lock is checked against it: a removed or retyped column fails the step
+(the model would break on refresh); new columns are only a warning. ``--refresh-columns`` rewrites the
+lock from the warehouse. ``--check`` regenerates into a temp folder and exits 1 when the committed
+files differ (CI guard against hand edits or a stale model).
+"""
+
+from __future__ import annotations
+
+import argparse
+import filecmp
+import logging
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+import duckdb
+
+from semantic.build import LOCK_PATH, OUT_DIR, ROOT, drift, generate, load_lock, read_warehouse_columns, write_lock
+from semantic.metrics import TranslationError
+
+WAREHOUSE_PATH = Path(os.environ.get("WAREHOUSE_PATH", ROOT / "data" / "warehouse" / "warehouse.duckdb"))
+log = logging.getLogger("semantic")
+
+
+def _same_tree(a: Path, b: Path) -> list[str]:
+    diffs = []
+    files_a = {p.relative_to(a) for p in a.rglob("*") if p.is_file()}
+    files_b = {p.relative_to(b) for p in b.rglob("*") if p.is_file()} if b.exists() else set()
+    diffs += [f"missing: {p}" for p in sorted(files_a - files_b)]
+    diffs += [f"extra: {p}" for p in sorted(files_b - files_a)]
+    diffs += [f"changed: {p}" for p in sorted(files_a & files_b) if not filecmp.cmp(a / p, b / p, shallow=False)]
+    return diffs
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="python -m semantic", description=__doc__.splitlines()[0])
+    ap.add_argument("--out", type=Path, default=OUT_DIR)
+    ap.add_argument("--warehouse", type=Path, default=WAREHOUSE_PATH)
+    ap.add_argument("--check", action="store_true", help="exit 1 when the committed model is stale")
+    ap.add_argument("--refresh-columns", action="store_true", help="rewrite columns.lock.json from the warehouse")
+    args = ap.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+
+    if args.refresh_columns:
+        with duckdb.connect(str(args.warehouse), read_only=True) as con:
+            write_lock(read_warehouse_columns(con))
+        log.info("column lock refreshed from %s", args.warehouse)
+
+    try:
+        if args.check:
+            with tempfile.TemporaryDirectory() as tmp:
+                generate(Path(tmp) / "model")
+                diffs = _same_tree(Path(tmp) / "model", args.out)
+            if diffs:
+                log.error("semantic model is stale (run python -m semantic):\n  %s", "\n  ".join(diffs[:20]))
+                return 1
+            log.info("semantic model is up to date")
+            return 0
+        plan = generate(args.out)
+    except TranslationError as exc:
+        log.error("cannot generate the semantic model: %s", exc)
+        return 1
+
+    if args.warehouse.exists():
+        with duckdb.connect(str(args.warehouse), read_only=True) as con:
+            live = read_warehouse_columns(con)
+        errors, warnings = drift(load_lock(LOCK_PATH), live, plan)
+        for w in warnings:
+            log.warning("%s (python -m semantic --refresh-columns)", w)
+        if errors:
+            log.error("warehouse no longer matches the semantic model:\n  %s", "\n  ".join(errors))
+            return 1
+    n_measures = sum(len(dm.measures) for dm in plan.models.values())
+    log.info("wrote %d domain models, %d measures (%d distinct metrics), %d time variants via the calc group -> %s",
+             len(plan.models), n_measures, len(plan.measures), len(plan.time_variants), args.out)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

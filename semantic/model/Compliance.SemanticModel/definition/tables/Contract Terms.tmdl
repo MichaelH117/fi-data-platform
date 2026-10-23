@@ -1,0 +1,92 @@
+table 'Contract Terms'
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: CONTRACT_KEY
+
+	column 'Term Months'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: TERM_MONTHS
+
+	column 'Term Miles'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: TERM_MILES
+
+	column 'Term Band'
+		dataType: string
+		sourceColumn: TERM_BAND
+
+	column 'Term Days'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: TERM_DAYS
+
+	column 'Expiration Mileage'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: EXPIRATION_MILEAGE
+
+	column 'Claim Wait Days'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: CLAIM_WAIT_DAYS
+
+	column 'Claim Wait Miles'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: CLAIM_WAIT_MILES
+
+	column 'Deductible Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: DEDUCTIBLE_AMOUNT
+
+	column 'Deductible Name'
+		dataType: string
+		sourceColumn: DEDUCTIBLE_NAME
+
+	column 'Coverage Limit'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: COVERAGE_LIMIT
+
+	column 'Option Codes'
+		dataType: string
+		sourceColumn: OPTION_CODES
+
+	column 'Options Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: OPTIONS_AMOUNT
+
+	column 'Surcharge Codes'
+		dataType: string
+		sourceColumn: SURCHARGE_CODES
+
+	column 'Surcharge Count'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: SURCHARGE_COUNT
+
+	column 'Surcharge Amount'
+		dataType: double
+		summarizeBy: none
+		sourceColumn: SURCHARGE_AMOUNT
+
+	partition 'Contract Terms' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_CONTRACT_TERMS", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract_terms
+	annotation table_kind = dim

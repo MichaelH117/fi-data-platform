@@ -1,0 +1,8 @@
+surcharge_code,vehicle_attribute,match_value,expected_amount,rule_description
+DIESEL,fuel_type,DIESEL,150.00,Diesel engine
+4X4,drive_type,4X4,75.00,Four-wheel drive (AWD does not qualify)
+HYBRID_EV,fuel_type,HYBRID,125.00,Hybrid powertrain
+HYBRID_EV,fuel_type,ELECTRIC,125.00,Battery-electric powertrain
+TURBO,class_cylinders,C-4,100.00,Class C vehicle with a 4-cylinder (turbocharged) engine
+COMMERCIAL,is_commercial,true,250.00,Vehicle in commercial use
+BRANDED_TITLE,has_title_brand,true,200.00,Salvage or rebuilt title

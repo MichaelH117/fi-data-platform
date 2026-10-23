@@ -1,0 +1,46 @@
+version: 2
+
+# Dealer & claims counting rules (docs/V3_DESIGN.md 2.4 Seeds): every rule a report uses lives here.
+seeds:
+  - name: dealer_report_status_sets
+    description: Contract statuses each dealer report counts (report_id x status).
+    config:
+      column_types: {report_id: varchar, status: varchar, notes: varchar}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [report_id, status]}
+  - name: dealer_surcharge_rules
+    description: Which vehicle attribute values require which surcharge, and the rated amount.
+    config:
+      column_types: {surcharge_code: varchar, vehicle_attribute: varchar, match_value: varchar, expected_amount: double, rule_description: varchar}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [surcharge_code, vehicle_attribute, match_value]}
+  - name: dealer_surcharge_subcategories
+    description: Product subcategories rated with vehicle surcharges (others are never audited).
+    config:
+      column_types: {subcategory_code: varchar, notes: varchar}
+    columns:
+      - name: subcategory_code
+        data_tests: [unique, not_null]
+  - name: dealer_specialty_lines
+    description: Specialty-line subcategories and whether a chassis VIN is required.
+    config:
+      column_types: {subcategory_code: varchar, line_name: varchar, requires_chassis_vin: boolean, notes: varchar}
+    columns:
+      - name: subcategory_code
+        data_tests: [unique, not_null]
+  - name: dealer_age_bands
+    description: Aging buckets for pending contracts and open claims (inclusive day ranges). Remittance aging uses the one shared seed remit_aging_buckets.
+    config:
+      column_types: {band_set: varchar, band_order: integer, band_label: varchar, min_days: integer, max_days: integer}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [band_set, band_order]}
+  - name: dealer_claim_kpi_rules
+    description: Claims KPI parameters (early-claim windows, aging threshold, top-N).
+    config:
+      column_types: {rule_id: varchar, rule_value: varchar, notes: varchar}
+    columns:
+      - name: rule_id
+        data_tests: [unique, not_null]

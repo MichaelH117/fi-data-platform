@@ -1,0 +1,152 @@
+relationship 'Claim Payment Line.claim_key -> Claim'
+	fromColumn: 'Claim Payment Line'.'Claim Key'
+	toColumn: Claim.'Claim Key'
+
+relationship 'Claim Payment Line.contract_key -> Contract'
+	fromColumn: 'Claim Payment Line'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Claim Payment Line.contract_key -> Contract Vehicle'
+	fromColumn: 'Claim Payment Line'.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Claim Payment Line.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Claim Payment Line'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Claim Payment Line.contract_key -> Contract Claim Summary'
+	fromColumn: 'Claim Payment Line'.'Contract Key'
+	toColumn: 'Contract Claim Summary'.'Contract Key'
+
+relationship 'Claim Payment Line.dealer_key -> Dealer'
+	fromColumn: 'Claim Payment Line'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Claim Payment Line.product_key -> Product'
+	fromColumn: 'Claim Payment Line'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Claim Payment Line.tenant_key -> Tenant'
+	fromColumn: 'Claim Payment Line'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Claim Payment Line.payee_account_holder_key -> Account Holder'
+	fromColumn: 'Claim Payment Line'.'Payee Account Holder Key'
+	toColumn: 'Account Holder'.'Account Holder Key'
+
+relationship 'Claim Payment Line.posting_period_key -> Posting Period'
+	fromColumn: 'Claim Payment Line'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Claim History.claim_key -> Claim'
+	fromColumn: 'Claim History'.'Claim Key'
+	toColumn: Claim.'Claim Key'
+
+relationship 'Claim History.contract_key -> Contract'
+	fromColumn: 'Claim History'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Claim History.contract_key -> Contract Vehicle'
+	fromColumn: 'Claim History'.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Claim History.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Claim History'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Claim History.contract_key -> Contract Claim Summary'
+	fromColumn: 'Claim History'.'Contract Key'
+	toColumn: 'Contract Claim Summary'.'Contract Key'
+
+relationship 'Claim History.dealer_key -> Dealer'
+	fromColumn: 'Claim History'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Claim History.product_key -> Product'
+	fromColumn: 'Claim History'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Claim History.tenant_key -> Tenant'
+	fromColumn: 'Claim History'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Claim History.posting_period_key -> Posting Period'
+	fromColumn: 'Claim History'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Contract Month.contract_key -> Contract'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Contract Month.contract_key -> Contract Vehicle'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Contract Month.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Contract Month.contract_key -> Contract Claim Summary'
+	fromColumn: 'Contract Month'.'Contract Key'
+	toColumn: 'Contract Claim Summary'.'Contract Key'
+
+relationship 'Contract Month.dealer_key -> Dealer'
+	fromColumn: 'Contract Month'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Contract Month.product_key -> Product'
+	fromColumn: 'Contract Month'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Contract Month.tenant_key -> Tenant'
+	fromColumn: 'Contract Month'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Contract Month.posting_period_key -> Posting Period'
+	fromColumn: 'Contract Month'.'Posting Period Key'
+	toColumn: 'Posting Period'.'Posting Period Key'
+
+relationship 'Claim Summary.claim_key -> Claim'
+	fromColumn: 'Claim Summary'.'Claim Key'
+	toColumn: Claim.'Claim Key'
+
+relationship 'Claim Summary.contract_key -> Contract'
+	fromColumn: 'Claim Summary'.'Contract Key'
+	toColumn: Contract.'Contract Key'
+
+relationship 'Claim Summary.contract_key -> Contract Vehicle'
+	fromColumn: 'Claim Summary'.'Contract Key'
+	toColumn: 'Contract Vehicle'.'Contract Key'
+
+relationship 'Claim Summary.contract_key -> Contract Actuarial Class'
+	fromColumn: 'Claim Summary'.'Contract Key'
+	toColumn: 'Contract Actuarial Class'.'Contract Key'
+
+relationship 'Claim Summary.contract_key -> Contract Claim Summary'
+	fromColumn: 'Claim Summary'.'Contract Key'
+	toColumn: 'Contract Claim Summary'.'Contract Key'
+
+relationship 'Claim Summary.tenant_key -> Tenant'
+	fromColumn: 'Claim Summary'.'Tenant Key'
+	toColumn: Tenant.'Tenant Key'
+
+relationship 'Claim Summary.dealer_key -> Dealer'
+	fromColumn: 'Claim Summary'.'Dealer Key'
+	toColumn: Dealer.'Dealer Key'
+
+relationship 'Claim Summary.product_key -> Product'
+	fromColumn: 'Claim Summary'.'Product Key'
+	toColumn: Product.'Product Key'
+
+relationship 'Claim Summary.loss_month -> Posting Period'
+	fromColumn: 'Claim Summary'.'Loss Month'
+	toColumn: 'Posting Period'.'Period Start'
+
+relationship 'Dealer.dealer_group_key -> Dealer Group'
+	fromColumn: Dealer.'Dealer Group Key'
+	toColumn: 'Dealer Group'.'Dealer Group Key'
+
+relationship 'Claim Summary.reported_month -> Posting Period'
+	isActive: false
+	fromColumn: 'Claim Summary'.'Reported Month'
+	toColumn: 'Posting Period'.'Period Start'

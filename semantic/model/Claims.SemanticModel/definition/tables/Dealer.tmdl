@@ -1,0 +1,117 @@
+table Dealer
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: DEALER_KEY
+
+	column 'Dealer ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: DEALER_ID
+
+	column 'Dealer Number'
+		dataType: string
+		sourceColumn: DEALER_NUMBER
+
+	column 'Dealer Name'
+		dataType: string
+		sourceColumn: DEALER_NAME
+
+	column City
+		dataType: string
+		sourceColumn: CITY
+
+	column State
+		dataType: string
+		sourceColumn: STATE
+
+	column 'Dealer Status'
+		dataType: string
+		sourceColumn: DEALER_STATUS
+
+	column 'Onboarded Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: ONBOARDED_DATE
+
+	column 'Dealer Group Key'
+		dataType: string
+		isHidden
+		sourceColumn: DEALER_GROUP_KEY
+
+	column 'Agent Key'
+		dataType: string
+		isHidden
+		sourceColumn: AGENT_KEY
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	column 'Remit Rule'
+		dataType: string
+		sourceColumn: REMIT_RULE
+
+	column 'Is Weekly Remit'
+		dataType: boolean
+		sourceColumn: IS_WEEKLY_REMIT
+
+	column Program
+		dataType: string
+		sourceColumn: PROGRAM
+
+	column 'Reinsurance Company'
+		dataType: string
+		sourceColumn: REINSURANCE_COMPANY
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: SOURCE_SYSTEM
+
+	column 'Participation Entity Key'
+		dataType: string
+		isHidden
+		sourceColumn: PARTICIPATION_ENTITY_KEY
+
+	column 'Participation Entity Name'
+		dataType: string
+		sourceColumn: PARTICIPATION_ENTITY_NAME
+
+	column 'Participation Structure'
+		dataType: string
+		sourceColumn: PARTICIPATION_STRUCTURE
+
+	column 'Participation Label'
+		dataType: string
+		sourceColumn: PARTICIPATION_LABEL
+
+	hierarchy 'Dealer Geography'
+
+		level State
+			column: State
+
+		level City
+			column: City
+
+		level 'Dealer Name'
+			column: 'Dealer Name'
+
+	partition Dealer = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_DEALER", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_dealer
+	annotation table_kind = dim

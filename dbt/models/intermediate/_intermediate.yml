@@ -1,0 +1,134 @@
+version: 2
+
+models:
+  - name: int_as_of_date
+    description: Single-row reporting date (var as_of_date, else latest source activity) and the cutover date.
+  - name: int_posting_periods
+    description: Months with close date (business day N of the next month) and is_closed. Owns the period-lock rule.
+    columns:
+      - name: posting_period_key
+        data_tests: [unique, not_null]
+  - name: int_posting_days
+    description: Day -> first posting period still open on that day (used by macro posting_period_key).
+    columns:
+      - name: date_day
+        data_tests: [unique, not_null]
+  - name: int_contract_key_bridge
+    description: legacy_contract_id or Admin Core contract_id -> conformed contract_key, with source_system.
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+  - name: int_claim_number_bridge
+    description: Claim numbers normalized with ltrim(claim_no, '0') -> claim_key and contract_key; has_contract_key flag.
+    columns:
+      - name: claim_key
+        data_tests: [unique, not_null]
+  - name: int_reportable_dealers
+    description: Dealer-level reportability from seeds/core/demo_exclusions.csv.
+    columns:
+      - name: dealer_number
+        data_tests: [unique]
+  - name: int_reportable_scope
+    description: THE single place demo dealers and test ranges are excluded (is_reportable). Every mart reads through it.
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+  - name: int_contracts_conformed
+    description: Both contract systems on one vocabulary and the conformed key. No PII.
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+  - name: int_claims_conformed
+    description: Claim headers from both systems (converted claims once, from Admin Core).
+    columns:
+      - name: claim_key
+        data_tests: [unique, not_null]
+  - name: int_claim_lines_conformed
+    description: Claim payment lines, sign normalized (paid always >= 0); legacy claims become one line each.
+    columns:
+      - name: line_key
+        data_tests: [unique, not_null]
+  - name: int_cancellations_conformed
+    description: Cancellations from both systems; is_effective_cancel marks the one that stops earning.
+    columns:
+      - name: cancel_key
+        data_tests: [unique, not_null]
+  - name: int_transactions_posted
+    description: Ledger transactions with posting_period_key (legacy SALE/CANCEL booked at conversion).
+    columns:
+      - name: txn_key
+        data_tests: [unique, not_null]
+  - name: int_disbursements_split
+    description: Dealer-cost split per transaction x type x account holder; ties to the transaction.
+    columns:
+      - name: disbursement_key
+        data_tests: [unique, not_null]
+  - name: int_contract_months
+    description: >
+      Contract x month earning spine (pro-rata and rule of 78 fractions) driven by the status
+      timeline: earning starts once the contract activated (first earning status); months already
+      closed at activation post to the first open period; a VOID after activation adds one
+      VOID_REVERSAL row. earned_month_key = true month, posting_period_key = booked period.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [contract_key, month_start, row_type]}
+  - name: int_disbursements_earned
+    description: Contract x disbursement type x posting period x earned month earned amounts.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [contract_key, disbursement_type, posting_period_key, earned_month_key]}
+  - name: int_remittance_lifecycle
+    description: Cash receipts with the remit batch lifecycle, age and late fee.
+  - name: int_status_history_backfill
+    description: Contract and claim status intervals from the source change logs, so history never starts late.
+  - name: int_call_contract_bridge
+    description: CRM call_id -> conformed contract_key (contract number, else a phone hash unique within the tenant, else '-1').
+    columns:
+      - name: call_id
+        data_tests: [unique, not_null]
+      - name: contract_match_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [CONTRACT_NUMBER, PHONE_HASH, UNRESOLVED]
+  - name: int_dealer_roster_drift
+    description: >
+      Admin-API dealer roster vs dim_dealer, one row per dealer number. drift_type MISSING_IN_DIM,
+      MISSING_IN_API and ATTRIBUTE_MISMATCH fail reconciliation gate test recon_dealer_roster_drift.
+    columns:
+      - name: dealer_number
+        data_tests: [unique, not_null]
+      - name: drift_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [OK, API_RECORD_QUARANTINED, NOT_REPORTABLE, LEGACY_ONLY, MISSING_IN_DIM, MISSING_IN_API, ATTRIBUTE_MISMATCH]
+  - name: int_contract_versions
+    description: >
+      Every contract version in raw (both systems) as SCD2 rows ordered by source version
+      (valid_from = updated_at, valid_to = next version's updated_at). Rebuilt from raw on every run,
+      so contract history does not depend on when dbt ran; snap_contract_status is the cross-check.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [contract_key, version_no]}
+    columns:
+      - name: contract_key
+        data_tests: [not_null]
+  - name: int_claim_versions
+    description: Every claim header version in raw (both systems, conformed claim_key) as SCD2 rows; snap_claim_status is the cross-check.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [claim_key, version_no]}
+    columns:
+      - name: claim_key
+        data_tests: [not_null]
+  - name: int_dealer_versions
+    description: Every Admin Core dealer version in raw as SCD2 rows; snap_dealer is the cross-check.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [dealer_id, version_no]}
+  - name: int_intake_quarantine
+    description: Every row an intake control rejected (feed, CRM, admin API, legacy), with its business key and resolution status.
+    columns:
+      - name: reject_row_key
+        data_tests: [unique, not_null]

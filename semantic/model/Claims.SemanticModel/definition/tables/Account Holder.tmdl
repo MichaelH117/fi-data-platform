@@ -1,0 +1,51 @@
+table 'Account Holder'
+
+	column 'Account Holder Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: ACCOUNT_HOLDER_KEY
+
+	column 'Account Holder ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: ACCOUNT_HOLDER_ID
+
+	column 'Holder Type'
+		dataType: string
+		sourceColumn: HOLDER_TYPE
+
+	column 'Holder Name'
+		dataType: string
+		sourceColumn: HOLDER_NAME
+
+	column State
+		dataType: string
+		sourceColumn: STATE
+
+	column 'Ref ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: REF_ID
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: TENANT_KEY
+
+	partition 'Account Holder' = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases(SnowflakeServer, SnowflakeWarehouse, [Role = "REPORTER"]),
+				    Db = Source{[Name = AnalyticsDatabase, Kind = "Database"]}[Data],
+				    Schema = Db{[Name = "CORE", Kind = "Schema"]}[Data],
+				    Data = Schema{[Name = "DIM_ACCOUNT_HOLDER", Kind = "Table"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_account_holder
+	annotation table_kind = dim
