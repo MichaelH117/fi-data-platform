@@ -348,5 +348,4 @@ The top items:
 ## Author
 
 Built by **Michael Hanson** ([GitHub](https://github.com/MichaelH117) · [LinkedIn](https://linkedin.com/in/michaelhanson117)).
-He designed the platform and directed a team of AI agents (Claude Code), each working in a data-department role,
-then reviewed and verified the results. All data is synthetic. Licensed under the [MIT License](LICENSE).
+All data is synthetic. Licensed under the [MIT License](LICENSE).
