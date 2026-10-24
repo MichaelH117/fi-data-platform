@@ -131,9 +131,8 @@ def test_live_published_copy_reconciles():
 
 
 def test_live_bi_reader_reads_but_cannot_write():
-    import psycopg
-
     s = _live_or_skip()
+    psycopg = pytest.importorskip("psycopg")
     with s.connect(reader=True, autocommit=True) as con:
         n = con.execute("select count(*) from core.dim_dealer").fetchone()[0]
         assert n > 0
