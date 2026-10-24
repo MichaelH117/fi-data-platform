@@ -1,0 +1,15 @@
+relationship legacy-reporting-1
+	fromColumn: 'Fact Contracts'.fxContractId
+	toColumn: Contracts.ContractId
+
+relationship legacy-reporting-2
+	fromColumn: 'Fact Contracts'.fxProducerId
+	toColumn: Producers.ProducerId
+
+relationship legacy-reporting-3
+	fromColumn: 'Fact Contracts'.fxProductKey
+	toColumn: Product.ProductKey
+
+relationship legacy-reporting-4
+	fromColumn: 'Fact Claims'.fxContractId
+	toColumn: Contracts.ContractId

@@ -1,0 +1,51 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_ops.vw_dim_claims.
+table Claims
+	lineageTag: legacy-ops-claims
+
+	measure 'Claims Paid' = SUM(Claims[ClaimAmount])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+
+	column ClaimId
+		dataType: int64
+		sourceColumn: ClaimId
+		summarizeBy: none
+
+	column ClaimNumber
+		dataType: string
+		sourceColumn: ClaimNumber
+		summarizeBy: none
+
+	column fxContractId
+		dataType: int64
+		sourceColumn: fxContractId
+		summarizeBy: none
+
+	column 'Claim Status'
+		dataType: string
+		sourceColumn: Claim Status
+		summarizeBy: none
+
+	column 'Claim Substatus'
+		dataType: string
+		sourceColumn: Claim Substatus
+		summarizeBy: none
+
+	column PaidDate
+		dataType: dateTime
+		sourceColumn: PaidDate
+		summarizeBy: none
+
+	column ClaimAmount
+		dataType: decimal
+		sourceColumn: ClaimAmount
+		summarizeBy: none
+
+	partition Claims = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_ops", Item="vw_dim_claims"]}[Data]
+				in
+				    Data

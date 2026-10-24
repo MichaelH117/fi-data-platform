@@ -45,6 +45,7 @@ h2 { font-size: 16px; margin: 0; }
 .topbar-inner { max-width: 1240px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink-1); font-weight: 650; text-decoration: none; }
 .brand-mark { width: 18px; height: 18px; border-radius: 5px; background: linear-gradient(135deg, var(--s1), var(--s3)); }
+.brand-sub { color: var(--ink-3, var(--ink-2)); font-weight: 500; }
 .spacer { flex: 1; }
 .theme-toggle { border: 1px solid var(--border); background: transparent; color: var(--ink-2); border-radius: 6px;
   width: 34px; height: 32px; cursor: pointer; font-size: 16px; }

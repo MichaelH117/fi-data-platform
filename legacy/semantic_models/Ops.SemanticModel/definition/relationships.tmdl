@@ -1,0 +1,15 @@
+relationship legacy-ops-1
+	fromColumn: Contracts.fxDealerId
+	toColumn: Dealers.DealerId
+
+relationship legacy-ops-2
+	fromColumn: Contracts.fxProductId
+	toColumn: Products.ProductId
+
+relationship legacy-ops-3
+	fromColumn: Claims.fxContractId
+	toColumn: Contracts.ContractId
+
+relationship legacy-ops-4
+	fromColumn: Cancels.fxContractId
+	toColumn: Contracts.ContractId

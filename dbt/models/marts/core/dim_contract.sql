@@ -39,6 +39,9 @@ select
     c.reportable_state,
     coalesce(md5('obligor|' || cast(c.original_obligor_id as varchar)), '-1') as original_obligor_key,
     coalesce(md5('obligor|' || cast(c.current_obligor_id as varchar)), '-1') as current_obligor_key,
+    -- producer roles, by name (dim_producer): who SOLD it vs which provider entity BACKS it
+    coalesce(d.dealer_key, '-1') as selling_dealer_key,
+    coalesce(md5('obligor|' || cast(c.current_obligor_id as varchar)), '-1') as provider_entity_key,
     c.obligor_basis,
     coalesce(md5('insurer|' || cast(c.insurer_id as varchar)), '-1') as insurer_key,
     c.customer_key,
@@ -52,7 +55,9 @@ select
     c._loaded_at,
     {{ audit_columns() }}
 from c
-left join {{ ref('dim_dealer') }} as d on d.dealer_number = c.dealer_number and d.dealer_key <> '-1'
+-- dealer master: a contract booked on a duplicate / variant dealer id lands on the survivor
+left join {{ ref('int_dealer_survivorship') }} as dm on dm.source_dealer_number = c.dealer_number
+left join {{ ref('dim_dealer') }} as d on d.dealer_key = dm.dealer_key and d.dealer_key <> '-1'
 left join {{ ref('dim_agent') }} as a on a.agent_id = c.agent_id
 left join {{ ref('dim_product') }} as p on p.plan_id = c.plan_id and p.program_id = c.program_id
 left join cancels as x using (contract_key)
@@ -69,6 +74,8 @@ select
     '-1' as product_key,
     '-1' as original_obligor_key,
     '-1' as current_obligor_key,
+    '-1' as selling_dealer_key,
+    '-1' as provider_entity_key,
     '-1' as insurer_key,
     false as is_cancelled,
     false as is_dealer_code_missing,

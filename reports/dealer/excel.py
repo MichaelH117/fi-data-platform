@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from pipeline import workpool as jobs
+
 
 def clean(df: pd.DataFrame) -> pd.DataFrame:
     out = df[[c for c in df.columns if not str(c).startswith("_")]].copy()
@@ -21,7 +23,14 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_workbook(path: Path, sheets: dict[str, pd.DataFrame], notes: list[str] | None = None) -> Path:
-    """Write ``sheets`` ({sheet name: frame}) to ``path``. ``notes`` become a leading About sheet."""
+    """Write ``sheets`` ({sheet name: frame}) to ``path``. ``notes`` become a leading About sheet.
+
+    Written in the background when ``python -m reports`` has a workbook pool open (pipeline/workpool.py)."""
+    jobs.run(_write_workbook, path, sheets, notes)
+    return path
+
+
+def _write_workbook(path: Path, sheets: dict[str, pd.DataFrame], notes: list[str] | None = None) -> Path:
     from openpyxl.styles import Font
     from openpyxl.utils import get_column_letter
 

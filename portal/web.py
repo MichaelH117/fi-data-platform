@@ -423,13 +423,14 @@ class WebUI:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{_e(title)} | Raw-data portal</title>
+<title>{_e(title)} | F&amp;I Data Platform raw-data portal</title>
 <link rel="stylesheet" href="/ui/static/portal.css">
 <script src="/ui/static/portal.js" defer></script>
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
-  <a class="brand" href="/ui"><span class="brand-mark" aria-hidden="true"></span>Raw-data portal</a>
+  <a class="brand" href="/ui"><span class="brand-mark" aria-hidden="true"></span>F&amp;I Data Platform
+    <span class="brand-sub">raw-data portal</span></a>
   <span class="spacer"></span>
   <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">&#9680;</button>
   {out}

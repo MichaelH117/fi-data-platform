@@ -1,0 +1,102 @@
+/// Every filed line value (funded reserve and market survey). Filing Line Value is blank until one Report Id, Line Item, Scope and Basis are in context; across windows only a LAST line (in force) shows, at its latest window.
+table 'Regulatory Line Value'
+
+	column 'Line Value Key'
+		dataType: string
+		isHidden
+		sourceColumn: line_value_key
+
+	column 'Report ID'
+		dataType: string
+		isHidden
+		sourceColumn: report_id
+
+	column State
+		dataType: string
+		sourceColumn: state
+
+	column Scope
+		dataType: string
+		sourceColumn: scope
+
+	column 'Window ID'
+		dataType: string
+		isHidden
+		sourceColumn: window_id
+
+	column 'Window Label'
+		dataType: string
+		sourceColumn: window_label
+
+	column 'Window Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: window_start
+
+	column 'Window End'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: window_end
+
+	column 'Is Final'
+		dataType: boolean
+		sourceColumn: is_final
+
+	column 'Provider Key'
+		dataType: string
+		isHidden
+		sourceColumn: provider_key
+
+	column 'Provider Name'
+		dataType: string
+		sourceColumn: provider_name
+
+	column Section
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: section
+
+	column 'Line No'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: line_no
+
+	column 'Line Item'
+		dataType: string
+		sourceColumn: line_item
+
+	column Label
+		dataType: string
+		sourceColumn: label
+
+	column Measure
+		dataType: string
+		sourceColumn: measure
+
+	column Basis
+		dataType: string
+		sourceColumn: basis
+
+	column Aggregation
+		dataType: string
+		sourceColumn: aggregation
+
+	column Value
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: value
+
+	partition 'Regulatory Line Value' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "regulatory", Item = "mart_regulatory_line_values"]}[Data]
+				in
+				    Data
+
+	annotation source_table = regulatory.mart_regulatory_line_values
+	annotation table_kind = fact

@@ -1,0 +1,62 @@
+# Schema registry (docs/V3_DESIGN.md 8.4): every schema in the DuckDB warehouse and in the Postgres
+# serving copy has ONE row here: who owns it, what it is for, its tier and how long data is kept.
+# `python -m pipeline.clutter_check` fails on any schema missing from this file and on clutter
+# (backup / old / tmp / new copies, empty tables, personal or sandbox objects) in a serving tier.
+#
+# tier
+#   raw       append-only copies of the sources (ingest)            never read by a report
+#   staging   typed, cleaned, PII hashed (staging, intermediate, snapshots)
+#   marts     the serving layer: dims, facts, marts, seeds           reports and BI read only these
+#   compat    deprecated V1 names kept for one release (views)      read-only, no new work
+#   ops       run audit and access control (audit, security)
+#   sandbox   personal / scratch work                               never in a serving database
+# Serving tiers (clutter rules apply): marts, compat.
+#
+# allow_empty: tables that may legitimately hold 0 rows on a given day (listed, so an empty table
+# elsewhere is a finding, not noise).
+
+serving_tiers: [marts, compat]
+
+duckdb:
+  raw_admin_core:   {owner: Data Engineer, tier: raw, retention: all versions (CDC history), purpose: Admin Core OLTP replicated by change-tracking version}
+  raw_legacy_admin: {owner: Data Engineer, tier: raw, retention: all versions (CDC history), purpose: Legacy admin system (pre-cutover book) replicated by version}
+  raw_network_feed: {owner: Data Engineer, tier: raw, retention: all files, purpose: Daily dealer-network landing files and their quarantine}
+  raw_crm:          {owner: Data Engineer, tier: raw, retention: all files, purpose: Call-center CRM extracts}
+  raw_admin_api:    {owner: Data Engineer, tier: raw, retention: all files, purpose: Admin API dealer extracts}
+  staging:          {owner: Data Engineering Manager, tier: staging, retention: rebuilt every run (views), purpose: Latest version per key, typed, cleaned, PII hashed; EAV pivoted; sentinel dates mapped}
+  intermediate:     {owner: Data Engineering Manager, tier: staging, retention: rebuilt every run, purpose: Conformed contracts / claims, key bridges, dealer master, reportable scope}
+  snapshots:        {owner: Data Engineering Manager, tier: staging, retention: full SCD2 history, purpose: Daily SCD2 snapshots of dealer, product and contract / claim status}
+  seeds:            {owner: Data Engineering Manager, tier: marts, retention: versioned in git, purpose: Reference data and report definitions (exclusions, status sets, bands)}
+  core:             {owner: Data Engineering Manager, tier: marts, retention: rebuilt every run, purpose: Conformed star schema (dims, facts) with declared keys and unknown members}
+  finance:          {owner: Financial Analysts, tier: marts, retention: rebuilt every run; closed periods never restated, purpose: Accounting marts (P&L, reserve roll-forward, statements)}
+  claims:           {owner: Senior Data Analyst (dealer & claims), tier: marts, retention: rebuilt every run, purpose: Claim summary, components and KPIs}
+  dealer:           {owner: Senior Data Analyst (dealer & claims), tier: marts, retention: rebuilt every run, purpose: Dealer scorecard, production, remittance and packets inputs}
+  regulatory:       {owner: Senior Data Analyst (regulatory), tier: marts, retention: rebuilt every run; filed values archived as files, purpose: State filings (funded reserve, market survey) from the line engine}
+  actuarial:        {owner: Data Scientist, tier: marts, retention: rebuilt every run, purpose: Earning curves, triangles, IBNR and fit diagnostics}
+  gold_actuarial:   {owner: Data Scientist, tier: marts, retention: rebuilt every run (views), purpose: Report-facing actuarial views}
+  gold:             {owner: Data Engineering Manager, tier: compat, retention: one release (deprecated V1 names), purpose: V1 report-facing names kept while consumers migrate to core}
+  bronze:           {owner: Data Engineering Manager, tier: compat, retention: one release (deprecated V1 names), purpose: V1 raw names (views over raw)}
+  silver:           {owner: Data Engineering Manager, tier: compat, retention: one release (deprecated V1 names), purpose: V1 intermediate names (views)}
+  audit:            {owner: Data Engineering Manager, tier: ops, retention: all runs, purpose: Pipeline runs, gate results, reconciliation and layer row counts}
+  main:             {owner: Data Engineering Manager, tier: ops, retention: n/a, purpose: DuckDB default schema; holds no project objects}
+
+postgres:
+  core:           {owner: Data Engineering Manager, tier: marts, retention: replaced every sync, purpose: Synced copy of core with enforced PK / FK and indexes}
+  finance:        {owner: Financial Analysts, tier: marts, retention: replaced every sync, purpose: Synced copy of finance}
+  dealer:         {owner: Senior Data Analyst (dealer & claims), tier: marts, retention: replaced every sync, purpose: Synced copy of dealer}
+  claims:         {owner: Senior Data Analyst (dealer & claims), tier: marts, retention: replaced every sync, purpose: Synced copy of claims}
+  regulatory:     {owner: Senior Data Analyst (regulatory), tier: marts, retention: replaced every sync, purpose: Synced copy of regulatory}
+  actuarial:      {owner: Data Scientist, tier: marts, retention: replaced every sync, purpose: Synced copy of actuarial}
+  gold:           {owner: Data Engineering Manager, tier: compat, retention: replaced every sync, purpose: Synced copy of the V1 report-facing names}
+  gold_actuarial: {owner: Data Scientist, tier: marts, retention: replaced every sync, purpose: Synced copy of gold_actuarial}
+  seeds:          {owner: Data Engineering Manager, tier: marts, retention: replaced every sync, purpose: Synced copy of seeds}
+  security:       {owner: Data Engineer / Data Scientist, tier: ops, retention: access map replaced every sync, purpose: Row-level security map and policies (rls.sql)}
+  public:         {owner: Data Engineering Manager, tier: ops, retention: n/a, purpose: Postgres default schema; holds no project objects}
+
+allow_empty:
+  # quarantine / exception tables: empty is the good day
+  - core.mart_intake_quarantine
+  - intermediate.int_intake_quarantine
+  - dealer.mart_dealer_pending_contracts
+  - dealer.mart_surcharge_audit
+  - finance.mart_remittance_late_fees

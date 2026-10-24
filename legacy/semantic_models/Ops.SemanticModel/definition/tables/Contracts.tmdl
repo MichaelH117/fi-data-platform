@@ -1,0 +1,87 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_ops.vw_dim_contracts.
+table Contracts
+	lineageTag: legacy-ops-contracts
+
+	measure Contracts = COUNTROWS(Contracts)
+		formatString: #,0
+
+	measure 'Written Premium' = SUM(Contracts[ContractPurchasePrice])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+
+	measure 'In Force' = CALCULATE([Contracts], Contracts[CurrentContractStatus] = "INFORCE")
+		formatString: #,0
+
+	column ContractId
+		dataType: int64
+		sourceColumn: ContractId
+		summarizeBy: none
+
+	column ContractNumber
+		dataType: string
+		sourceColumn: ContractNumber
+		summarizeBy: none
+
+	column fxDealerId
+		dataType: int64
+		sourceColumn: fxDealerId
+		summarizeBy: none
+
+	column fxProductId
+		dataType: int64
+		sourceColumn: fxProductId
+		summarizeBy: none
+
+	column EnteredDate
+		dataType: dateTime
+		sourceColumn: EnteredDate
+		summarizeBy: none
+
+	column CurrentContractStatus
+		dataType: string
+		sourceColumn: CurrentContractStatus
+		summarizeBy: none
+
+	column ContractPurchasePrice
+		dataType: decimal
+		sourceColumn: ContractPurchasePrice
+		summarizeBy: none
+
+	column Producers
+		dataType: string
+		sourceColumn: Producers
+		summarizeBy: none
+
+	column ProviderCode
+		dataType: string
+		sourceColumn: ProviderCode
+		summarizeBy: none
+
+	column 'Reportable State'
+		dataType: string
+		sourceColumn: Reportable State
+		summarizeBy: none
+
+	column ProductType
+		dataType: string
+		sourceColumn: ProductType
+		summarizeBy: none
+
+	column FullName
+		dataType: string
+		sourceColumn: FullName
+		summarizeBy: none
+
+	column EnteredByUser
+		dataType: string
+		sourceColumn: EnteredByUser
+		summarizeBy: none
+
+	partition Contracts = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_ops", Item="vw_dim_contracts"]}[Data]
+				in
+				    Data

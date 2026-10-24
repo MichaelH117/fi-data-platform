@@ -1,5 +1,8 @@
 """CLI: ``python -m semantic [--target snowflake|postgres] [--out DIR] [--check] [--refresh-columns]``.
 
+``python -m semantic export-docs [--out DIR]`` (alias ``export``) writes the Tabular-Editor-style CSV
+documentation instead; see ``semantic/export.py``.
+
 Builds ``semantic/model/`` (TMDL-style Sales / Claims / Finance / Compliance models) from
 ``dbt/models/metrics.yml``. Column names and types come from ``semantic/columns.lock.json``, so the
 build is deterministic and works without a warehouse.
@@ -55,6 +58,10 @@ def _same_tree(a: Path, b: Path) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] in ("export-docs", "export"):  # Tabular-Editor-style CSV docs (semantic/export.py)
+        from semantic.export import main as export_main
+        return export_main(argv[1:])
     ap = argparse.ArgumentParser(prog="python -m semantic", description=__doc__.splitlines()[0])
     ap.add_argument("--target", choices=TARGETS, default=DEFAULT_TARGET,
                     help="M source of the partitions (default: %(default)s)")

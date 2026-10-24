@@ -39,6 +39,8 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
+from pipeline import workpool
+
 log = logging.getLogger("publish.packets")
 
 _DEALER = "dealer_key = $dealer_key and tenant_key = $tenant_key"
@@ -322,23 +324,34 @@ def _missing(v: object) -> bool:
     return v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NA or v is pd.NaT
 
 
+def _nonzero(body: str) -> bool:
+    return any(ch in "123456789" for ch in body)
+
+
+def _no_negative_zero(text: str) -> str:
+    """'-0.0%' -> '0.0%': a tiny negative that rounds to zero is shown as zero."""
+    return text[1:] if text.startswith("-") and not _nonzero(text) else text
+
+
 def fmt_value(v: object, fmt: str) -> str:
     if _missing(v):
         return "-"
     if fmt == "int":
         return f"{int(v):,}"
-    if fmt == "money":
-        return f"${float(v):,.2f}"
+    if fmt == "money":  # sign before the symbol (-$5.00, never $-5.00); a value that rounds to zero has no sign
+        body = f"{abs(float(v)):,.2f}"
+        return f"{'-' if float(v) < 0 and _nonzero(body) else ''}${body}"
     if fmt == "pct":
-        return f"{float(v):.1%}"
+        return _no_negative_zero(f"{float(v):.1%}")
     if fmt == "ratio":
-        return f"{float(v):.4f}"
+        return _no_negative_zero(f"{float(v):.4f}")
     if fmt == "date":
         return f"{pd.Timestamp(v):%Y-%m-%d}"
     return str(v)
 
 
 XLSX_FORMATS = {"int": "#,##0", "money": '"$"#,##0.00', "pct": "0.0%", "ratio": "0.0000", "date": "yyyy-mm-dd"}
+XLSX_DIGITS = {"money": 2, "pct": 3, "ratio": 4}  # decimals each format shows (pct: 0.0% = 3 on the fraction)
 
 
 def _labels(cols: tuple[Col, ...], per: Periods) -> list[str]:
@@ -453,7 +466,9 @@ def _xlsx(path: Path, sheets: list[tuple[str, str, str, pd.DataFrame, tuple[Col,
                 elif c.fmt == "int":
                     v = int(v)
                 elif c.fmt in ("money", "pct", "ratio"):
-                    v = float(v)
+                    # round to what the format shows (+ 0.0 turns -0.0 into 0.0): Excel picks the negative
+                    # section from the stored value, so -0.004 would otherwise display as -$0.00
+                    v = round(float(v), XLSX_DIGITS[c.fmt]) + 0.0
                 elif c.fmt == "date":
                     v = pd.Timestamp(v).date()
                 row.append(v)
@@ -470,6 +485,16 @@ def _xlsx(path: Path, sheets: list[tuple[str, str, str, pd.DataFrame, tuple[Col,
     return True
 
 
+def _xlsx_async(path: Path, sheets: list[tuple[str, str, str, pd.DataFrame, tuple[Col, ...]]], per: Periods) -> bool:
+    """``_xlsx`` in the background when build_packets has a pool open (pipeline/workpool.py)."""
+    try:
+        import openpyxl  # noqa: F401
+    except ImportError:
+        return False
+    workpool.run(_xlsx, path, sheets, per)
+    return True
+
+
 def write_packet(out_dir: Path, p: Packet, tables: dict[str, pd.DataFrame], per: Periods) -> Path:
     d = out_dir / p.tenant_code / p.dealer_number
     d.mkdir(parents=True, exist_ok=True)
@@ -477,7 +502,7 @@ def write_packet(out_dir: Path, p: Packet, tables: dict[str, pd.DataFrame], per:
         df.to_csv(d / f"{name}.csv", index=False)
     (d / "index.html").write_text(_html(p, tables, per), encoding="utf-8")
     sheets = [(name, spec.title, per.label(spec.period), tables[name], spec.cols) for name, spec in TABLE_SPECS.items()]
-    has_xlsx = _xlsx(d / "packet.xlsx", sheets, per)
+    has_xlsx = _xlsx_async(d / "packet.xlsx", sheets, per)
     meta = {"tenant_code": p.tenant_code, "dealer_number": p.dealer_number, "dealer_key": p.dealer_key,
             "as_of": str(per.as_of), "period": per.t12_label, "tables": {k: len(v) for k, v in tables.items()},
             "xlsx": has_xlsx}
@@ -528,7 +553,7 @@ def write_program(out_dir: Path, tenant: Packet, tables: dict[str, pd.DataFrame]
               f"{html.escape(per.t12_label)} &middot; data as of {per.as_of:%Y-%m-%d}")
     (d / "index.html").write_text(_page(f"{tenant.tenant_code} program packet", tenant.primary_color,
                                         tenant.secondary_color, header, body), encoding="utf-8")
-    has_xlsx = _xlsx(d / "program.xlsx", [
+    has_xlsx = _xlsx_async(d / "program.xlsx", [
         ("program", "Program totals", per.label("program_t12"), tables["program_kpi"], PROGRAM_KPI_COLS),
         ("dealers", "Dealers", per.label("t12"), tables["dealers"], PROGRAM_DEALER_COLS),
         ("claims", PROGRAM_CLAIMS.title, per.label("program_t12"), tables["program_claims"], PROGRAM_CLAIMS.cols),
@@ -544,11 +569,12 @@ def build_packets(con: duckdb.DuckDBPyConnection, out_dir: Path, peer: pd.DataFr
     per = periods(con)
     written: list[Path] = []
     by_tenant: dict[str, list[tuple[Packet, dict[str, pd.DataFrame]]]] = {}
-    for p in packets(con):
-        tables = packet_tables(con, p, per, peer)
-        written.append(write_packet(out_dir, p, tables, per))
-        by_tenant.setdefault(p.tenant_code, []).append((p, tables))
-    for members in by_tenant.values():
-        write_program(out_dir, members[0][0], program_tables(con, members, per), per)
+    with workpool.workbook_pool():  # packet workbooks are written in parallel; the block waits for all
+        for p in packets(con):
+            tables = packet_tables(con, p, per, peer)
+            written.append(write_packet(out_dir, p, tables, per))
+            by_tenant.setdefault(p.tenant_code, []).append((p, tables))
+        for members in by_tenant.values():
+            write_program(out_dir, members[0][0], program_tables(con, members, per), per)
     log.info("dealer packets: %d, program packets: %d -> %s", len(written), len(by_tenant), out_dir)
     return written

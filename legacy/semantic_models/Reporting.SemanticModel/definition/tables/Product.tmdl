@@ -1,0 +1,33 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_reporting.vw_dim_product.
+table Product
+	lineageTag: legacy-reporting-product
+
+	column ProductKey
+		dataType: int64
+		sourceColumn: ProductKey
+		summarizeBy: none
+
+	column 'Product Code'
+		dataType: string
+		sourceColumn: Product Code
+		summarizeBy: none
+
+	column Product
+		dataType: string
+		sourceColumn: Product
+		summarizeBy: none
+
+	column 'Plan Year'
+		dataType: int64
+		sourceColumn: Plan Year
+		summarizeBy: none
+
+	partition Product = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_reporting", Item="vw_dim_product"]}[Data]
+				in
+				    Data

@@ -1,4 +1,4 @@
-# Server-target stack for the VSC data platform.
+# Server-target stack for the F&I data platform.
 #
 # STATUS: written and documented, NOT TESTED. The development machine has no Docker, so this file
 # has never been brought up. The supported path today is the serverless local run:

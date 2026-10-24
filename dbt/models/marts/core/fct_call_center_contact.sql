@@ -51,6 +51,6 @@ select
     'crm' as source_system,
     {{ audit_columns() }}
 from calls as c
-left join {{ ref('dim_contract') }} as k on k.contract_key = c.contract_key and c.contract_key <> '-1'
+left join {{ ref('dim_contract') }} as k on k.contract_key = nullif(c.contract_key, '-1')  -- equi-join (hash), not a nested loop
 left join claim_link as l using (call_id)
 where c.contract_key not in (select contract_key from excluded)

@@ -1,0 +1,49 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_finance.vw_fact_contracts.
+table 'Fact Contracts'
+	lineageTag: legacy-finance-fact-contracts
+
+	measure 'Coverage Cost' = SUM('Fact Contracts'[CoverageCost])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+
+	measure Contracts = DISTINCTCOUNT('Fact Contracts'[fxContractId])
+		formatString: #,0
+
+	column fxContractId
+		dataType: int64
+		sourceColumn: fxContractId
+		summarizeBy: none
+
+	column fxDealerId
+		dataType: int64
+		sourceColumn: fxDealerId
+		summarizeBy: none
+
+	column fxProductId
+		dataType: int64
+		sourceColumn: fxProductId
+		summarizeBy: none
+
+	column EnteredDate
+		dataType: dateTime
+		sourceColumn: EnteredDate
+		summarizeBy: none
+
+	column GrossPremium
+		dataType: decimal
+		sourceColumn: GrossPremium
+		summarizeBy: none
+
+	column CoverageCost
+		dataType: decimal
+		sourceColumn: CoverageCost
+		summarizeBy: none
+
+	partition 'Fact Contracts' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_finance", Item="vw_fact_contracts"]}[Data]
+				in
+				    Data

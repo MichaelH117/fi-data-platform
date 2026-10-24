@@ -1,0 +1,41 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_ops.vw_dim_cancels.
+table Cancels
+	lineageTag: legacy-ops-cancels
+
+	measure 'Cancel Refunds' = SUM(Cancels[CustomerRefund])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+
+	column CancelId
+		dataType: int64
+		sourceColumn: CancelId
+		summarizeBy: none
+
+	column fxContractId
+		dataType: int64
+		sourceColumn: fxContractId
+		summarizeBy: none
+
+	column CancelDate
+		dataType: dateTime
+		sourceColumn: CancelDate
+		summarizeBy: none
+
+	column CancelReason
+		dataType: string
+		sourceColumn: CancelReason
+		summarizeBy: none
+
+	column CustomerRefund
+		dataType: decimal
+		sourceColumn: CustomerRefund
+		summarizeBy: none
+
+	partition Cancels = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_ops", Item="vw_dim_cancels"]}[Data]
+				in
+				    Data

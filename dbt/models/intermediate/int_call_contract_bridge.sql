@@ -37,4 +37,5 @@ select
     end as contract_match_method
 from calls as c
 left join by_number as n on n.contract_number = c.contract_number
-left join by_phone as p on n.contract_key is null and p.tenant_key = c.tenant_key and p.phone_hash = c.phone_hash
+left join by_phone as p  -- only when the number did not match; equi-join keeps it a hash join
+    on p.tenant_key = c.tenant_key and p.phone_hash = case when n.contract_key is null then c.phone_hash end

@@ -42,6 +42,10 @@ vars:
   min_contract_bridge_coverage: 0.99
   min_claim_contract_coverage: 0.98
   max_raw_age_hours: 48
+  # Unknown-member gate (8.4): max share of a fact's rows on the '-1' contract / dealer / product member.
+  max_unknown_member_share: 0.02
+  # Placeholder dates mapped to NULL once in staging (macros/foundations.sql).
+  sentinel_dates: ["1900-01-01", "1899-12-30"]
 
 models:
   warranty:

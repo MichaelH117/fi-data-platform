@@ -6,7 +6,9 @@ seeds:
       Dealers and contract ranges that are never reportable. Read ONCE, by
       int_reportable_scope; every mart reads through that model. rule_type is one of
       dealer_flag (use the source is_demo flag), dealer_number, contract_id_range,
-      contract_number_pattern (regex on the cleaned contract number).
+      contract_number_pattern (regex on the cleaned contract number), test_customer_name
+      (regex, in contract_number_pattern, on the trimmed upper-case customer full name: API test
+      contracts; the name never leaves staging, only the flag does).
     config:
       column_types:
         rule_id: varchar
@@ -24,4 +26,4 @@ seeds:
         data_tests:
           - accepted_values:
               arguments:
-                values: [dealer_flag, dealer_number, contract_id_range, contract_number_pattern]
+                values: [dealer_flag, dealer_number, contract_id_range, contract_number_pattern, test_customer_name]

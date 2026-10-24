@@ -95,6 +95,10 @@ jobs:
       - name: End-to-end pipeline (gates block publish and reports)
         timeout-minutes: 10
         run: python -m pipeline.run
+      # Schema registry (docs/V3_DESIGN.md 8.4): every schema registered, no backup / empty / personal
+      # objects in a serving tier. Postgres is not in CI, so only the DuckDB warehouse is checked.
+      - name: Clutter check (schema registry)
+        run: python -m pipeline.clutter_check
       - name: Incremental day (CDC picks up only new versions)
         timeout-minutes: 5
         run: python -m pipeline.run --append-day

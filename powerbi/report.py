@@ -1,4 +1,4 @@
-"""The ``VSC Portfolio`` report in PBIR format (one JSON file per page and per visual), generated.
+"""The ``F&I Data Platform`` report in PBIR format (one JSON file per page and per visual), generated.
 
 Pages and visuals are declared here, on one layout grid, and written as PBIR JSON. PBIR is the format
 Power BI Desktop saves a Power BI project (PBIP) in by default; it needs no preview feature in the
@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+
+from powerbi import model
 
 SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/"
 S_VISUAL = SCHEMA + "item/report/definition/visualContainer/2.13.0/schema.json"
@@ -537,7 +539,7 @@ AXIS = {"gridlineColor": {"solid": {"color": GRID}}, "labelColor": {"solid": {"c
 
 def theme() -> dict:
     return {
-        "name": "VSC Portfolio",
+        "name": model.MODEL_NAME,
         "dataColors": SERIES,
         "foreground": INK, "foregroundNeutralSecondary": INK_2, "foregroundNeutralTertiary": INK_3,
         "background": SURFACE, "backgroundLight": PAGE_BG, "backgroundNeutral": BORDER,
@@ -567,7 +569,7 @@ def theme() -> dict:
     }
 
 
-THEME_FILE = "VSC_Portfolio_Theme.json"
+THEME_FILE = "FI_Data_Platform_Theme.json"
 
 
 def report_files(model_dir_name: str) -> dict[str, dict]:

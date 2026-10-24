@@ -1,0 +1,31 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_finance.vw_fact_cancels_gen3.
+table 'Fact Cancels Gen3'
+	lineageTag: legacy-finance-fact-cancels-gen3
+
+	measure 'Cancel Refunds' = SUM('Fact Cancels Gen3'[RefundAmount])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+
+	column fxContractId
+		dataType: int64
+		sourceColumn: fxContractId
+		summarizeBy: none
+
+	column CancelDate
+		dataType: dateTime
+		sourceColumn: CancelDate
+		summarizeBy: none
+
+	column RefundAmount
+		dataType: decimal
+		sourceColumn: RefundAmount
+		summarizeBy: none
+
+	partition 'Fact Cancels Gen3' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_finance", Item="vw_fact_cancels_gen3"]}[Data]
+				in
+				    Data

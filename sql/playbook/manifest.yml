@@ -1,0 +1,29 @@
+# Analyst SQL playbook: what `python -m legacy playbook` runs, where, for how long, and how many rows the
+# answer (the LAST result set of each file) must have. Ranges are wide on purpose: they catch an empty or
+# exploded answer, not a normal day of new contracts. `*.modern.sql` siblings answer the same question on
+# the modern marts (PG_DATABASE) and are optional: they SKIP when the marts are not synced.
+queries:
+  - {file: 01_catalog_discovery.sql,               database: legacy,       timeout: 30s,  expected_rows: [40, 120]}
+  - {file: 02_freshness_probe.sql,                 database: legacy,       timeout: 30s,  expected_rows: 1}
+  - {file: 03_diag_dim_match_by_year.sql,          database: legacy,       timeout: 60s,  expected_rows: [7, 12]}
+  - {file: 03_diag_dim_match_by_year.modern.sql,   database: modern,       timeout: 60s,  expected_rows: [7, 12], optional: true}
+  - {file: 04_diag_key_bridge_vin.sql,             database: legacy,       timeout: 60s,  expected_rows: 1}
+  - {file: 05_diag_claim_key_coverage.sql,         database: legacy,       timeout: 60s,  expected_rows: 2}
+  - {file: 06_diag_fanout_guard.sql,               database: legacy,       timeout: 60s,  expected_rows: 1}
+  - {file: 07_funded_reserve_filing.sql,           database: legacy,       timeout: 60s,  expected_rows: [3, 20]}
+  - {file: 07_funded_reserve_filing.modern.sql,    database: modern,       timeout: 60s,  expected_rows: [1, 20], optional: true}
+  - {file: 08_claim_grain_export.sql,              database: legacy,       timeout: 60s,  expected_rows: [1000, 10000]}
+  - {file: 09_cancel_export_tenant_exclusions.sql, database: legacy,       timeout: 60s,  expected_rows: [500, 5000]}
+  - {file: 10_coverage_cost_lineage_scoped.sql,    database: legacy,       timeout: 60s,  expected_rows: [4, 8]}
+  - {file: 11_dealer_duplicate_identity.sql,       database: legacy,       timeout: 30s,  expected_rows: [3, 20]}
+  - {file: 11_dealer_duplicate_identity.modern.sql, database: modern,      timeout: 30s,  expected_rows: 0, optional: true}
+  - {file: 12_eav_custom_field_pivot.sql,          database: legacy_admin, timeout: 30s,  expected_rows: [500, 2000]}
+  - {file: 13_producer_vs_provider_trap.sql,       database: legacy,       timeout: 30s,  expected_rows: 1}
+  - {file: 13_producer_vs_provider_trap.modern.sql, database: modern,      timeout: 30s,  expected_rows: 1, optional: true}
+  - {file: 14_loss_ratio_earnings_sentinel.sql,    database: legacy,       timeout: 5min, expected_rows: [20, 24]}
+  - {file: 14_loss_ratio_earnings_sentinel.modern.sql, database: modern,   timeout: 5min, expected_rows: [20, 24], optional: true}
+  - {file: 15_dax_in_force.sql,                    database: legacy,       timeout: 60s,  expected_rows: [40, 60]}
+  - {file: 16_dax_claims_paid_sign.sql,            database: legacy,       timeout: 60s,  expected_rows: [7, 12]}
+  - {file: 16_dax_claims_paid_sign.modern.sql,     database: modern,       timeout: 60s,  expected_rows: [7, 12], optional: true}
+  - {file: 17_dax_coverage_cost_gen2.sql,          database: legacy,       timeout: 60s,  expected_rows: [7, 12]}
+  - {file: 18_dax_cancel_refunds.sql,              database: legacy,       timeout: 60s,  expected_rows: [12, 14]}

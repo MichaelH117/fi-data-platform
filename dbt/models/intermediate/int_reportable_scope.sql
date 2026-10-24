@@ -1,5 +1,6 @@
 {{ config(materialized='table') }}
--- THE one place demo dealers and the test contract ranges are excluded (seeds/core/demo_exclusions.csv).
+-- THE one place demo dealers, the test contract ranges and API test customers are excluded
+-- (seeds/core/demo_exclusions.csv).
 -- One row per conformed contract. Every core fact and mart keeps only is_reportable rows by
 -- joining here; diagnostics check that no non-reportable row reaches a mart.
 with rules as (
@@ -11,13 +12,36 @@ contracts as (
     from {{ ref('int_contracts_conformed') }}
 ),
 
+-- API test contracts carry a placeholder customer name. Names live only in staging, so the match
+-- runs here against staging and only the contract key + rule leave this model.
+customer_names as (
+    select {{ contract_key("'admin_core'", 'contract_id') }} as contract_key, 'admin_core' as source_system,
+           upper(trim(concat_ws(' ', customer_first_name, customer_last_name))) as full_name
+    from {{ ref('stg_admin_core__contract') }}
+    union all
+    select {{ contract_key("'legacy_admin'", 'legacy_contract_id') }}, 'legacy_admin',
+           upper(trim(concat_ws(' ', customer_first_name, customer_last_name)))
+    from {{ ref('stg_legacy_admin__contracts') }}
+),
+
+test_customers as (
+    select n.contract_key, min(r.rule_id) as rule_id
+    from customer_names as n
+    inner join rules as r
+        on r.rule_type = 'test_customer_name'
+        and r.source_system in (n.source_system, 'any')
+        and regexp_full_match(n.full_name, r.contract_number_pattern)
+    group by 1
+),
+
 flagged as (
     select
         c.*,
         dlr.exclusion_rule_id as dealer_rule_id,
         rng.rule_id as id_range_rule_id,
-        pat.rule_id as number_rule_id
+        coalesce(pat.rule_id, tc.rule_id) as number_rule_id
     from contracts as c
+    left join test_customers as tc using (contract_key)
     left join {{ ref('int_reportable_dealers') }} as dlr
         on dlr.dealer_number = c.dealer_number and not dlr.is_reportable
     left join rules as rng

@@ -143,6 +143,10 @@ providers as (
 )
 
 select
+    -- one non-null key for the grain (basis is NULL on count lines, so the 6 grain columns cannot
+    -- be a primary key on their own; surrogate_key spells NULL as '~null~')
+    {{ surrogate_key(['l.report_id', 'l.state', 'l.window_id', 'p.provider_key', 'l.line_item', 'l.basis']) }}
+        as line_value_key,
     l.report_id,
     l.state,
     l.scope,

@@ -1,12 +1,14 @@
-# Warranty Data Platform
+# F&I Data Platform
 
-**One person plus a team of AI agents can run the whole data department of a vehicle service contract (VSC)
-administrator.** This repo is that department in a box: an operational admin system, a daily dealer feed, a
+**One person plus a team of AI agents can run the whole data department of an F&I (finance and insurance)
+product administrator.** The book covers the products a dealer sells in the finance office: vehicle service
+contracts (VSC), GAP, ancillary protection and prepaid maintenance. VSC is the largest line and the deepest
+model here, but it is one product among several. This repo is that department in a box: an operational admin system, a daily dealer feed, a
 Snowflake-shaped warehouse, accounting-grade facts, a Power BI-ready semantic model, state regulatory filings,
 dealer statements and per-dealer packets. All of it is rebuilt every day by one command, and it refuses to
 publish a number that does not reconcile.
 
-- **Reliable.** `python -m pipeline.run` rebuilds everything from an empty folder in about 12 minutes, on a laptop,
+- **Reliable.** `python -m pipeline.run` rebuilds everything from an empty folder in about 9 minutes, on a laptop,
   with no Docker, no servers and no paid accounts. Each step fails fast, and every run is logged.
 - **Reconciled.** Row counts and dollar totals are tied out from source to raw to marts on every run. Eight
   diagnostics gates **block publishing** when one breaks: product-dimension match rate, contract key-bridge
@@ -78,6 +80,34 @@ The platform tells the whole history of a VSC administrator's reporting, not jus
 | 3. Partner feeds and white-label programs | Daily dealer files, partner programs needing their own branding and scope | Data contracts, quarantine, and per-partner-program (tenant) scoping everywhere |
 | 4. Warehouse migration | Move to an orchestrated, layered warehouse | Legacy book (before the 2023-01-01 cutover) and Admin Core load side by side, tied out by reconciliation |
 
+## How it was, and how we fixed it
+
+Reporting teams at many VSC administrators work on a warehouse that grew one urgent request at a time: a schema
+per source system, each with its own BI model, views over views, no keys, a second tenant copied into its own
+schema, and a custom-field store in the admin system's own database. Every analyst learns the traps by being
+burned by them. This repo rebuilds that warehouse **on purpose** (`python -m legacy build`, a separate PostgreSQL
+database built from the same synthetic raw rows) and answers the same ten business questions on it and on the
+modern star schema (`python -m legacy demo`). Measured on synthetic data at about 60k contracts:
+
+| Pain point (legacy) | Measured on the legacy side | Modern answer | Root-cause fix |
+|---|---|---|---|
+| Duplicate dealer ids (active, inactive copy, prefixed) | one dealer id finds 233 of 474 in-force contracts | 476 | dealer master + crosswalk |
+| Stale product dim, inner-joined | 50,371 of 59,985 contracts kept; latest plan year shows as 2025 | 59,749; 2026 | full dim + unknown member (-1) + build test |
+| Claim sign negative in one layer, positive in another | paid claims net to -$18,883 over 24 months | $6,187,028 | sign fixed once in staging |
+| "Producer" means dealer in one layer, provider in another | provider's book = 0 contracts | 9,936 | `producer_role` on `dim_producer` |
+| Test/API contracts, demo dealers, fan-out on a shared dealer number | filing pulls 36,501 rows (1,178 doubled, 32 test, 127 demo) | 35,283 | scope rules applied once |
+| Union-spine contract "dim" | 893 ms per provider lookup, 3.4M spine rows read | 13 ms | one contract dim table with a key |
+| Text-normalized VIN joins, no keys | correlated lookup timed out at 60 s; exact join loses 21% | 100% on the key | enforced PK/FK, VIN normalized once |
+| Tenant B as a mirror schema | copied query errors; mirror lags (7,384 vs 7,453 in force) | one table + RLS | tenant column + row-level security |
+| Sentinel date in the earnings series | 2019 loss ratio 49.24% vs 48.88% with the dropped rows | no sentinel rows | NULL + flag in staging, date index |
+| EAV custom fields in another database | one-query join impossible; two steps + export | one query | pivoted to typed columns |
+| Backups, empty shells, personal schemas | 22 registry findings | 0 | schema registry + CI clutter check |
+
+Every entry, with its plan, timing and where the fix lives, is in
+[docs/LEGACY_BENCHMARK.md](docs/LEGACY_BENCHMARK.md) and on the site page **Platform > Legacy vs better**. Both are
+generated from the last measured run, so the numbers above are real; rerun `python -m legacy demo` to refresh them.
+The analyst query patterns used to survive the old warehouse are in [sql/playbook/](sql/playbook/README.md).
+
 ## Scoping and environments
 
 A **tenant** is a white-label partner program (here `LKS`, `NGT` and `PVA`). Every view of the data is scoped
@@ -113,7 +143,7 @@ Python 3.12+ (tested on 3.13).
 ```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m pipeline.run                # full run from nothing, about 12 minutes
+.venv\Scripts\python.exe -m pipeline.run                # full run from nothing, about 9 minutes
 .venv\Scripts\python.exe -m pipeline.run --append-day   # next business day: CDC loads only new versions
 start site\index.html
 ```
@@ -177,11 +207,11 @@ admin rights, no Windows service, no Docker.
 2. **Start the server.** `powershell -ExecutionPolicy Bypass -File tools\pg.ps1 start` (`status`, `stop`,
    `psql` also work). It listens on `127.0.0.1:5432` only. Start it again after a reboot.
 3. **Load the warehouse.** `pip install -r requirements-postgres.txt`, then
-   `python -m pipeline.run --postgres`. After every gate passes, `python -m warehouse.postgres sync` copies 104
+   `python -m pipeline.run --postgres`. After every gate passes, `python -m warehouse.postgres sync` copies 107
    tables (about 12.9M rows) into the `vsc_analytics` database in one transaction, adds keys, indexes and
    row-level security, and ties out row counts and dollar totals against DuckDB before it commits. A mismatch
    rolls everything back. `python -m warehouse.postgres reconcile` re-checks at any time.
-4. **Open the report.** Double-click `powerbi\VSC Portfolio.pbip` and click **Refresh now**. Sign in on the
+4. **Open the report.** Double-click `powerbi\FI Data Platform.pbip` and click **Refresh now**. Sign in on the
    **Database** tab as `bi_reader` (password `PG_BI_READER_PASSWORD` in `.env`); if Desktop asks, connect
    without encryption (the server is local only). The first refresh loads about 13M rows and takes a few
    minutes. Pages: executive overview, dealer scorecard, claims and IBNR, regulatory funded reserve, finance.
@@ -233,7 +263,7 @@ actuarial, semantic, publish, reports. Steps after the gates never run when a ga
 | Operational source | Admin Core and legacy system in SQLite | SQL Server with change tracking |
 | Intake | Daily dealer-feed landing folder with manifest checksums; CRM call-center export and paginated admin API extract, each with a data contract and quarantine. CRM contacts feed `core.fct_call_center_contact` and claim contact rates; the admin-API roster is checked against `dim_dealer` by a reconciliation gate test; both are tied out in `audit.reconciliation` | Partner SFTP, CRM exports and admin API pulls |
 | Warehouse | DuckDB, one schema per layer | Snowflake `RAW` / `ANALYTICS` databases, see [warehouse/snowflake/](warehouse/snowflake/) |
-| Transform | dbt Core (140+ models, 4 snapshots, 15 seeds, 440+ data tests; counts from `dbt/target/manifest.json`) | the same project on the dbt `snowflake` target |
+| Transform | dbt Core (150+ models, 4 snapshots, 15 seeds, 560+ data tests; counts from `dbt/target/manifest.json`) | the same project on the dbt `snowflake` target |
 | Orchestration | `python -m pipeline.run` | Airflow DAG calling the same steps ([pipeline/airflow/](pipeline/airflow/)) |
 | BI | Static HTML + Excel site, TMDL model spec; opt-in: PostgreSQL copy of the marts + a Power BI project (PBIP) that opens and refreshes in Desktop | Power BI semantic models with dynamic RLS on Snowflake |
 
@@ -312,7 +342,8 @@ The top items:
 6. The Snowflake scripts, the dbt `snowflake` target and the Airflow DAG are written but not executed here.
    Running them needs accounts or Docker. The Postgres target is real but opt-in: a local server, a
    reconciled copy of the marts and a Power BI model pointed at it ([warehouse/postgres](warehouse/postgres/README.md)).
-7. Reports and publish are the slowest steps (about half of the run).
+7. The full run takes about 9 minutes against a 5-minute goal; dbt (about 4 minutes) and generate plus ingest
+   (about 2 minutes) are the largest steps.
 
 ## Author
 

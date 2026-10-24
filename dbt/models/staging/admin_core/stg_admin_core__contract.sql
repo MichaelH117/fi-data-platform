@@ -7,7 +7,13 @@ with latest as (
 )
 
 select
-    * exclude (customer_email, customer_zip, vin, chassis_vin, customer_phone),
+    * exclude (customer_email, customer_zip, vin, chassis_vin, customer_phone) replace (
+        -- sentinel placeholder dates -> NULL, once (macros/foundations.sql)
+        {{ sentinel_to_null('entered_date') }} as entered_date,
+        {{ sentinel_to_null('effective_date') }} as effective_date,
+        {{ sentinel_to_null('expiration_date') }} as expiration_date
+    ),
+    {{ any_sentinel_date(['entered_date', 'effective_date', 'expiration_date']) }} as is_sentinel_date,
     case when regexp_replace(coalesce(customer_phone, ''), '[^0-9]', '', 'g') <> ''
          then sha256(regexp_replace(customer_phone, '[^0-9]', '', 'g')) end as phone_hash,
     upper(trim(contract_number)) as contract_number_clean,

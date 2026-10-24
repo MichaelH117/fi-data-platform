@@ -66,14 +66,22 @@ def margin_groups(cells: pd.DataFrame, dims: Sequence[str]) -> list[Group]:
     with d != ALL and the margin is the row with d == ALL.
     """
     groups: list[Group] = []
+    index = [int(i) for i in cells.index]
+    values = {d: cells[d].tolist() for d in dims}
     for d in dims:
         others = [o for o in dims if o != d]
-        keyed = cells.groupby(others, sort=False) if others else [((), cells)]
-        for _, g in keyed:
-            margin = g.index[g[d] == ALL]
-            children = tuple(int(i) for i in g.index[g[d] != ALL])
+        # same groups, in the same order, as cells.groupby(others, sort=False) (NaN keys dropped),
+        # in plain Python: a pandas groupby per small group made this the slowest step of publish
+        keyed: dict[tuple, tuple[list[int], list[int]]] = {}
+        for pos, i in enumerate(index):
+            key = tuple(values[o][pos] for o in others)
+            if any(pd.isna(k) for k in key):
+                continue
+            margin, children = keyed.setdefault(key, ([], []))
+            (margin if values[d][pos] == ALL else children).append(i)
+        for margin, children in keyed.values():
             if len(margin) == 1 and children:
-                groups.append(Group(children, int(margin[0])))
+                groups.append(Group(tuple(children), margin[0]))
     return groups
 
 
@@ -100,28 +108,37 @@ def disclosed_cells(groups: Sequence[Group], suppressed: set[int]) -> list[int]:
     if not rows:
         return []
     a = np.vstack(rows)
-    # null(a) = null(a^T a); the symmetric eigensolver is robust where a full SVD may not converge
-    w, v = np.linalg.eigh(a.T @ a)
+    # Cell j is solvable when e_j lies in the row space of a. An orthonormal row-space basis comes from
+    # the eigenvectors of the smaller Gram matrix: a a^T (groups x groups) when there are fewer
+    # equations than hidden cells (the usual case), else a^T a. Both share their nonzero eigenvalues,
+    # so the rank tolerance is the same either way. The symmetric eigensolver is robust where a full
+    # SVD may not converge; a a^T keeps the solve about 8x cheaper on the monthly cube.
+    small = a.shape[0] < a.shape[1]
+    w, v = np.linalg.eigh(a @ a.T if small else a.T @ a)
     tol = max(a.shape) * np.finfo(float).eps * max(float(w[-1]), 1.0) * 10
-    null_basis = v[:, w <= tol]  # columns span the null space of a
-    if null_basis.shape[1] == 0:
-        return list(col)
-    solvable = np.abs(null_basis).max(axis=1) < 1e-9
+    keep = w > tol
+    if small:
+        basis = (a.T @ v[:, keep]) / np.sqrt(w[keep])  # n x r, orthonormal columns spanning row(a)
+        # e_j in row(a)  <=>  its projection onto row(a) has length 1
+        solvable = 1.0 - np.einsum("ij,ij->i", basis, basis) < 1e-9
+    else:
+        null_basis = v[:, ~keep]  # columns span the null space of a
+        if null_basis.shape[1] == 0:
+            return list(col)
+        solvable = np.abs(null_basis).max(axis=1) < 1e-9
     return [idx for idx, j in col.items() if solvable[j]]
 
 
 def suppress_period(cells: pd.DataFrame, dims: Sequence[str], rules: Rules) -> pd.Series:
     """Return a suppression reason per row ('' = published) for one period of a cube."""
-    reason = pd.Series(
-        [
-            primary_reason(int(c), int(n), float(s), rules)
-            for c, n, s in zip(cells["contracts"], cells["dealers"], cells["max_dealer_share"], strict=True)
-        ],
-        index=cells.index,
-        dtype=object,
-    )
+    reason: dict[int, str] = {
+        i: primary_reason(int(c), int(n), float(s), rules)
+        for i, c, n, s in zip(cells.index, cells["contracts"], cells["dealers"], cells["max_dealer_share"],
+                              strict=True)
+    }
     groups = margin_groups(cells, dims)
-    size = cells["contracts"]
+    size = dict(zip(cells.index, cells["contracts"], strict=True))
+    index = list(cells.index)
 
     def add_smallest(candidates: Iterable[int]) -> bool:
         visible = [i for i in candidates if reason[i] == ""]
@@ -130,6 +147,9 @@ def suppress_period(cells: pd.DataFrame, dims: Sequence[str], rules: Rules) -> p
         reason[min(visible, key=lambda i: (size[i], str(i)))] = "complementary"
         return True
 
+    def result() -> pd.Series:
+        return pd.Series([reason[i] for i in index], index=cells.index, dtype=object)
+
     while True:
         changed = False
         for g in groups:  # rule 2: no group with exactly one hidden member
@@ -137,12 +157,12 @@ def suppress_period(cells: pd.DataFrame, dims: Sequence[str], rules: Rules) -> p
                 changed |= add_smallest(g.members)
         if changed:
             continue
-        leaks = disclosed_cells(groups, {i for i in cells.index if reason[i] != ""})
+        leaks = disclosed_cells(groups, {i for i in index if reason[i] != ""})
         if not leaks:  # rule 3: nothing can be solved for
-            return reason
+            return result()
         touching = [i for g in groups if leaks[0] in g.members for i in g.members]
-        if not add_smallest(touching) and not add_smallest(cells.index):
-            return reason  # everything is hidden
+        if not add_smallest(touching) and not add_smallest(index):
+            return result()  # everything is hidden
 
 
 def apply_suppression(cube: pd.DataFrame, dims: Sequence[str], period: str, rules: Rules) -> pd.DataFrame:

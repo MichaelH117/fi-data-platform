@@ -119,6 +119,16 @@ table Contract
 		isHidden
 		sourceColumn: CURRENT_OBLIGOR_KEY
 
+	column 'Selling Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: SELLING_DEALER_KEY
+
+	column 'Provider Entity Key'
+		dataType: string
+		isHidden
+		sourceColumn: PROVIDER_ENTITY_KEY
+
 	column 'Obligor Basis'
 		dataType: string
 		sourceColumn: OBLIGOR_BASIS

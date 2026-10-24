@@ -1,0 +1,36 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_finance.cube_earned_disbursement.
+table 'Earned Disbursement'
+	lineageTag: legacy-finance-earned-disbursement
+
+	measure Earned = SUM('Earned Disbursement'[EarnedAmount])
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+
+	column fxContractId
+		dataType: int64
+		sourceColumn: fxContractId
+		summarizeBy: none
+
+	column fxDisbursementTypeId
+		dataType: int64
+		sourceColumn: fxDisbursementTypeId
+		summarizeBy: none
+
+	column fxEarningDateId
+		dataType: int64
+		sourceColumn: fxEarningDateId
+		summarizeBy: none
+
+	column EarnedAmount
+		dataType: decimal
+		sourceColumn: EarnedAmount
+		summarizeBy: none
+
+	partition 'Earned Disbursement' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_finance", Item="cube_earned_disbursement"]}[Data]
+				in
+				    Data

@@ -468,7 +468,9 @@ def test_stale_source_freshness_never_fails_the_run(has_source, tmp_path):
 # Staging columns that differ from the contract's primary_key (renamed / normalized in staging), and
 # staging models with no row-level contract (the manifest is file-level).
 STAGING_KEY_RENAMES = {"stg_legacy_admin__agents": ["agent_code"], "stg_legacy_admin__claims": ["claim_number"]}
-STAGING_KEY_EXTRA = {"stg_network_feed__manifest": ["feed_date", "file_name"]}
+STAGING_KEY_EXTRA = {"stg_network_feed__manifest": ["feed_date", "file_name"],
+                     # EAV pivot (8.4): one row per contract, not per source custom_field_id
+                     "stg_admin_core__contract_custom_field": ["contract_id"]}
 
 
 def _contract_staging_keys() -> dict[str, list[str]]:

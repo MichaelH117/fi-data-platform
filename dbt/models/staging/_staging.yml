@@ -251,3 +251,31 @@ models:
         data_tests: [not_null]
       - name: contract_number
         data_tests: [not_null]
+  - name: stg_admin_core__contract_custom_field
+    description: >
+      Admin Core custom fields (EAV) pivoted once into typed columns, one row per contract with any
+      custom field (coach make / model, chassis make, chassis VIN hash, model year). Empty, same
+      columns, until the raw EAV tables exist.
+    meta: {contains_pii: false}
+    columns:
+      - name: contract_id
+        data_tests: [unique, not_null]
+      - name: model_year
+        description: Integer, cast from the text value; a value that does not cast is counted in invalid_value_count.
+      - name: invalid_value_count
+        data_tests:
+          - not_null
+
+unit_tests:
+  - name: legacy_cancel_sentinel_date_becomes_null_and_flagged
+    description: The 1900-01-01 placeholder is mapped to NULL once, in staging, and flagged.
+    model: stg_legacy_admin__cancellations
+    given:
+      - input: source('legacy_admin', 'cancellations')
+        rows:
+          - {cancellation_id: 1, legacy_contract_id: 10, cancel_date: 2022-03-15, refund_amount: -120.0, cancel_fee: -50.0, _source_version: 1, _loaded_at: "2026-01-01 00:00:00"}
+          - {cancellation_id: 2, legacy_contract_id: 11, cancel_date: 1900-01-01, refund_amount: 80.0, cancel_fee: 50.0, _source_version: 1, _loaded_at: "2026-01-01 00:00:00"}
+    expect:
+      rows:
+        - {cancellation_id: 1, cancel_date: 2022-03-15, is_sentinel_date: false, refund_amount: 120.0}
+        - {cancellation_id: 2, cancel_date: null, is_sentinel_date: true, refund_amount: 80.0}

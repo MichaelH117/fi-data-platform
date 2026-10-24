@@ -19,6 +19,7 @@ from openpyxl import Workbook
 from openpyxl.cell import WriteOnlyCell
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from pipeline import workpool as jobs
 from reports.regulatory.data import COUNT_LINES, SUMMARY_COLUMN, filing_lines, line_notes, split_notes
 
 HEAD_FILL = PatternFill("solid", start_color="1F3A5F")
@@ -102,7 +103,15 @@ def _col_letter(i: int) -> str:
 
 def write_filing(path: Path, state: str, state_name: str, summary: pd.DataFrame, definitions: pd.DataFrame,
                  tabs: dict[str, pd.DataFrame], as_of: pd.Timestamp) -> Path:
-    """Funded-reserve filing workbook for one state. ``summary`` = that state's summary rows."""
+    """Funded-reserve filing workbook for one state. ``summary`` = that state's summary rows.
+
+    Written in the background when ``python -m reports`` has a workbook pool open (pipeline/workpool.py)."""
+    jobs.run(_write_filing, path, state, state_name, summary, definitions, tabs, as_of)
+    return path
+
+
+def _write_filing(path: Path, state: str, state_name: str, summary: pd.DataFrame, definitions: pd.DataFrame,
+                  tabs: dict[str, pd.DataFrame], as_of: pd.Timestamp) -> Path:
     wb = Workbook(write_only=True)
     ws = wb.create_sheet("Summary")
     for col, width in zip("ABCDEFG", (8, 44, 20, 20, 20, 20, 80), strict=True):
@@ -171,6 +180,13 @@ def survey_matrix(rows: pd.DataFrame) -> pd.DataFrame:
 
 def write_survey(path: Path, state: str, state_name: str, survey: pd.DataFrame, details: dict[str, pd.DataFrame],
                  as_of: pd.Timestamp, notes: dict[str, str] | None = None) -> Path:
+    """Market-survey workbook for one state (in the background when a workbook pool is open)."""
+    jobs.run(_write_survey, path, state, state_name, survey, details, as_of, notes)
+    return path
+
+
+def _write_survey(path: Path, state: str, state_name: str, survey: pd.DataFrame, details: dict[str, pd.DataFrame],
+                  as_of: pd.Timestamp, notes: dict[str, str] | None = None) -> Path:
     wb = Workbook(write_only=True)
     for provider, rows in survey.groupby("provider_name", sort=True):
         m = survey_matrix(rows)

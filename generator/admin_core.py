@@ -169,6 +169,13 @@ TABLES: dict[str, tuple[str, str]] = {
     "portal_user": ("portal_user_id", """
         portal_user_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, dealer_id INTEGER, role TEXT NOT NULL,
         login TEXT NOT NULL, api_key_hash TEXT"""),
+    # ---- custom fields (EAV): specialty-line attributes stored as text (generator/custom_fields.py)
+    "custom_field_def": ("field_def_id", """
+        field_def_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, field_id INTEGER NOT NULL,
+        field_name TEXT NOT NULL, data_type TEXT NOT NULL"""),
+    "contract_custom_field": ("custom_field_id", """
+        custom_field_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, contract_id INTEGER NOT NULL,
+        field_id INTEGER NOT NULL, value_text TEXT"""),
     # ---- intake (dealer-integration network landing, promoted by `python -m ingest.feed`)
     "intake_file": ("intake_file_id", """
         intake_file_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, feed_date DATE NOT NULL,

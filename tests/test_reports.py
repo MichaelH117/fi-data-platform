@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import types
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 
 import reports.build as rb
@@ -84,3 +85,17 @@ def test_without_start_in_nav_no_start_page(tmp_path, monkeypatch):
     written = rb.render_site(d, tmp_path / "site")
     assert [p.name for p in written] == ["index.html"]
     assert "New here?" not in (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
+
+
+def test_no_negative_zero_in_formatted_numbers():
+    assert rb.pct(-0.0001) == "0.0%" and rb.pct(-0.05) == "-5.0%"
+    assert rb.num(-0.2) == "0" and rb.num(-3) == "-3" and rb.money(-0.2) == "$0"
+
+
+def test_regulatory_note_cells_wrap():
+    """Filing notes are long free text: the cell's class reaches the <td> and the CSS lets it wrap."""
+    here = Path(rb.__file__).parent
+    rule = (here / "static" / "site.css").read_text(encoding="utf-8").split("td.wrap {", 1)[1].split("}", 1)[0]
+    assert "white-space: normal" in rule and "max-width" in rule
+    assert 'class="{{ c.cls }}"' in (here / "templates" / "page.html.j2").read_text(encoding="utf-8")
+    assert '"cls": "text wrap"' in (here / "regulatory" / "pages.py").read_text(encoding="utf-8")

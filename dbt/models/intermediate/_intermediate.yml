@@ -73,10 +73,9 @@ models:
       - unique_combination:
           arguments: {columns: [contract_key, month_start, row_type]}
   - name: int_disbursements_earned
-    description: Contract x disbursement type x posting period x earned month earned amounts.
-    data_tests:
-      - unique_combination:
-          arguments: {columns: [contract_key, disbursement_type, posting_period_key, earned_month_key]}
+    description: >
+      Contract x disbursement type x posting period x earned month earned amounts. A view; the grain
+      test runs once, on core.fct_earned_disbursement (its only consumer, same grain).
   - name: int_remittance_lifecycle
     description: Cash receipts with the remit batch lifecycle, age and late fee.
   - name: int_status_history_backfill
@@ -132,3 +131,48 @@ models:
     columns:
       - name: reject_row_key
         data_tests: [unique, not_null]
+  - name: int_dealer_survivorship
+    description: >
+      Dealer master (docs/V3_DESIGN.md 8.4): every source dealer identity in both admin systems ->
+      its surviving dealer number and dealer_key, with the match rule (self | number_base |
+      name_state). Survivor = active, then unprefixed number, then Admin Core, then oldest id.
+    columns:
+      - name: source_dealer_number
+        data_tests: [unique, not_null]
+      - name: surviving_dealer_number
+        data_tests: [not_null]
+      - name: dealer_key
+        data_tests: [not_null]
+      - name: match_rule
+        data_tests:
+          - accepted_values:
+              arguments: {values: [self, number_base, name_state]}
+    data_tests:
+      # a survivor always maps to itself
+      - expression_is_true:
+          arguments: {expression: "not is_survivor or match_rule = 'self'"}
+
+unit_tests:
+  - name: dealer_survivorship_merges_variants_and_inactive_copies
+    description: >
+      A prefixed-number variant and an inactive re-keyed copy (same name + state) collapse into the
+      active, unprefixed dealer; a legacy code Admin Core also holds is not a second identity.
+    model: int_dealer_survivorship
+    given:
+      - input: ref('stg_admin_core__dealer')
+        rows:
+          - {dealer_id: 1, dealer_number: D1001, dealer_name: Summit Motors, state: TX, status: ACTIVE, is_deleted: false, onboarded_date: 2020-01-01}
+          - {dealer_id: 2, dealer_number: VD1001, dealer_name: Summit Motors Inc, state: TX, status: ACTIVE, is_deleted: false, onboarded_date: 2021-05-01}
+          - {dealer_id: 3, dealer_number: D1501, dealer_name: "summit  motors.", state: TX, status: INACTIVE, is_deleted: false, onboarded_date: 2019-01-01}
+          - {dealer_id: 4, dealer_number: D2002, dealer_name: Harbor Plains Auto, state: OH, status: ACTIVE, is_deleted: false, onboarded_date: 2020-02-01}
+      - input: ref('stg_legacy_admin__dealers')
+        rows:
+          - {dealer_code: D1001, dealer_name: Summit Motors, state: TX, dealer_status: active, is_deleted: false, onboarded_date: 2018-01-01}
+          - {dealer_code: D3003, dealer_name: Legacy Only Motors, state: FL, dealer_status: active, is_deleted: false, onboarded_date: 2015-01-01}
+    expect:
+      rows:
+        - {source_dealer_number: D1001, surviving_dealer_number: D1001, match_rule: self, is_survivor: true}
+        - {source_dealer_number: VD1001, surviving_dealer_number: D1001, match_rule: number_base, is_survivor: false}
+        - {source_dealer_number: D1501, surviving_dealer_number: D1001, match_rule: name_state, is_survivor: false}
+        - {source_dealer_number: D2002, surviving_dealer_number: D2002, match_rule: self, is_survivor: true}
+        - {source_dealer_number: D3003, surviving_dealer_number: D3003, match_rule: self, is_survivor: true}

@@ -24,6 +24,7 @@ import pandas as pd
 from generator import admin_core as ac
 from generator import catalog as cat
 from generator import claims as clm
+from generator import custom_fields as cf
 from generator import intake as itk
 from generator import legacy as lg
 from generator import lifecycle as lc
@@ -465,6 +466,10 @@ def build(
     complaints["is_regulator"] = (complaints["source"] == "REGULATOR").astype(int)
     complaints.insert(0, "complaint_id", np.arange(1, len(complaints) + 1))
     tables_out["complaint"] = complaints
+
+    # custom fields (EAV) for specialty-line contracts: a pure function of the contract rows
+    tables_out["custom_field_def"] = cf.field_defs(tables["administrator"]["tenant_id"], created)
+    tables_out["contract_custom_field"] = cf.contract_values(tables_out["contract"])
 
     # ------------------------------------------------------------------ write Admin Core
     core_path.parent.mkdir(parents=True, exist_ok=True)

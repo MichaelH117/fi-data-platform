@@ -1,7 +1,9 @@
 """Publish the DuckDB marts to a PostgreSQL server (opt-in; the default pipeline never needs it).
 
 ``sync`` copies every schema the semantic models and reports read from DuckDB into the Postgres database
-(same schema and table names), adds primary keys (from the dbt ``unique`` / ``unique_combination`` tests)
+(same schema and table names), adds primary keys (the dbt ``primary_key`` constraint, else the ``unique`` /
+``unique_combination`` tests), validated foreign keys (from the dbt ``relationships`` tests: NOT VALID first,
+then VALIDATE), a BRIN index on the big facts' month column
 and indexes on ``*_key`` columns, loads the row-level access map into ``security.user_dealer_access``,
 applies ``warehouse/postgres/rls.sql``, grants SELECT to the read-only BI login, then reconciles row counts
 and numeric (dollar) totals against DuckDB. Everything runs in ONE transaction: a failed copy or a
@@ -18,6 +20,7 @@ import hashlib
 import logging
 import math
 import os
+import re
 import tempfile
 import time
 from dataclasses import dataclass
@@ -151,24 +154,71 @@ def _is_float(t: str) -> bool:
     return t.upper() in FLOAT_NUMERIC
 
 
-def declared_keys(marts_dir: Path = MARTS_DIR) -> dict[str, tuple[str, ...]]:
-    """model name -> key columns from the dbt ``unique`` column tests and ``unique_combination`` tests."""
-    keys: dict[str, tuple[str, ...]] = {}
+def _models(marts_dir: Path):
     for yml in sorted(marts_dir.rglob("*.yml")):
         doc = yaml.safe_load(yml.read_text(encoding="utf-8")) or {}
-        for model in doc.get("models", []) or []:
-            name = model.get("name")
-            for test in model.get("data_tests", []) or model.get("tests", []) or []:
-                if isinstance(test, dict) and "unique_combination" in test:
-                    cfg = test["unique_combination"] or {}
-                    cols = (cfg.get("arguments") or cfg).get("columns")
-                    if cols and name not in keys:
-                        keys[name] = tuple(cols)
-            for col in model.get("columns", []) or []:
-                tests = col.get("data_tests", []) or col.get("tests", []) or []
-                if "unique" in tests and name not in keys:
-                    keys[name] = (col["name"],)
+        yield from doc.get("models", []) or []
+
+
+def _constraint_key(model: dict) -> tuple[str, ...] | None:
+    """The dbt ``primary_key`` constraint (model-level, else column-level), if declared."""
+    for c in model.get("constraints", []) or []:
+        if isinstance(c, dict) and c.get("type") == "primary_key" and c.get("columns"):
+            return tuple(c["columns"])
+    cols = [col["name"] for col in model.get("columns", []) or []
+            if any(isinstance(c, dict) and c.get("type") == "primary_key" for c in col.get("constraints", []) or [])]
+    return tuple(cols) or None
+
+
+def declared_keys(marts_dir: Path = MARTS_DIR) -> dict[str, tuple[str, ...]]:
+    """model name -> key columns: the dbt ``primary_key`` constraint when declared, else the
+    ``unique_combination`` test, else a column ``unique`` test."""
+    keys: dict[str, tuple[str, ...]] = {}
+    for model in _models(marts_dir):
+        name = model.get("name")
+        pk = _constraint_key(model)
+        if pk:
+            keys[name] = pk
+    for model in _models(marts_dir):
+        name = model.get("name")
+        for test in model.get("data_tests", []) or model.get("tests", []) or []:
+            if isinstance(test, dict) and "unique_combination" in test:
+                cfg = test["unique_combination"] or {}
+                cols = (cfg.get("arguments") or cfg).get("columns")
+                if cols and name not in keys:
+                    keys[name] = tuple(cols)
+        for col in model.get("columns", []) or []:
+            tests = col.get("data_tests", []) or col.get("tests", []) or []
+            if "unique" in tests and name not in keys:
+                keys[name] = (col["name"],)
     return keys
+
+
+@dataclass(frozen=True)
+class ForeignKey:
+    model: str
+    column: str
+    ref_model: str
+    ref_column: str
+
+
+_REF = re.compile(r"ref\(\s*['\"](\w+)['\"]\s*\)")
+
+
+def declared_foreign_keys(marts_dir: Path = MARTS_DIR) -> list[ForeignKey]:
+    """Every dbt ``relationships`` column test in the marts, as (model.column -> ref_model.ref_column)."""
+    out: list[ForeignKey] = []
+    for model in _models(marts_dir):
+        for col in model.get("columns", []) or []:
+            for test in col.get("data_tests", []) or col.get("tests", []) or []:
+                if not (isinstance(test, dict) and "relationships" in test):
+                    continue
+                cfg = test["relationships"] or {}
+                cfg = cfg.get("arguments") or cfg
+                m = _REF.search(str(cfg.get("to", "")))
+                if m and cfg.get("field"):
+                    out.append(ForeignKey(model["name"], col["name"], m.group(1), cfg["field"]))
+    return sorted(set(out), key=lambda f: (f.model, f.column, f.ref_model))
 
 
 def duck_tables(con, schemas: tuple[str, ...] = SCHEMAS) -> list[Table]:
@@ -259,6 +309,19 @@ def _index_name(table: str, col: str) -> str:
     return n if len(n) <= 63 else f"ix_{table[:40]}_{hashlib.sha1(n.encode()).hexdigest()[:12]}"
 
 
+# Big facts get a BRIN index on their month column (tiny, and fast for date-range scans on a table
+# loaded in date order) in addition to the b-tree on every *_key column (posting_period_key included).
+BRIN_MIN_ROWS = 500_000
+BRIN_COLUMNS = ("month_start",)
+
+
+def brin_column(tb: Table, rows: int) -> str | None:
+    if rows < BRIN_MIN_ROWS:
+        return None
+    names = {c for c, _ in tb.columns}
+    return next((c for c in BRIN_COLUMNS if c in names), None)
+
+
 def _select_list(tb: Table) -> str:
     out = []
     for c, d in tb.columns:
@@ -305,7 +368,10 @@ def _copy_table(cur, duck, tb: Table, tmp: Path) -> tuple[float, float]:
     cur.execute(sql.SQL("CREATE TABLE {} ({})").format(ident, cols))
     t_load = time.perf_counter()
     csv = tmp / f"{tb.schema}.{tb.name}.csv"
-    duck.execute(f"COPY (select {_select_list(tb)} from {_q(tb.schema)}.{_q(tb.name)}) TO '{csv.as_posix()}' "
+    rows = duck.execute(f"select count(*) from {_q(tb.schema)}.{_q(tb.name)}").fetchone()[0]
+    brin = brin_column(tb, rows)
+    order = f" order by {_q(brin)}" if brin else ""  # physical date order is what makes BRIN useful
+    duck.execute(f"COPY (select {_select_list(tb)} from {_q(tb.schema)}.{_q(tb.name)}{order}) TO '{csv.as_posix()}' "
                  "(FORMAT csv, HEADER true, NULLSTR '\\N')")
     names = sql.SQL(", ").join(sql.Identifier(c) for c, _ in tb.columns)
     with open(csv, "rb") as fh, cur.copy(sql.SQL(
@@ -322,8 +388,57 @@ def _copy_table(cur, duck, tb: Table, tmp: Path) -> tuple[float, float]:
         if c.endswith("_key") and (c,) != lead:
             cur.execute(sql.SQL("CREATE INDEX {} ON {} ({})").format(
                 sql.Identifier(_index_name(tb.name, c)), ident, sql.Identifier(c)))
+    if brin:
+        cur.execute(sql.SQL("CREATE INDEX {} ON {} USING brin ({})").format(
+            sql.Identifier(_index_name(tb.name, brin + "_brin")), ident, sql.Identifier(brin)))
     cur.execute(sql.SQL("ANALYZE {}").format(ident))
     return t_idx - t_load, time.perf_counter() - t_idx
+
+
+def _fk_name(fk: ForeignKey) -> str:
+    n = f"fk_{fk.model}__{fk.column}"
+    return n if len(n) <= 63 else f"fk_{fk.model[:40]}_{hashlib.sha1(n.encode()).hexdigest()[:12]}"
+
+
+def add_foreign_keys(cur, tables: list[Table], fks: list[ForeignKey] | None = None) -> dict[str, list[str]]:
+    """Real FOREIGN KEY constraints from the dbt relationships tests, added NOT VALID and then validated.
+
+    A key is added only when both tables were synced, the parent's primary key is exactly the referenced
+    column and the column types match. A VALIDATE that fails (an orphan row) rolls back to a savepoint and
+    leaves the constraint NOT VALID (it still guards new rows), so one bad key never blocks the sync.
+    Returns {"validated": [...], "not_valid": [...], "skipped": [...]}.
+    """
+    from psycopg import sql
+
+    by_name: dict[str, Table] = {}
+    for tb in tables:
+        by_name.setdefault(tb.name, tb)
+    out: dict[str, list[str]] = {"validated": [], "not_valid": [], "skipped": []}
+    for fk in fks if fks is not None else declared_foreign_keys():
+        child, parent = by_name.get(fk.model), by_name.get(fk.ref_model)
+        label = f"{fk.model}.{fk.column} -> {fk.ref_model}.{fk.ref_column}"
+        if child is None or parent is None or parent.primary_key != (fk.ref_column,):
+            out["skipped"].append(label)
+            continue
+        ctype, ptype = dict(child.columns).get(fk.column), dict(parent.columns).get(fk.ref_column)
+        if ctype is None or ptype is None or child.pg_type(ctype) != parent.pg_type(ptype):
+            out["skipped"].append(label)
+            continue
+        name = sql.Identifier(_fk_name(fk))
+        table = sql.Identifier(child.schema, child.name)
+        cur.execute(sql.SQL("ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({}) NOT VALID").format(
+            table, name, sql.Identifier(fk.column), sql.Identifier(parent.schema, parent.name),
+            sql.Identifier(fk.ref_column)))
+        cur.execute("SAVEPOINT fk_validate")
+        try:
+            cur.execute(sql.SQL("ALTER TABLE {} VALIDATE CONSTRAINT {}").format(table, name))
+            cur.execute("RELEASE SAVEPOINT fk_validate")
+            out["validated"].append(label)
+        except Exception as exc:  # noqa: BLE001 - an orphan row: keep the NOT VALID constraint, report it
+            cur.execute("ROLLBACK TO SAVEPOINT fk_validate")
+            out["not_valid"].append(label)
+            log.warning("foreign key %s left NOT VALID: %s", label, str(exc).strip().splitlines()[0])
+    return out
 
 
 def _load_access_map(cur, s: Settings) -> int:
@@ -368,6 +483,9 @@ def sync(warehouse: Path = WAREHOUSE_PATH, settings: Settings | None = None,
                 load_s, index_s = _copy_table(cur, duck, tb, Path(tmpd))
                 log.info("[%d/%d] %s loaded in %.1fs, keys/indexes %.1fs (pk %s)", i, len(tables), tb.fq,
                          load_s, index_s, ", ".join(tb.primary_key) or "-")
+            fks = add_foreign_keys(cur, tables)
+            log.info("foreign keys: %d validated, %d NOT VALID, %d skipped (no synced parent key)",
+                     len(fks["validated"]), len(fks["not_valid"]), len(fks["skipped"]))
             n_map = _load_access_map(cur, s)
             cur.execute("SELECT security.apply_row_policies(%s)", [list(RLS_SCHEMAS)])
             n_rls = cur.fetchone()[0]
@@ -383,7 +501,8 @@ def sync(warehouse: Path = WAREHOUSE_PATH, settings: Settings | None = None,
                 raise SyncError("Postgres copy does not reconcile with DuckDB (rolled back):\n  "
                                 + "\n  ".join(problems[:30]))
             pg.commit()
-    totals.update(rls_tables=n_rls, access_rows=n_map, seconds=round(time.perf_counter() - t0, 1))
+    totals.update(rls_tables=n_rls, access_rows=n_map, seconds=round(time.perf_counter() - t0, 1),
+                  fk_validated=len(fks["validated"]), fk_not_valid=len(fks["not_valid"]))
     log.info("synced %(tables)d tables, %(rows)d rows, float total %(float_sum).2f; RLS on %(rls_tables)d tables, "
              "%(access_rows)d access-map rows, in %(seconds).1fs", totals)
     return totals

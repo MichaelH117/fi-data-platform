@@ -1,4 +1,4 @@
-"""The ``VSC Portfolio`` reporting semantic model: the four domain models in one, for one internal report.
+"""The ``F&I Data Platform`` reporting semantic model: the four domain models in one, for one internal report.
 
 A Power BI report binds to exactly ONE semantic model, and the five report pages need measures from all
 four domain models (dealer scorecard: Sales; claims: Claims; funded reserve: Compliance; P&L: Finance).
@@ -23,11 +23,12 @@ from semantic import spec
 from semantic.metrics import Catalog, friendly, q
 from semantic.tmdl import TAB, annotation, description, join, name, prop_expr
 
-MODEL_NAME = "VSC Portfolio"
+MODEL_NAME = "F&I Data Platform"  # display name (database, theme, exports)
+FILE_NAME = "FI Data Platform"  # file/folder name: "&" is unsafe in paths and URLs
 DOMAIN = "Portfolio"
 TARGET = "postgres"  # the local server filled by python -m warehouse.postgres sync
 PURPOSE = ("Internal portfolio report model: Sales, Claims, Finance and Compliance measures in one model "
-           "for the VSC Portfolio report (powerbi/). External audiences use the domain models.")
+           "for the F&I Data Platform report (powerbi/). External audiences use the domain models.")
 PBISM_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/semanticModel/definitionProperties/1.0.0/schema.json"
 ROLES = ("Internal", "Tenant Partner", "Dealer User")
 

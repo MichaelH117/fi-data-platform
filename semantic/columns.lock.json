@@ -459,6 +459,14 @@
     "VARCHAR"
    ],
    [
+    "selling_dealer_key",
+    "VARCHAR"
+   ],
+   [
+    "provider_entity_key",
+    "VARCHAR"
+   ],
+   [
     "obligor_basis",
     "VARCHAR"
    ],
@@ -819,6 +827,34 @@
    [
     "odometer_band",
     "VARCHAR"
+   ],
+   [
+    "coach_make",
+    "VARCHAR"
+   ],
+   [
+    "coach_model",
+    "VARCHAR"
+   ],
+   [
+    "chassis_make",
+    "VARCHAR"
+   ],
+   [
+    "custom_chassis_vin_hash",
+    "VARCHAR"
+   ],
+   [
+    "custom_model_year",
+    "INTEGER"
+   ],
+   [
+    "has_custom_fields",
+    "BOOLEAN"
+   ],
+   [
+    "custom_field_invalid_count",
+    "BIGINT"
    ],
    [
     "_built_at",
@@ -2408,6 +2444,10 @@
    ]
   ],
   "regulatory.mart_regulatory_line_values": [
+   [
+    "line_value_key",
+    "VARCHAR"
+   ],
    [
     "report_id",
     "VARCHAR"

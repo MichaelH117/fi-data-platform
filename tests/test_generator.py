@@ -466,3 +466,24 @@ def test_late_remittance_is_behaviour_not_a_dealer_switch() -> None:
     assert slow.min() > 0.2 and slow.max() < 1.0  # slow dealers are often, not always, late
     batch = pd.DataFrame({"d": dn, "due": days, "late": delay >= 20})
     assert batch.groupby(["d", "due"])["late"].nunique().max() == 1  # a batch slips as a whole
+
+
+def test_rv_custom_fields_are_an_eav_store(src: Path) -> None:
+    """V5 (docs/V3_DESIGN.md 8.3): RV coach/chassis attributes live in an EAV table, values as text."""
+    from generator import custom_fields as cf
+
+    db = src / "admin_core.db"
+    defs = _read(db, "select distinct field_id, field_name, data_type from custom_field_def")
+    assert set(defs["field_id"]) == {fid for fid, _, _ in cf.FIELD_DEFS}
+    eav = _read(db, "select v.contract_id, v.field_id, v.value_text, c.class_code, c.chassis_vin, c.vehicle_year "
+                    "from contract_custom_field v join contract c using (contract_id)")
+    assert len(eav) and (eav["class_code"] == cf.RV_CLASS).all()  # only specialty (RV) contracts carry fields
+    rv = _read(db, "select contract_id, chassis_vin from contract where class_code = 'RV'")
+    assert set(eav["contract_id"]) == set(rv["contract_id"])
+    vin = eav[eav["field_id"] == cf.FIELD_ID["Chassis VIN"]]
+    assert (vin["value_text"] == vin["chassis_vin"]).all()
+    blank = set(rv.loc[rv["chassis_vin"].isna(), "contract_id"])  # a blank chassis VIN is a MISSING row
+    assert not blank & set(vin["contract_id"])
+    yr = eav[eav["field_id"] == cf.FIELD_ID["Model Year"]]
+    assert (yr["value_text"] == yr["vehicle_year"].astype(str)).all()
+    assert len(eav) == len(eav.drop_duplicates(["contract_id", "field_id"]))

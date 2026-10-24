@@ -1,4 +1,4 @@
-/* VSC Portfolio Reports: clean finance dashboard, light + dark. Tokens first, components after. */
+/* F&I Data Platform reports: clean finance dashboard, light + dark. Tokens first, components after. */
 :root {
   color-scheme: light;
   --page: #f6f6f3;
@@ -173,6 +173,10 @@ main { width: 100%; max-width: 1280px; padding: 28px 28px 40px; }
 .prose { font-size: 14.5px; color: var(--ink-2); }
 .prose > p { margin: 8px 0 0; max-width: 85ch; }
 .prose strong { color: var(--ink-1); }
+.prose dl.pain-point { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 6px 16px; margin: 4px 0 0; }
+.prose dl.pain-point dt { font-weight: 600; color: var(--ink-1); }
+.prose dl.pain-point dd { margin: 0; max-width: 95ch; }
+@media (max-width: 640px) { .prose dl.pain-point { grid-template-columns: 1fr; } .prose dl.pain-point dd { margin-bottom: 6px; } }
 .synthetic { padding: 8px 12px; border-left: 3px solid var(--s3); background: var(--surface-2); border-radius: 0 6px 6px 0; }
 .tour { list-style: none; counter-reset: step; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; }
 .tour li { counter-increment: step; position: relative; padding-left: 38px; min-height: 28px; }
@@ -199,6 +203,8 @@ main { width: 100%; max-width: 1280px; padding: 28px 28px 40px; }
 table { border-collapse: collapse; width: 100%; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
 th:first-child, td:first-child, td.text { text-align: left; }
+/* long free text (filing notes): wrap inside a readable measure instead of widening the table */
+td.wrap { white-space: normal; min-width: 18em; max-width: 42em; line-height: 1.45; overflow-wrap: anywhere; }
 thead th { position: sticky; top: 0; background: var(--surface-2); color: var(--ink-2); font-weight: 600; z-index: 1; }
 tbody th { font-weight: 500; }
 tbody tr:hover { background: var(--surface-2); }

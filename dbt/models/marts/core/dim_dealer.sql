@@ -1,6 +1,8 @@
 -- Dealers: the CURRENT row of snap_dealer (history lives in the snapshot), plus legacy-only
 -- dealer codes and the unknown member '-1'. Demo / training dealers are excluded
 -- (int_reportable_dealers). dealer_key = md5('dealer|' || dealer_number) in both systems.
+-- Dealer master: only SURVIVING identities are rows (int_dealer_survivorship); duplicate ids and
+-- prefixed variants map to their survivor in dim_dealer_crosswalk.
 -- Who carries the dealer's risk comes from the participation-entity dimension that finance's
 -- cession / experience mart uses (dim_participation_entity, keyed by dealer_key):
 -- participation_entity_key / _name / _structure and a display participation_label ('<entity>, <structure>'), which reads
@@ -18,6 +20,13 @@ legacy_dealers as (
 
 reportable as (
     select dealer_number from {{ ref('int_reportable_dealers') }} where is_reportable
+),
+
+survivors as (
+    -- dealer master: one row per surviving identity; variants resolve via dim_dealer_crosswalk
+    select source_dealer_number as dealer_number, identities_in_cluster
+    from {{ ref('int_dealer_survivorship') }}
+    where is_survivor
 ),
 
 participation as (
@@ -49,6 +58,7 @@ select
     {{ audit_columns() }}
 from current_dealers as d
 inner join reportable as r using (dealer_number)
+inner join survivors as sv using (dealer_number)
 left join legacy_dealers as l on l.dealer_code = d.dealer_number
 
 union all
@@ -75,6 +85,7 @@ select
     current_timestamp
 from legacy_dealers as l
 inner join reportable as r on r.dealer_number = l.dealer_code
+inner join survivors as sv on sv.dealer_number = l.dealer_code
 where l.dealer_code not in (select dealer_number from current_dealers)
 
 union all

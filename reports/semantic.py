@@ -15,6 +15,7 @@ from pathlib import Path
 from reports.build import Kpi, Page, Section
 from semantic import spec
 from semantic.build import CALC_ITEMS, generate, role_filters
+from semantic.export import export as export_docs
 
 NAV_LABEL = "Semantic model"
 ZIP_NAME = "semantic_model_tmdl.zip"
@@ -30,6 +31,9 @@ def build(con, out_dir: Path) -> list[Page]:
             for p in sorted(model_dir.rglob("*")):
                 if p.is_file():
                     zf.write(p, p.relative_to(model_dir).as_posix())
+    # every reports build wipes site/, so re-write the DAX-to-SQL documentation CSVs here
+    # (python -m semantic export-docs); it reads the TMDL/PBIR files on disk only
+    export_docs(dl)
 
     domains_of: dict[str, list[str]] = {}
     for d, dm in plan.models.items():
@@ -67,7 +71,9 @@ def build(con, out_dir: Path) -> list[Page]:
                 cols=["Measure", "dbt metric", "Folder", "Models", "Format", "DAX (first line)"],
                 rows=measure_rows, wide=True, table_open=True,
                 note=f"Download the TMDL folders: downloads/semantic/{ZIP_NAME} "
-                     "(open in Tabular Editor or a Power BI project)."),
+                     "(open in Tabular Editor or a Power BI project). Measure and relationship documentation "
+                     "for DAX-to-SQL work: downloads/semantic/Model_Documentation.csv, Model_Relationships.csv, "
+                     "Report_Field_Usage.csv and Measure_Report_Map.csv."),
         Section("Time intelligence", "One calculation group on the posting-period calendar, capped at the last "
                 "closed period (never the open month). Trailing-12 metrics in metrics.yml are served by its T12M "
                 "item instead of being separate measures.",

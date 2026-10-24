@@ -211,3 +211,18 @@ One line per improvement; the test or gate that holds it is named in brackets.
 - The raw-data portal has a browser UI with sign-in, previews, CSV/JSON downloads and an access-log panel, and isolation is checked on the server for every request. [`test_portal.py`]
 - The report site has a grouped sidebar menu, a Start here tour, KPI tiles with trend lines and "i" explanations, and light and dark themes. [`test_reports.py`]
 - Postgres stays opt-in: the default run and CI need no server, and the live tests skip without one. [`python -m pipeline.run`, `pytest -q`]
+
+## Round 6 improvements
+- A legacy database is built in Postgres from the same synthetic raw rows (`python -m legacy build`, about 50 s): three source-named schemas with no keys, duplicate dealer ids, a stale product dimension, opposite claim signs, two "producer" columns, a sentinel date, test contracts, a mirrored second-tenant schema, clutter and a separate custom-field (EAV) database. [`test_legacy.py`]
+- `python -m legacy demo` asks the same 10 business questions of the legacy and the modern database; all 10 legacy answers are wrong or fail (rows lost, books zeroed, a sign error, a doubled filing, a 70x slower filter, a VIN lookup that times out). Results are in `docs/LEGACY_BENCHMARK.md` and on the site page Platform > Legacy vs better. [`test_legacy_benchmark.py`]
+- Core dimensions and facts declare their primary key in a dbt contract, every key column has a relationships test, and the Postgres copy enforces 97 validated foreign keys plus a BRIN date index on the big monthly facts. [`dbt/models/marts/core/_core_keys.yml`, `test_postgres.py`]
+- A build test fails when more than 2% of a fact's contract, dealer or product keys fall on the unknown member (-1). [`core_unknown_member_share`]
+- Duplicate dealer ids are merged by a survivorship rule into one dealer key, with a crosswalk from every source id. [`dim_dealer_crosswalk`, dbt unit test]
+- The producer is labelled `selling_dealer` or `provider_entity`, and the contract carries both keys, so filtering the wrong one can no longer zero a book. [`dim_producer`]
+- Sentinel dates map to NULL with a flag once in staging, and API test contracts are excluded once in the reportable scope. [`dbt/macros/foundations.sql`, dbt unit test]
+- Custom fields stored as name/value rows are pivoted into typed columns on the contract vehicle dimension. [`stg_admin_core__contract_custom_field`]
+- A schema registry names the owner, tier, purpose and retention of every schema, and CI fails on backup, empty or personal objects in serving schemas. [`pipeline/schema_registry.yml`, `python -m pipeline.clutter_check`]
+- A SQL playbook of 24 analyst queries (catalog discovery, freshness probe, diagnostics, filing pulls, exports, DAX-to-SQL translations) runs with per-file timeouts and row-count checks. [`python -m legacy playbook`, `test_playbook.py`]
+- The semantic model's measures, relationships and report field usage are exported to CSV for DAX-to-SQL work, and every report build re-writes them to `site/downloads/semantic/`. [`python -m semantic export-docs`, `test_semantic_export.py`]
+- The product is named "F&I Data Platform" on every page, the Power BI project and the portal; values that round to zero no longer show as `-$0.00` or `-0.0%`, and long notes wrap. [`test_reports.py`, `test_platform.py`]
+- Runtime: slow nested-loop joins were rewritten, one 8M-row model became a view, and workbook writes run in a process pool. A full run from empty took 543 s this round (dbt 228 s, reports 82 s, publish 40 s), and `pipeline/runtime_check.py` fails a run that is more than 20% slower than the last comparable one.

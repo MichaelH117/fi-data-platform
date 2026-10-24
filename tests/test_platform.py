@@ -520,6 +520,10 @@ WAREHOUSE = Path(os.environ.get("WAREHOUSE_PATH", ROOT / "data" / "warehouse" / 
 def test_packet_formats_and_period_labels():
     assert pk.fmt_value(1.0, "int") == "1" and pk.fmt_value(1209.894, "money") == "$1,209.89"
     assert pk.fmt_value(0.4205, "pct") == "42.0%" and pk.fmt_value(float("nan"), "money") == "-"
+    # sign before the symbol, and no negative zero ($-0.00 / -0.0%) when a tiny negative rounds away
+    assert pk.fmt_value(-5, "money") == "-$5.00" and pk.fmt_value(-0.004, "money") == "$0.00"
+    assert pk.fmt_value(-0.0001, "pct") == "0.0%" and pk.fmt_value(-0.02, "pct") == "-2.0%"
+    assert pk.fmt_value(-0.00001, "ratio") == "0.0000"
     per = pk.Periods(date(2026, 10, 21), date(2025, 10, 1), date(2026, 9, 1))
     assert per.t12_label == "T12 to Sep 2026" and (per.p_start, per.p_end) == (202510, 202609)
     assert per.label("t12").startswith("T12 to Sep 2026") and per.label("asof") == "As of 2026-10-21"

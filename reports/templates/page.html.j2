@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ page.title }} · VSC Portfolio Reports</title>
+<title>{{ page.title }} · F&amp;I Data Platform</title>
 <meta name="description" content="{{ page.lede }}">
 <script>document.documentElement.className += " js"; try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="stylesheet" href="{{ root }}assets/site.css">
@@ -21,7 +21,7 @@
   <thead><tr>{% for c in s.cols %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in s.rows %}
-    <tr>{% for c in row %}{% if loop.first %}<th scope="row">{{ cell(c) }}</th>{% else %}<td{% if c is string and c and c[:1] not in '0123456789$-' and c != 'n/a' %} class="text"{% endif %}>{{ cell(c) }}</td>{% endif %}{% endfor %}</tr>
+    <tr>{% for c in row %}{% if loop.first %}<th scope="row">{{ cell(c) }}</th>{% else %}<td{% if c is string and c and c[:1] not in '0123456789$-' and c != 'n/a' %} class="text"{% elif c is mapping and c.cls is defined and c.cls %} class="{{ c.cls }}"{% endif %}>{{ cell(c) }}</td>{% endif %}{% endfor %}</tr>
   {% endfor %}
   </tbody>
 </table>
@@ -31,7 +31,7 @@
 <a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class="nav-toggle" type="button" aria-controls="sidebar" aria-expanded="false"><span class="nav-toggle-bars" aria-hidden="true"></span><span class="nav-toggle-text">Menu</span></button>
-  <a class="brand" href="{{ root }}{{ start if nav_top else 'index.html' }}"><span class="brand-mark" aria-hidden="true"></span>VSC Portfolio Reports</a>
+  <a class="brand" href="{{ root }}{{ start if nav_top else 'index.html' }}"><span class="brand-mark" aria-hidden="true"></span>F&amp;I Data Platform</a>
   <span class="topbar-meta">Synthetic data &middot; as of {{ as_of.strftime('%b %d, %Y') }}</span>
   <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor"/></svg></button>
 </header>

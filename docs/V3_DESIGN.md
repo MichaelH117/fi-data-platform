@@ -367,3 +367,145 @@ after documented exclusions (quarantine, demo/test).
 
 Report format for every agent (short): what you built (paths), how you verified it (commands +
 pass/fail), shared files touched, open issues.
+
+---
+
+## 8. V5: legacy fidelity + foundations
+
+Goal: build the old way on purpose (a messy legacy Postgres database), answer the same business
+questions both ways, measure the damage, and fix each root cause once in the modern warehouse.
+Everything is **opt-in**: the default `python -m pipeline.run` and CI never need Postgres; every V5
+test that needs a server skips when `warehouse.postgres.sync.available()` reports it down.
+
+### 8.1 Legacy database spec
+- **Databases** (same local PostgreSQL 16, settings from `.env`): `vsc_legacy` (main) and
+  `vsc_legacy_admin` (the admin EAV store). Postgres has no cross-database join, which reproduces
+  "the admin DB cannot be joined to the warehouse". `PG_LEGACY_DATABASE` / `PG_LEGACY_ADMIN_DATABASE`
+  are additive `.env.example` lines (defaults above).
+- **Same sources:** `python -m legacy build` reads the DuckDB raw schemas (`raw_admin_core`,
+  `raw_legacy_admin`) after `pipeline.run` has ingested them. No new random data: legacy messiness is
+  either already in the sources (8.3) or a deterministic reshaping of them (copies, unions, frozen
+  cuts). Bulk load with `COPY`. Target build time <= 3 min; earnings series ~2-5M rows.
+- **Style rules (fidelity):** quoted CamelCase columns (`"ContractId"`, `"Dealer Name"` with a space,
+  `"fx<Entity>Id"` reference columns), `tbl_*` base tables under `vw_*` views, views over views, **no
+  PK, FK or COMMENT anywhere**, indexes only on contract id (never on dates), no owner metadata.
+
+| Schema | Holds (built from) | Backs |
+|---|---|---|
+| `legacy_ops` | `tbl_contract`, `tbl_dealer`, `tbl_product` (stale cut), `tbl_claim`, `tbl_cancel`, `tbl_stock_number`, `tbl_rep`, `dim_demo_dealers`; views `vw_contract_base` -> `vw_dim_contracts` (denormalized **customer** fields, `"Producers"` = selling dealer name, `"ProviderCode"`), `vw_dim_dealers`, `vw_dim_products`, `vw_dim_claims` (status/substatus, amount **negative**), `vw_dim_cancels`, `vw_dim_stock_number` (raw-text VIN), `vw_dim_reps` (joins dealer on `"Number"`) | "Ops" semantic model |
+| `legacy_finance` | `vw_fact_contracts`, `vw_fact_contracts_gen2`, `vw_fact_cancels`, `vw_fact_cancels_gen3`, `vw_fact_earned_reserve_gen2` (mid-migration copies that disagree), `vw_dim_cession_type`, `cube_disbursement` (lines with `"fxTransactionTypeId"`), `cube_transaction` (duplicate rows needing dedupe), `cube_earned_disbursement` (`"fxEarningDateId"` int YYYYMMDD, `"EarnedAmount"`; monthly straight-line expansion of raw disbursements; **no date index**), `tbl_fact_gross_premiums` | "Finance" semantic model |
+| `legacy_reporting` | base tables `"FactContracts"`, `"FactCancels"`, `"FactClaims"` (`"fxProducerId"` = provider entity, `"Claim Amount"` **positive**), `vw_dim_producers`, `vw_fact_claims` (no status), `vw_dim_product` (`"ProductKey"`), and `vw_dim_contracts` = UNION ALL spine of contract ids from the four facts, `SELECT DISTINCT`, LEFT JOIN a full `GROUP BY` coverage-cost aggregate over `cube_disbursement` (no WHERE pushdown) | "Reporting" semantic model |
+| `tenant_b` | full mirror of `legacy_ops` filtered to Tenant B, copied at an earlier cutoff (lags) with one renamed and one missing column (schema drift) | Tenant B model |
+| `report` | frozen: `earned_by_month_frozen` (old cutoff), empty shells `tbl_*_new` (0 rows), `*_bak_YYYYMMDD` backups | nothing (archaeology) |
+| `zz_sandbox_analyst` | personal staging: prebuilt per-year compliance summaries; `REVOKE` from the reader role | nothing (locked) |
+| `admin_eav` (in `vsc_legacy_admin`) | `contract_field` (`"fxContractId"`, `"fxFieldId"`, `"Value"` text), `field_definition`; pivot with `max(case when ...)` | not joinable |
+
+### 8.2 Pain point -> legacy object -> fix -> measured in
+| # | Pain point | Legacy object | Modern fix | Bench |
+|---|---|---|---|---|
+| 1 | Source-named schemas, model per schema; gen2/gen3 copies; union-spine "dim" | the three `legacy_*` schemas; `*_gen2`/`*_gen3`; `legacy_reporting.vw_dim_contracts` | one contract dim **table**; one shared conformed semantic model (8.5) | Q7 |
+| 2 | No PK/FK; joins on `upper(trim(vin))` and dealer number | every schema; `vw_dim_stock_number`, `vw_dim_reps` | surrogate keys, enforced PK/FK, relationship tests | Q10 |
+| 3 | Duplicate dealer identities (active, inactive, prefixed) | `tbl_dealer`, `vw_dim_dealers` | dealer master + crosswalk | Q1 |
+| 4 | Stale product dim drops recent products on inner join | `tbl_product`, `vw_dim_products` | full `dim_product` + unknown member -1 | Q2 |
+| 5 | Claim sign differs by layer | `vw_dim_claims` (neg) vs `"FactClaims"` (pos) | sign fixed once in staging; test `>= 0` | Q3 |
+| 6 | Two "producer" columns; wrong filter zeroes a book | `"Producers"` vs `"fxProducerId"` | `dim_producer.producer_role` | Q4 |
+| 7 | Huge earnings series, no date index, sentinel date | `cube_earned_disbursement` | posting-period index (BRIN/b-tree); sentinel -> NULL + flag | Q5 |
+| 8 | API test contracts, demo dealers / demo id range | `vw_dim_contracts`, `dim_demo_dealers` | excluded once in `int_reportable_scope` | Q6 |
+| 9 | Second tenant as mirror schema | `tenant_b` | `tenant_id` column + RLS | Q8 |
+| 10 | Clutter, frozen schema, personal schema, no owners | `report`, `zz_sandbox_analyst`, `*_bak_*` | schema registry + CI clutter check | registry report |
+| 11 | Admin EAV custom fields, not cross-joinable | `admin_eav.contract_field` | pivoted in staging to typed columns | Q9 |
+
+### 8.3 Source changes (generator, Data Engineer; additive, deterministic seed)
+- Admin Core `contract_custom_field` (contract_id, field_id, value_text) + `custom_field_def` (field_id,
+  field_name, data_type) for RV/chassis make, model, year, chassis VIN.
+- Duplicate dealer identities: ~5% of dealers get an inactive copy and a prefixed-number variant
+  (same normalized name + state); some contracts land on the variants.
+- Test-range contracts carry customer `TEST CUSTOMER`, purchase price 1, entered channel `API`.
+- Legacy admin: a small share of conversion rows carry the sentinel date 1900-01-01.
+- VIN text noise (case, padding) on a sample of legacy rows.
+Existing row counts and tests may shift: the Data Engineer updates generator tests, the DE Manager
+updates affected dbt tests in the same wave.
+
+### 8.4 Foundation fixes in the modern warehouse (Data Engineering Manager)
+- **Keys and contracts:** `contract: {enforced: true}` with `primary_key` / `foreign_key` constraints
+  on every `marts/core` dim and fact; `relationships` tests on every `*_key`.
+- **Unknown members:** every dim has a `-1` row (`Unknown`); facts `coalesce(<fk>, -1)` so orphans
+  are counted, never dropped. Diagnostic: share of fact rows on -1, per dim.
+- **Dealer master:** `int_dealer_survivorship` (match on normalized name + state + number without
+  prefix; survivor = active, oldest id) -> one `dealer_key` in `dim_dealer`; `dim_dealer_crosswalk`
+  (source dealer id -> dealer_key, match_rule).
+- **Producer role:** `dim_producer` (producer_key, producer_role `selling_dealer|provider_entity`);
+  facts carry both `selling_dealer_key` and `provider_entity_key`.
+- **Sentinel + sign + scope:** staging maps 1900-01-01 to NULL with `is_sentinel_date`; claim amounts
+  positive everywhere; `int_reportable_scope` also drops `TEST CUSTOMER` / price-1 API contracts.
+- **EAV:** `stg_admin_core__contract_custom_field` pivots to typed columns joined into
+  `dim_contract_vehicle`.
+- **Schema registry:** `pipeline/schema_registry.yml` (schema -> owner, purpose, tier
+  raw|staging|marts|sandbox, retention). `python -m pipeline.clutter_check` fails on unregistered
+  schemas, `*_bak*`/`*_old`/`*_tmp`/`*_new` names, empty tables, or sandbox objects in serving tiers
+  (DuckDB always; Postgres when up). Wired into CI.
+- **Postgres sync:** `warehouse/postgres/sync.py` adds FKs from relationship tests (`NOT VALID`, then
+  `VALIDATE`), b-tree on `posting_period_key` for every fact, BRIN on the earnings fact date.
+- **Runtime regression:** the 5-min budget (4.3) still holds; a test fails on > 20% regression vs
+  the last recorded `audit.pipeline_run`.
+
+### 8.5 Semantic (Senior Power BI Specialist)
+- `docs/SEMANTIC_SPRAWL.md`: legacy = one model per source schema with duplicated dims and conflicting
+  measures; modern = ONE shared conformed model (shared dims) feeding domain models and thin reports.
+- `python -m semantic export` writes `Model_Documentation.csv`, `Relationships.csv` and
+  `Measure_Report_Usage.csv` (from the PBIR report in `powerbi/`) to `site/downloads/semantic/`.
+- `docs/DAX_TO_SQL.md`: how each measure maps to SQL; 3-5 worked examples match the playbook.
+
+### 8.6 Analyst SQL playbook (`sql/playbook/`, Senior Data Analyst)
+Style: lowercase keywords, positional `group by`, `set statement_timeout` first, `explain` before heavy
+queries, `pg_catalog` discovery, `tablesample` probes, quoted CamelCase. Header comment = business
+question. Files: `01_catalog_discovery.sql`, `02_freshness_probe.sql`,
+`03_diag_dim_match_rate.sql`, `04_diag_key_bridge_repair.sql`, `05_diag_claim_key_coverage.sql`,
+`06_diag_fanout_guard.sql`, `07_funded_reserve_pull.sql`, `08_claim_grain_export.sql`,
+`09_cancel_export_tenant_exclusions.sql`, `10_coverage_cost_lineage_scoped.sql`,
+`11_dealer_duplicate_lookup.sql`, `12_eav_custom_field_pivot.sql`, `13_producer_vs_provider_trap.sql`,
+`14_loss_ratio_earnings_sentinel.sql`, `15_dax_measures_as_sql.sql`; `manifest.yml` (file, database,
+timeout, expected row count or range); `README.md` (why an analyst needs each pattern);
+`benchmark/qNN_legacy.sql` + `benchmark/qNN_modern.sql` for 8.7.
+`python -m legacy playbook` runs the manifest against Postgres and checks the counts.
+
+### 8.7 Benchmark questions (answered both ways)
+Legacy side = `vsc_legacy`; modern side = the synced marts in `PG_DATABASE`. Same server, so timings
+compare. Per question: rows, answer value, diff vs modern, ms, top plan nodes from `EXPLAIN`
+(`ANALYZE` except where the timeout would be hit), and the failure class (lost, doubled, zeroed,
+sign, stale, timeout).
+
+| Q | Business question | Expected legacy failure |
+|---|---|---|
+| Q1 | In-force contracts and coverage cost for one dealer | filtering one dealer id misses variant ids (lost) |
+| Q2 | Contracts by product type, latest plan year | stale product inner join (lost) |
+| Q3 | Paid claims by month | mixing layers nets to ~0 (sign) |
+| Q4 | Book for one provider entity | filtering `"Producers"` returns 0 (zeroed) |
+| Q5 | Loss ratio by entered year from earnings | seq scan timing; sentinel row skews oldest year |
+| Q6 | Reportable population for a compliance filing | test/demo contracts counted (inflated) |
+| Q7 | Attributes for a provider-scoped population | union-spine dim times out vs table lookup (timeout) |
+| Q8 | Tenant B in-force count | mirror lags + drifted column (stale) |
+| Q9 | RV chassis make/model per contract | two databases, manual two-step join (extra step) |
+| Q10 | Stock number match rate by VIN | text-normalized join match rate below key join |
+
+`python -m legacy demo` = build (if missing) + run Q1-Q10 + write `site/data/legacy_benchmark.json`;
+`docs/LEGACY_BENCHMARK.md` and the site page render from that JSON. Postgres down: exits 2 with a clear
+message; the committed benchmark doc keeps the last measured numbers with their run date.
+
+### 8.8 File ownership (V5 round; additive to section 3)
+| Role | Owns |
+|---|---|
+| **Data Engineer** | `legacy/` (`__init__.py`, `__main__.py` build/demo/playbook/status/drop, `build.py`, `ddl/*.sql`, `benchmark.py`), generator EAV + 8.3 source changes, `.env.example` legacy lines (additive); tests `test_legacy.py`, `test_generator.py` |
+| **Data Engineering Manager** | 8.4: dbt keys/contracts, unknown members, dealer master + crosswalk, `dim_producer`, EAV staging, `pipeline/schema_registry.yml`, `pipeline/clutter_check.py` + CI step (additive line in `.github/`), `warehouse/postgres/sync.py` indexes/FKs, runtime regression test; tests `test_foundations.py`, `test_clutter_check.py` |
+| **Senior Data Analyst** | `sql/playbook/` (all files incl. `manifest.yml`, `benchmark/`, `README.md`); test `test_playbook.py` |
+| **Senior Power BI Specialist** | `docs/SEMANTIC_SPRAWL.md`, `semantic/export.py` (+ `semantic/__main__.py` subcommand), `docs/DAX_TO_SQL.md`; test `test_semantic_export.py` |
+| **Reporting Manager + Senior Director** | `docs/LEGACY_BENCHMARK.md`, `reports/legacy/` (site page plug-in reading the JSON), `README.md` story, `docs/LEGACY_VS_BETTER.md` update; renames come later |
+| **Director** | this section, integration, merge conflicts |
+
+Waves: (1) DE source changes + legacy build, SDA playbook drafts against the DDL, PBI specialist export;
+(2) DE Manager foundations; (3) benchmark run, docs, site, README. Run only targeted tests per phase;
+the full suite (~36 min) runs once at the end. `python tools/brand_scrub.py` stays at 0 hits.
+
+**Decision records:** (a) legacy lives in a separate Postgres database, not DuckDB, so plans,
+timeouts and missing indexes are real; (b) legacy is derived from the same raw rows, so every diff is
+explained by structure, not data; (c) the admin EAV is a second database so the join barrier is real.

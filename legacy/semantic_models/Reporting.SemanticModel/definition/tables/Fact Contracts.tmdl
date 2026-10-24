@@ -1,0 +1,36 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_reporting.vw_fact_contracts.
+table 'Fact Contracts'
+	lineageTag: legacy-reporting-fact-contracts
+
+	measure Contracts = DISTINCTCOUNT('Fact Contracts'[fxContractId])
+		formatString: #,0
+
+	column fxContractId
+		dataType: int64
+		sourceColumn: fxContractId
+		summarizeBy: none
+
+	column fxProducerId
+		dataType: int64
+		sourceColumn: fxProducerId
+		summarizeBy: none
+
+	column fxProductKey
+		dataType: int64
+		sourceColumn: fxProductKey
+		summarizeBy: none
+
+	column EnteredDateId
+		dataType: int64
+		sourceColumn: EnteredDateId
+		summarizeBy: none
+
+	partition 'Fact Contracts' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_reporting", Item="vw_fact_contracts"]}[Data]
+				in
+				    Data

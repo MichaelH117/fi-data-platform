@@ -6,7 +6,8 @@ with latest as (
 select
     cancellation_id,
     legacy_contract_id,
-    cancel_date,
+    {{ sentinel_to_null('cancel_date') }} as cancel_date,
+    {{ is_sentinel_date('cancel_date') }} as is_sentinel_date,
     trim(cancel_reason) as cancel_reason,
     upper(trim(cancel_method)) as cancel_method,
     odometer_at_cancel,

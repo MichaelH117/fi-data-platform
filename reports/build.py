@@ -53,12 +53,17 @@ def money(v: float | None) -> str:
     return f"{sign}${body}"
 
 
+def no_negative_zero(text: str) -> str:
+    """'-0.0%' -> '0.0%', '-0' -> '0': a tiny negative that rounds to zero is shown as zero."""
+    return text[1:] if text.startswith("-") and not any(ch in "123456789" for ch in text) else text
+
+
 def pct(v: float | None, digits: int = 1) -> str:
-    return "n/a" if v is None or pd.isna(v) else f"{v:.{digits}%}"
+    return "n/a" if v is None or pd.isna(v) else no_negative_zero(f"{v:.{digits}%}")
 
 
 def num(v: float | None, digits: int = 0) -> str:
-    return "n/a" if v is None or pd.isna(v) else f"{v:,.{digits}f}"
+    return "n/a" if v is None or pd.isna(v) else no_negative_zero(f"{v:,.{digits}f}")
 
 
 def month_label(ts) -> str:
@@ -226,7 +231,8 @@ def page_overview(d: ReportData) -> Page:
     )
     s5 = overview_dealer_watchlist(d)
     return Page("index.html", "Executive overview",
-                f"Portfolio health of the vehicle service contract book, as of {d.as_of:%B %d, %Y}. Figures run "
+                "Portfolio health of the F&I product book (VSC, GAP, ancillary and maintenance), "
+                f"as of {d.as_of:%B %d, %Y}. Figures run "
                 f"through the last complete month ({month_label(d.last_month)}).",
                 kpis, [*money_sections, s3, s4, s5])
 
@@ -617,10 +623,11 @@ NAV_GROUP_ORDER = ["Executive", "Finance", "Claims & Actuarial", "Regulatory", "
 CORE_GROUPS = {"index.html": "Executive", "products.html": "Finance", "claims.html": "Claims & Actuarial",
                "dealers.html": "Dealers", "quality.html": "Platform"}
 AREA_GROUPS = {"regulatory": "Regulatory", "dealer": "Dealers", "claims": "Claims & Actuarial",
-               "finance": "Finance", "ops": "Platform", "actuarial": "Claims & Actuarial", "semantic": "Platform"}
+               "finance": "Finance", "ops": "Platform", "actuarial": "Claims & Actuarial", "semantic": "Platform",
+               "legacy": "Platform"}
 # Order inside a section: lower first; unlisted links keep discovery order after these.
 NAV_RANK = {"finance/index.html": 0, "products.html": 1, "claims.html": 0, "claims/index.html": 1,
-            "actuarial.html": 2, "dealers.html": 0, "quality.html": 0, "ops.html": 1}
+            "actuarial.html": 2, "dealers.html": 0, "quality.html": 0, "ops.html": 1, "legacy.html": 60}
 
 
 def group_nav(nav: Sequence[tuple[str, str]], groups: dict[str, str]) -> tuple[list[tuple[str, str]], list[tuple]]:
@@ -651,6 +658,7 @@ NAV_BLURBS = {
     "ops.html": "The 7 AM SLO, the diagnostics gates and the source-to-raw-to-mart reconciliation.",
     "actuarial.html": "Loss development triangles, IBNR methods and the selected reserve.",
     "semantic.html": "The Power BI-ready semantic model: measures, relationships and row-level security roles.",
+    "legacy.html": "The old warehouse rebuilt on purpose: ten questions answered both ways, measured, and fixed.",
 }
 TOUR = [  # (href, what to look at); a step is shown only when its page was built
     ("index.html", "Read the headline tiles. Every figure has an \u201ci\u201d with its definition."),
@@ -730,7 +738,8 @@ def build_pages(d: ReportData) -> list[Page]:
 # --------------------------------------------------------------------------- report plug-ins
 # docs/V3_DESIGN.md section 3: each package exposes build(con, out_dir) -> list[Page]. The shell
 # discovers them, so nobody edits this file to add a report. Order = nav order.
-PLUGIN_AREAS: tuple[str, ...] = ("regulatory", "dealer", "claims", "finance", "ops", "actuarial", "semantic")
+PLUGIN_AREAS: tuple[str, ...] = ("regulatory", "dealer", "claims", "finance", "ops", "actuarial", "semantic",
+                                 "legacy")
 
 
 def discover_plugins(areas: Sequence[str] = PLUGIN_AREAS) -> list[tuple[str, ModuleType]]:

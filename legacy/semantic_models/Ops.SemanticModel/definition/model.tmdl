@@ -1,0 +1,13 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Dealer and customer reporting off the ops views. Bound to ONE schema: legacy_ops.
+model Model
+	culture: en-US
+	annotation legacy_schema = legacy_ops
+	annotation legacy_anti_pattern = model-per-schema; duplicated dims; conflicting measures
+	annotation generated_by = python -m legacy semantic
+
+ref table Contracts
+ref table Dealers
+ref table Products
+ref table Claims
+ref table Cancels

@@ -1,0 +1,23 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_finance.vw_dim_cession_type.
+table 'Cession Type'
+	lineageTag: legacy-finance-cession-type
+
+	column CessionTypeId
+		dataType: int64
+		sourceColumn: CessionTypeId
+		summarizeBy: none
+
+	column CessionType
+		dataType: string
+		sourceColumn: CessionType
+		summarizeBy: none
+
+	partition 'Cession Type' = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_finance", Item="vw_dim_cession_type"]}[Data]
+				in
+				    Data

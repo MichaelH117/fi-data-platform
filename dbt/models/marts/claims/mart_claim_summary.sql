@@ -92,7 +92,7 @@ base as (
         a.as_of_date
     from {{ ref('dim_claim') }} as c
     cross join as_of as a
-    left join {{ ref('dim_contract') }} as k on k.contract_key = c.contract_key and c.contract_key <> '-1'
+    left join {{ ref('dim_contract') }} as k on k.contract_key = nullif(c.contract_key, '-1')  -- equi-join (hash), not a nested loop
     left join lines as l on l.claim_key = c.claim_key
     left join closed as cl on cl.claim_key = c.claim_key
     left join components as comp on comp.claim_key = c.claim_key and comp.rn = 1

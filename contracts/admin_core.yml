@@ -605,6 +605,30 @@ tables:
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
       removed_from_source: INTEGER NOT NULL
+  custom_field_def:
+    primary_key: [field_def_id]
+    columns:
+      field_def_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      field_id: INTEGER NOT NULL
+      field_name: TEXT NOT NULL
+      data_type: TEXT NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  contract_custom_field:
+    primary_key: [custom_field_id]
+    columns:
+      custom_field_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      field_id: INTEGER NOT NULL
+      value_text: TEXT
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
   intake_file:
     primary_key: [intake_file_id]
     columns:

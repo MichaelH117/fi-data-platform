@@ -38,6 +38,10 @@ sources:
       - {name: contract, description: Contracts. Carries customer PII, which never leaves staging.}
       - {name: contract_surcharge}
       - {name: contract_option}
+      - name: custom_field_def
+        description: "Custom-field definitions (EAV): field_id, field_name, data_type. Pivoted in staging (stg_admin_core__contract_custom_field). Reference data: rarely changes."
+        config: {freshness: null}
+      - {name: contract_custom_field, description: "Custom-field values (EAV): one text value per contract x field. Never read past staging."}
       - {name: contract_status_history}
       - {name: contract_amendment, description: Amendments, renewals and transfers. May point at a legacy contract via legacy_contract_ref.}
       - {name: remit_batch}

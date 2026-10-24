@@ -1,4 +1,4 @@
-# VSC Portfolio: Power BI report (PBIP)
+# F&I Data Platform: Power BI report (PBIP)
 
 A five-page Power BI report over the warehouse on the local PostgreSQL server. It is saved as a
 **Power BI project (PBIP)**: plain text files instead of one binary `.pbix`, so git can show every
@@ -6,11 +6,14 @@ change.
 
 | Path | What it is |
 |---|---|
-| `VSC Portfolio.pbip` | Double-click this to open the project in Power BI Desktop |
-| `VSC Portfolio.Report/` | The report in **PBIR** format: one JSON file per page and per visual, plus the theme |
-| `VSC Portfolio.SemanticModel/` | The reporting semantic model in **TMDL** (tables, relationships, measures, roles) |
+| `FI Data Platform.pbip` | Double-click this to open the project in Power BI Desktop |
+| `FI Data Platform.Report/` | The report in **PBIR** format: one JSON file per page and per visual, plus the theme |
+| `FI Data Platform.SemanticModel/` | The reporting semantic model in **TMDL** (tables, relationships, measures, roles) |
 | `build.py`, `report.py`, `model.py` | The generator. `python -m powerbi` rewrites the two folders and the `.pbip` |
 | `validate.py`, `schemas.py` | Checks: Microsoft's JSON schemas, field references, layout grid |
+
+The display name is **F&I Data Platform** (model, report theme, exports). Files and folders drop the
+"&" (`FI Data Platform`) because it is unsafe in paths and URLs.
 
 Pages: **Executive overview** (KPI cards, written vs earned trend, loss ratio), **Dealer scorecard**
 (table with slicers and conditional formatting, RLS note), **Claims & IBNR** (frequency and
@@ -28,7 +31,7 @@ share, MTD/QTD/YTD from the calculation group).
    powershell -ExecutionPolicy Bypass -File tools\pg.ps1 status   # "accepting connections"
    ```
 
-2. **Open the project.** Double-click `powerbi\VSC Portfolio.pbip`, or in Power BI Desktop use
+2. **Open the project.** Double-click `powerbi\FI Data Platform.pbip`, or in Power BI Desktop use
    File > Open > Browse and pick the `.pbip` file. The pages open empty, with a yellow bar saying
    "Some of the tables have incomplete or no data". That is expected: the project stores no data,
    only the design.
@@ -70,7 +73,7 @@ share, MTD/QTD/YTD from the calculation group).
 
 A Power BI report connects to exactly **one** semantic model, but these five pages need measures
 from all four domain models in `semantic/` (scorecard: Sales; claims: Claims; filing:
-Compliance; P&L: Finance). So `model.py` builds one internal **reporting model**, `VSC Portfolio`,
+Compliance; P&L: Finance). So `model.py` builds one internal **reporting model**, `F&I Data Platform`,
 from the same plan as `python -m semantic`: the same 80 measures (each still maps to one metric
 in `dbt/models/metrics.yml`), the same Time Intelligence calculation group, relationships and RLS
 rules, over every fact and conformed dimension. The only addition is `IBNR by Cohort`, the
@@ -94,7 +97,7 @@ table named `Measures` ("Unsupported Table name"), so the domain models were ren
 - **TMDL** for the model, compatibility level 1601, Import mode, PostgreSQL connector. The server
   and database are the model parameters `PostgresServer` (`localhost:5432`) and
   `PostgresDatabase` (`vsc_analytics`): change them in Transform data > Manage parameters.
-- Theme: `VSC Portfolio.Report/StaticResources/RegisteredResources/VSC_Portfolio_Theme.json`, the
+- Theme: `FI Data Platform.Report/StaticResources/RegisteredResources/FI_Data_Platform_Theme.json`, the
   report site's light palette (same series colours, ink, page and border tokens).
 - Layout grid: 1280 x 720 page, 24 px margin, 12 columns of 88 px with 16 px gutters. Rows are
   header, filters, KPI cards, then two chart rows. Every visual has a title and an "i" tooltip

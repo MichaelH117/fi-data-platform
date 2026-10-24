@@ -7,7 +7,7 @@ from pathlib import Path
 from powerbi import model, report
 
 HERE = Path(__file__).resolve().parent
-NAME = model.MODEL_NAME
+NAME = model.FILE_NAME
 PBIP = HERE / f"{NAME}.pbip"
 REPORT_DIR = HERE / f"{NAME}.Report"
 MODEL_DIR = HERE / f"{NAME}.SemanticModel"

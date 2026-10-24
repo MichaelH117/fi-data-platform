@@ -1,1 +1,1 @@
-"""Power BI project (PBIP): the VSC Portfolio report and its reporting semantic model (see README.md)."""
+"""Power BI project (PBIP): the F&I Data Platform report and its reporting semantic model (see README.md)."""

@@ -5,3 +5,4 @@ DEMO-D9002,any,dealer_number,D9002,,,,Training dealer 2
 DEMO-D9003,any,dealer_number,D9003,,,,Training dealer 3
 TEST-LEGACY-IDS,legacy_admin,contract_id_range,,99990000,99999999,,Legacy test contract-id range
 TEST-CORE-NUMBERS,admin_core,contract_number_pattern,,,,^[A-Z]+-9999[0-9]{4}$,Admin Core test contract-number range (<prefix>-9999xxxx)
+TEST-API-CUSTOMER,any,test_customer_name,,,,^TEST CUSTOMER$,API test contracts: placeholder customer name (pattern matches the trimmed upper-case full name)

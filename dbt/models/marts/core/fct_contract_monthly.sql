@@ -174,5 +174,9 @@ select
 from all_rows as m
 inner join {{ ref('dim_contract') }} as k using (contract_key)
 left join {{ ref('dim_contract_vehicle') }} as v using (contract_key)
+-- Claims land on EARN rows only. The row-type filter sits inside the equality (NULL never matches) so
+-- this stays a hash join; `and m.row_type = 'EARN'` as a separate ON term made DuckDB fall back to a
+-- block-wise nested loop over 1.6M x 14k rows (about 45 s of the build).
 left join claims_by_month as cl
-    on cl.contract_key = m.contract_key and cl.month_start = m.month_start and m.row_type = 'EARN'
+    on cl.contract_key = m.contract_key
+    and cl.month_start = case when m.row_type = 'EARN' then m.month_start end

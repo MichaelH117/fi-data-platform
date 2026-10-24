@@ -1,0 +1,3 @@
+relationship legacy-finance-1
+	fromColumn: 'Earned Disbursement'.fxContractId
+	toColumn: 'Fact Contracts'.fxContractId

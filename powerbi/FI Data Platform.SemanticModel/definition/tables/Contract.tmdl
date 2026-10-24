@@ -1,0 +1,179 @@
+/// Contract core only; terms, finance, vehicle, class and claim summary are separate dims.
+table Contract
+
+	column 'Contract Key'
+		dataType: string
+		isHidden
+		isKey
+		sourceColumn: contract_key
+
+	column 'Contract Number'
+		dataType: string
+		sourceColumn: contract_number
+
+	column 'Source System'
+		dataType: string
+		isHidden
+		sourceColumn: source_system
+
+	column 'Source Contract ID'
+		dataType: string
+		isHidden
+		sourceColumn: source_contract_id
+
+	column Status
+		dataType: string
+		sourceColumn: status
+
+	column 'Entered Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: entered_date
+
+	column 'Entered Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: entered_date_key
+
+	column 'Effective Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: effective_date
+
+	column 'Effective Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: effective_date_key
+
+	column 'Expiration Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: expiration_date
+
+	column 'Expiration Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: expiration_date_key
+
+	column 'Entered Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: entered_year
+
+	column 'Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: dealer_key
+
+	column 'Dealer Number'
+		dataType: string
+		sourceColumn: dealer_number
+
+	column 'Agent Key'
+		dataType: string
+		isHidden
+		sourceColumn: agent_key
+
+	column 'Product Key'
+		dataType: string
+		isHidden
+		sourceColumn: product_key
+
+	column 'Product Code'
+		dataType: string
+		sourceColumn: product_code
+
+	column 'Subcategory Code'
+		dataType: string
+		sourceColumn: subcategory_code
+
+	column 'Category Code'
+		dataType: string
+		sourceColumn: category_code
+
+	column 'Plan Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: plan_year
+
+	column 'Tenant Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: tenant_key
+
+	column 'Reportable State'
+		dataType: string
+		sourceColumn: reportable_state
+
+	column 'Original Obligor Key'
+		dataType: string
+		isHidden
+		sourceColumn: original_obligor_key
+
+	column 'Current Obligor Key'
+		dataType: string
+		isHidden
+		sourceColumn: current_obligor_key
+
+	column 'Selling Dealer Key'
+		dataType: string
+		isHidden
+		sourceColumn: selling_dealer_key
+
+	column 'Provider Entity Key'
+		dataType: string
+		isHidden
+		sourceColumn: provider_entity_key
+
+	column 'Obligor Basis'
+		dataType: string
+		sourceColumn: obligor_basis
+
+	column 'Insurer Key'
+		dataType: string
+		isHidden
+		sourceColumn: insurer_key
+
+	column 'Deal ID'
+		dataType: string
+		isHidden
+		sourceColumn: deal_id
+
+	column 'Cancel Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		sourceColumn: cancel_date
+
+	column 'Cancel Date Key'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: cancel_date_key
+
+	column 'Is Cancelled'
+		dataType: boolean
+		sourceColumn: is_cancelled
+
+	column 'Is Dealer Code Missing'
+		dataType: boolean
+		sourceColumn: is_dealer_code_missing
+
+	column 'Is Recovered From Quarantine'
+		dataType: boolean
+		sourceColumn: is_recovered_from_quarantine
+
+	partition Contract = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(PostgresServer, PostgresDatabase),
+				    Data = Source{[Schema = "core", Item = "dim_contract"]}[Data]
+				in
+				    Data
+
+	annotation source_table = core.dim_contract
+	annotation table_kind = dim

@@ -1,4 +1,6 @@
-{{ config(materialized='table') }}
+-- A view: its only consumer is core.fct_earned_disbursement, which materializes the same 8M rows (with
+-- the grain test), so a table here wrote them twice and tested them twice (runtime, docs/V3_DESIGN.md 8.4).
+{{ config(materialized='view') }}
 -- Earned dealer-cost buckets: contract x disbursement type x posting period x earned month.
 -- earned_month_key is the true month being earned; posting_period_key is where it is booked
 -- (int_contract_months: a month already closed when the contract activated is caught up in the

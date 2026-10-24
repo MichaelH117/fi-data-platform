@@ -18,6 +18,7 @@ import pandas as pd
 from generator import admin_core as ac
 from generator import catalog as cat
 from generator import claims as clm
+from generator import custom_fields as cf
 from generator import intake as itk
 from generator import legacy as lg
 from generator import lifecycle as lc
@@ -40,7 +41,13 @@ DAY = sim.DAY
 
 
 def _insert_all(conn: sqlite3.Connection, rows: dict[str, pd.DataFrame]) -> dict[str, int]:
-    return {k: ac.insert(conn, k, v) for k, v in rows.items() if v is not None and len(v)}
+    out = {k: ac.insert(conn, k, v) for k, v in rows.items() if v is not None and len(v)}
+    con = rows.get("contract")
+    if con is not None and len(con) and "class_code" in con:  # new specialty contracts get their custom fields
+        eav = cf.contract_values(con, start_id=ac.next_id(conn, "contract_custom_field"))
+        if len(eav):
+            out["contract_custom_field"] = ac.insert(conn, "contract_custom_field", eav)
+    return out
 
 
 def _set_status(conn, ids: Ids, contracts: pd.DataFrame, to_status: str, at) -> None:

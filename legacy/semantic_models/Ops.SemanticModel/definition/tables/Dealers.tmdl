@@ -1,0 +1,38 @@
+/// LEGACY ANTI-PATTERN: one semantic model per source schema. Kept for comparison, never deployed.
+/// Bound to legacy_ops.vw_dim_dealers.
+table Dealers
+	lineageTag: legacy-ops-dealers
+
+	column DealerId
+		dataType: int64
+		sourceColumn: DealerId
+		summarizeBy: none
+
+	column 'Dealer Name'
+		dataType: string
+		sourceColumn: Dealer Name
+		summarizeBy: none
+
+	column Number
+		dataType: string
+		sourceColumn: Number
+		summarizeBy: none
+
+	column Status
+		dataType: string
+		sourceColumn: Status
+		summarizeBy: none
+
+	column PhysicalState
+		dataType: string
+		sourceColumn: PhysicalState
+		summarizeBy: none
+
+	partition Dealers = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database(LegacyServer, "vsc_legacy"),
+				    Data = Source{[Schema="legacy_ops", Item="vw_dim_dealers"]}[Data]
+				in
+				    Data

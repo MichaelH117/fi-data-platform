@@ -82,7 +82,7 @@ def index_page(d: RegulatoryData, files: dict[str, str]) -> Page:
             f"{x.reserve_rate:.0%}", f"{pd.Timestamp(r.period_end):%b %d, %Y}", _status(bool(r.final)),
             num(r.in_force), money(r.gross), money(r.reserve), money(r.current),
             BASIS[r.basis], shortfall_cell(float(r.shortfall), bool(r.final)),
-            {"text": shortfall_cause(r.basis, float(r.shortfall)), "cls": "text"},
+            {"text": shortfall_cause(r.basis, float(r.shortfall)), "cls": "text wrap"},
             link("Excel", files[f"filing:{st}"]),
         ])
     survey_rows = []
@@ -187,7 +187,7 @@ def filing_page(d: RegulatoryData, state: str, workbook: str) -> Page:
     fmt = {True: num, False: money}
 
     def note(item: str) -> dict:
-        return {"text": notes.get(item, ""), "cls": "text"}
+        return {"text": notes.get(item, ""), "cls": "text wrap"}
 
     for provider, g in s.groupby("provider_name", sort=True):
         def pick(scope: str, basis: str, g=g) -> pd.Series:
@@ -218,8 +218,8 @@ def filing_page(d: RegulatoryData, state: str, workbook: str) -> Page:
             "The notes column of the filing: what applies to every scope and basis once, then only what "
             "differs by scope or basis.",
             cols=["Applies to", "Note"],
-            rows=[["All scopes and bases", {"text": "; ".join(common), "cls": "text"}]]
-                 + [[f"{scope} · {BASIS[basis]}", {"text": "; ".join(extra), "cls": "text"}]
+            rows=[["All scopes and bases", {"text": "; ".join(common), "cls": "text wrap"}]]
+                 + [[f"{scope} · {BASIS[basis]}", {"text": "; ".join(extra), "cls": "text wrap"}]
                     for scope, basis, extra in diffs],
             wide=True, table_open=True))
     sections.append(Section(
@@ -241,7 +241,7 @@ def survey_page(d: RegulatoryData, state: str, workbook: str) -> Page:
     for provider, g in s.groupby("provider_name", sort=True):
         m = survey_matrix(g)
         rows = [[r[0], r[1]] + [(money if items[r[0]] in MONEY_ITEMS else num)(v) for v in r[2:]]
-                + [{"text": notes.get(items[r[0]], ""), "cls": "text"}]
+                + [{"text": notes.get(items[r[0]], ""), "cls": "text wrap"}]
                 for r in m.itertuples(index=False)]
         sections.append(Section(provider, "Item 1 is a year-end count (Total = latest year); the rest are "
                                           "flows within each calendar year (Total = sum).",
@@ -262,7 +262,7 @@ def definitions_page(d: RegulatoryData) -> Page:
     sets = d.status_sets.groupby(["status_set_id", "applies_to"])["status"].apply(", ".join).reset_index()
     defs = [[r.report_id, f"{r.section}.{r.line_no}", r.label, r.measure, blank(r.date_rule), blank(r.status_set_id),
              r.scope, blank(r.basis), blank(r.category_filter), blank(r.subcategory_exclude),
-             {"text": blank(r.notes), "cls": "text"}] for r in d.definitions.itertuples()]
+             {"text": blank(r.notes), "cls": "text wrap"}] for r in d.definitions.itertuples()]
     meth = [[r.state, r.state_name, "Yes" if r.has_requirement else "No", r.method_code,
              "" if pd.isna(r.reserve_rate) else f"{r.reserve_rate:.0%}",
              "" if pd.isna(r.security_deposit_rate) else f"{r.security_deposit_rate:.0%}",

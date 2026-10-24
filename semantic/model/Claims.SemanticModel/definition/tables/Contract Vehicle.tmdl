@@ -69,6 +69,36 @@ table 'Contract Vehicle'
 		dataType: string
 		sourceColumn: ODOMETER_BAND
 
+	column 'Coach Make'
+		dataType: string
+		sourceColumn: COACH_MAKE
+
+	column 'Coach Model'
+		dataType: string
+		sourceColumn: COACH_MODEL
+
+	column 'Chassis Make'
+		dataType: string
+		sourceColumn: CHASSIS_MAKE
+
+	column 'Custom Chassis VIN Hash'
+		dataType: string
+		sourceColumn: CUSTOM_CHASSIS_VIN_HASH
+
+	column 'Custom Model Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: CUSTOM_MODEL_YEAR
+
+	column 'Has Custom Fields'
+		dataType: boolean
+		sourceColumn: HAS_CUSTOM_FIELDS
+
+	column 'Custom Field Invalid Count'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: CUSTOM_FIELD_INVALID_COUNT
+
 	partition 'Contract Vehicle' = m
 		mode: import
 		source =

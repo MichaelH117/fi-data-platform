@@ -18,7 +18,13 @@ or put it in a Power BI project (PBIP), to deploy it.
 .venv\Scripts\python -m semantic                    # build; checks the column lock against the warehouse if one exists
 .venv\Scripts\python -m semantic --check            # CI: exits 1 if semantic/model/ is out of date
 .venv\Scripts\python -m semantic --refresh-columns  # after a mart column change
+.venv\Scripts\python -m semantic export-docs        # model + PBIR report docs as 4 CSVs -> site\downloads\semantic\
 ```
+
+`export-docs` (`semantic/export.py`) is the Tabular-Editor-style documentation export: measures, calc
+items, RLS and partition sources, relationships as SQL joins, and report -> page -> visual -> field
+usage read from the PBIR report, for the modern and the legacy models. See `docs/SEMANTIC_STRATEGY.md`
+and `docs/DAX_TO_SQL.md`.
 
 ## How it improves on the legacy model
 
@@ -158,5 +164,5 @@ guards the committed Postgres folder the same way.
 
 ## Power BI report
 
-`powerbi/` holds the five-page VSC Portfolio report (PBIP, PBIR) and its internal reporting model,
+`powerbi/` holds the five-page F&I Data Platform report (PBIP, PBIR) and its internal reporting model,
 built from the same plan as these domain models (`python -m powerbi`). See `powerbi/README.md`.

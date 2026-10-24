@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 import duckdb
 
+from pipeline import workpool as jobs
 from reports import PUBLISH_DIR, ROOT, SITE_DIR, WAREHOUSE_PATH
 from reports.build import render_site
 from reports.data import load
@@ -53,7 +54,10 @@ def run(warehouse: Path, publish_dir: Path, out: Path) -> list[Path]:
     with duckdb.connect(str(warehouse), read_only=True) as con:
         data = load(con, ROOT, publish_dir)
         # Area plug-ins (reports/<area>/) get the same read-only connection; packets come from publish.
-        pages = render_site(data, out, con=con, publish_dir=publish_dir)
+        # Excel downloads are written by a process pool while the pages render (pipeline/workpool.py);
+        # leaving the block waits for every file, so the link check below sees them all.
+        with jobs.workbook_pool():
+            pages = render_site(data, out, con=con, publish_dir=publish_dir)
     bad = broken_links(out)
     if bad:
         raise SystemExit("broken links:\n  " + "\n  ".join(bad))

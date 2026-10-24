@@ -94,10 +94,13 @@ select
     term_months,
     cast(term_miles as bigint) as term_miles,
     abs(deductible) as deductible,
-    sale_date,
-    coalesce(effective_date, sale_date) as effective_date,
-    expiration_date,
-    datediff('day', coalesce(effective_date, sale_date), expiration_date) as term_days,
+    -- Sentinel dates (1900-01-01 placeholders) become NULL here, once, flagged in is_sentinel_date.
+    {{ sentinel_to_null('sale_date') }} as sale_date,
+    coalesce({{ sentinel_to_null('effective_date') }}, {{ sentinel_to_null('sale_date') }}) as effective_date,
+    {{ sentinel_to_null('expiration_date') }} as expiration_date,
+    datediff('day', coalesce({{ sentinel_to_null('effective_date') }}, {{ sentinel_to_null('sale_date') }}),
+             {{ sentinel_to_null('expiration_date') }}) as term_days,
+    {{ any_sentinel_date(['sale_date', 'effective_date', 'expiration_date']) }} as is_sentinel_date,
 
     -- PII: hashed keys only. The fake name stays in staging; email, zip and VIN are hashed here.
     customer_first_name,

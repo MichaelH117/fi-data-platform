@@ -1,6 +1,11 @@
 /// Every filed line value (funded reserve and market survey). Filing Line Value is blank until one Report Id, Line Item, Scope and Basis are in context; across windows only a LAST line (in force) shows, at its latest window.
 table 'Regulatory Line Value'
 
+	column 'Line Value Key'
+		dataType: string
+		isHidden
+		sourceColumn: line_value_key
+
 	column 'Report ID'
 		dataType: string
 		isHidden

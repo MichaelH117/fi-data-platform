@@ -41,6 +41,19 @@ with base as (
     join core.dim_contract_terms t on t.contract_key = m.contract_key
     where d.dealer_key <> '-1' and d.state is not null and p.category_code = 'VSC'
       and m.exposure_years > 0 and {{window}}
+),
+
+by_contract as (
+    -- one row per period x dealer x contract. A contract has one dealer, state, tier and term band,
+    -- so every cube cell's distinct-contract count is a plain count(*) below (a count(distinct)
+    -- over eight grouping sets of the monthly rows was most of the publish step's query time).
+    select period, dealer_code, state, coverage_tier, term_band, contract_id,
+           sum(earned_premium) as earned_premium,
+           sum(incurred_claims) as incurred_claims,
+           sum(claim_count) as claim_count,
+           sum(exposure_years) as exposure_years
+    from base
+    group by all
 )
 select
     period,
@@ -48,12 +61,12 @@ select
     case when grouping(state) = 1 then '{ALL}' else state end as state,
     case when grouping(coverage_tier) = 1 then '{ALL}' else coverage_tier end as coverage_tier,
     case when grouping(term_band) = 1 then '{ALL}' else term_band end as term_band,
-    count(distinct contract_id) as contracts,
+    count(*) as contracts,
     sum(earned_premium) as earned_premium,
     sum(incurred_claims) as incurred_claims,
     sum(claim_count) as claim_count,
     sum(exposure_years) as exposure_years
-from base
+from by_contract
 group by period, dealer_code, cube(state, coverage_tier, term_band)
 """
 
@@ -94,13 +107,15 @@ def cell_totals(contrib: pd.DataFrame) -> pd.DataFrame:
 
 
 def _round(df: pd.DataFrame) -> pd.DataFrame:
+    # Parallel float sums differ in the last bits from build to build; rounding to 6 places first keeps a
+    # value that sits on a .5 boundary from flipping between two published numbers.
     df = df.copy()
     for c in ("earned_premium", "incurred_claims"):
-        df[c] = df[c].round(0)
+        df[c] = df[c].round(6).round(0)
     for c in ("exposure_years",):
-        df[c] = df[c].round(1)
+        df[c] = df[c].round(6).round(1)
     for c in ("loss_ratio", "claim_frequency"):
-        df[c] = df[c].round(4)
+        df[c] = df[c].round(8).round(4)
     return df
 
 

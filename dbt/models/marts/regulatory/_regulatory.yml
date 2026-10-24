@@ -47,11 +47,18 @@ models:
   - name: mart_regulatory_line_values
     description: The line engine. One value per report line x window x provider, zero-filled.
     meta: {grain: "report_id x state x window x provider x line_item x basis", contains_pii: false}
+    # line_value_key is the declared key (basis is NULL on count lines, so the grain columns are not one)
+    constraints:
+      - type: primary_key
+        columns: [line_value_key]
     data_tests:
       - unique_combination:
           arguments: {columns: [report_id, state, window_id, provider_key, line_item, basis]}
       - expression_is_true:
           arguments: {expression: "value >= 0"}
+    columns:
+      - name: line_value_key
+        data_tests: [unique, not_null]
 
   - name: mart_funded_reserve_summary
     description: >

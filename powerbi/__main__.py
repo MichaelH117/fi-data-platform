@@ -1,7 +1,7 @@
 """CLI: ``python -m powerbi [--check] [--validate] [--offline]``.
 
-Writes the Power BI project next to this file: ``VSC Portfolio.pbip``, ``VSC Portfolio.Report/`` (PBIR) and
-``VSC Portfolio.SemanticModel/`` (TMDL, PostgreSQL source). ``--check`` exits 1 when the committed files
+Writes the Power BI project next to this file: ``FI Data Platform.pbip``, ``FI Data Platform.Report/`` (PBIR) and
+``FI Data Platform.SemanticModel/`` (TMDL, PostgreSQL source). ``--check`` exits 1 when the committed files
 differ from a fresh build. ``--validate`` checks every JSON file against Microsoft's published schemas
 and every visual field against the model (``powerbi.validate``). Desktop's own ``.pbi/`` folders
 (local settings, data cache) are never touched.
