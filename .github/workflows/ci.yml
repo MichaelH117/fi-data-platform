@@ -47,7 +47,9 @@ jobs:
           python -m powerbi --check --validate
       # No Postgres here and psycopg is not installed: the live Postgres / Power BI tests skip.
       - name: Unit tests
-        run: pytest -q
+        run: |
+          set -o pipefail
+          pytest -q -rfE 2>&1 | tee pytest.log || { grep -E '^(FAILED|ERROR) ' pytest.log | head -20 | sed 's/^/::error::/'; exit 1; }
 
   dbt-duckdb:
     needs: lint-test
