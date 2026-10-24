@@ -1,0 +1,6 @@
+# Generated files (semantic models, Power BI project) are compared byte-for-byte
+# by --check; keep LF everywhere so Windows checkouts match CI.
+* text=auto eol=lf
+*.png binary
+*.xlsx binary
+*.duckdb binary
