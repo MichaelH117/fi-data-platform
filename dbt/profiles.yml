@@ -14,7 +14,11 @@ warranty:
     duckdb:
       type: duckdb
       path: "{{ env_var('WAREHOUSE_PATH', 'data/warehouse/warehouse.duckdb') }}"
-      threads: 4
+      # Small CI runners (about 7 GB RAM) can be OOM-killed with 4 threads and DuckDB's default memory cap;
+      # CI sets DBT_THREADS=2 and DUCKDB_MEMORY_LIMIT=3GB. Local defaults are unchanged.
+      threads: "{{ env_var('DBT_THREADS', '4') | int }}"
+      settings:
+        memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '64GB') }}"  # default ~= no cap (DuckDB rejects %)
 
     # Server target. Standard libpq variable names, so psql and dbt read the same environment.
     # Row-level security for it: warehouse/postgres/rls.sql.

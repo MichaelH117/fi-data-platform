@@ -25,6 +25,9 @@ env:
   ADMIN_CORE_PATH: ${{ github.workspace }}/data/source/admin_core.db
   LEGACY_DB_PATH: ${{ github.workspace }}/data/source/legacy_admin.db
   LANDING_DIR: ${{ github.workspace }}/data/landing
+  # Hosted runners have ~7 GB RAM: fewer dbt threads and a DuckDB memory cap stop OOM kills mid-gate.
+  DBT_THREADS: "2"
+  DUCKDB_MEMORY_LIMIT: "3GB"
 
 jobs:
   lint-test:
