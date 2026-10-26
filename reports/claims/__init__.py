@@ -2,7 +2,9 @@
 
 Plug-in contract (docs/V3_DESIGN.md section 3): ``build(con, out_dir) -> list[Page]``. Reads the
 ``claims`` marts only (all derived from ``core.fct_claim_payment_line``) and writes
-``<out_dir>/downloads/claims/claims_kpi.xlsx``.
+``<out_dir>/downloads/claims/claims_kpi.xlsx``, plus the row-level export set (V6 edit 18): one
+workbook per question (claims header, detail, components, payees), same columns every month
+(``EXPORTS``). An export whose mart is not built yet (an older warehouse) is skipped quietly.
 
 KPIs: frequency, severity, denial rate, early claims (30-180 days from effective), open claims aged
 30+, top components and turnaround. Formulas: dbt/models/metrics.yml and docs/METRICS.md.
@@ -29,6 +31,55 @@ EARLY_SHARE_LABEL = "Early-claim share of claims"
 SUMS = ["exposure_years", "claims_reported", "claims_denied", "claim_count", "paid_claim_count", "open_claims",
         "open_claims_aged_30_plus", "paid_amount_on_paid_claims", "paid_amount", "incurred_amount",
         "turnaround_days_total", "turnaround_claims", *[f"early_claims_{w}" for w in WINDOWS]]
+
+# Row-level exports: (file stem, sheet, mart, fixed column list, order by). Columns never change month
+# to month, so a reader's filters and lookups keep working; a column a mart lacks comes out empty.
+EXPORTS = [
+    ("claims_header", "Claims header", "claims.mart_claim_summary",
+     ["claim_number", "contract_number", "source_system", "dealer_number", "product_code", "subcategory_code",
+      "status", "substatus", "status_group", "denied_reason", "denied_category", "repair_category",
+      "loss_date", "reported_date", "closed_at", "odometer_at_loss", "days_from_effective",
+      "requested_amount", "deductible_amount", "authorized_amount", "paid_amount", "pending_amount",
+      "incurred_amount", "payment_lines", "component_count", "top_component", "turnaround_days",
+      "open_age_days", "open_age_band"], "reported_date, claim_number"),
+    ("claims_detail", "Claims detail", "claims.mart_claim_payment_lines",
+     ["claim_number", "contract_number", "source_system", "source_line_id", "line_type", "posted_at",
+      "posting_period_key", "authorized_change", "inspection_change", "paid_amount", "pending_amount",
+      "incurred_change", "process_days", "age_bin", "is_sign_fixed"], "claim_number, posted_at, source_line_id"),
+    ("claim_components", "Claim components", "claims.mart_claim_component_lines",
+     ["claim_number", "contract_number", "source_system", "status_group", "loss_month", "component_code",
+      "component_source", "parts_amount", "labor_amount", "labor_hours", "component_cost"],
+     "claim_number, component_code, component_line_id"),
+    ("claim_payees", "Claim payees", "claims.mart_claim_payees",
+     ["claim_number", "contract_number", "payee_type", "payee_name", "payee_state", "payment_lines",
+      "paid_amount", "pending_amount", "incurred_amount", "first_paid_at", "last_paid_at"],
+     "claim_number, payee_type, payee_name"),
+]
+
+
+def _columns(con: duckdb.DuckDBPyConnection, qualified: str) -> set[str]:
+    """Column names of ``schema.table`` (empty when it does not exist)."""
+    schema, table = qualified.split(".")
+    return {r[0] for r in con.execute("select column_name from information_schema.columns where table_schema = ? "
+                                      "and table_name = ?", [schema, table]).fetchall()}
+
+
+def write_exports(con: duckdb.DuckDBPyConnection, out_dir: Path, as_of_label: str) -> list[tuple[str, Path, int]]:
+    """Write one workbook per row-level export. Returns (sheet, path, rows) for each one written."""
+    written = []
+    for stem, sheet, mart, cols, order in EXPORTS:
+        have = _columns(con, mart)
+        if "claim_number" not in have:  # mart not built yet, or built before V6 (older warehouse)
+            continue
+        keys = [k.strip() for k in order.split(",") if k.strip() in have]
+        df = con.execute(f"select * from {mart}" + (f" order by {', '.join(keys)}" if keys else "")).df()
+        df = df.reindex(columns=cols)
+        path = write_workbook(out_dir / "downloads" / AREA / f"{stem}.xlsx", {sheet: df}, notes=[
+            f"{sheet}, row level, through {as_of_label} (synthetic data).",
+            f"Source: {mart}. The columns are fixed and stay the same every month.",
+            "Amounts tie to the claims header per claim (dbt test assert_claim_exports_tie_to_summary)."])
+        written.append((sheet, path, len(df)))
+    return written
 
 
 def _div(a, b):
@@ -160,7 +211,17 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> list:
                  cols=["Workbook", "Sheets"],
                  rows=[[link(xlsx.name, xlsx.relative_to(out_dir).as_posix()),
                         "Monthly, By subcategory, Top components, Open aging, KPI cube"]], table_open=True)
+    sections = [s1, s2, s3, s4, s5, s6, s7]
+    exports = write_exports(con, out_dir, month_label(last_month))
+    if exports:
+        sections.append(Section(
+            "Row-level exports",
+            "One workbook per question, with the same columns every month: one row per claim (header), per "
+            "payment line (detail), per component line and per claim payee.",
+            cols=["Workbook", "Rows"],
+            rows=[[link(f"{sheet} ({p.name})", p.relative_to(out_dir).as_posix()), num(n)] for sheet, p, n in exports],
+            table_open=True))
     page = Page(PAGE, "Claims KPIs",
                 "How often contracts claim, what a claim costs, how many are denied or early, and how fast "
-                "claims are closed.", kpis, [s1, s2, s3, s4, s5, s6, s7])
+                "claims are closed.", kpis, sections)
     return [page]

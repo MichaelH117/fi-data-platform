@@ -24,7 +24,8 @@ def _card(e: dict) -> str:
     def row(label: str, text: str) -> str:
         return f"<dt>{escape(label)}</dt><dd>{escape(text)}</dd>"
 
-    measured = ", ".join(q.upper() for q in e["questions"]) or "schema-registry check"
+    measured = (", ".join(q.upper() for q in e["questions"]) or e.get("measured_by")
+                or "schema-registry check")
     return ("<dl class=\"pain-point\">" + row("What it was", e["what"]) + row("Measured impact", e["impact"])
             + row("Root cause in the foundation", e["root_cause"]) + row("The fix", e["fix"])
             + row("Where it lives", e["where"]) + row("Measured by", measured) + "</dl>")

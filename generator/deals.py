@@ -6,6 +6,8 @@ daily landing files all come from the same sales model.
 
 from __future__ import annotations
 
+import zlib
+
 import numpy as np
 import pandas as pd
 
@@ -21,7 +23,12 @@ DEAL_COLS = [
     "coverage_cost", "retail_price", "surcharge_codes", "option_codes", "finance_type", "finance_amount", "apr",
     "lienholder_code", "customer_first_name", "customer_last_name", "customer_email", "customer_phone",
     "customer_zip", "customer_state",
+    # V6 edit 9: the e-contract feed carries a co-buyer; the admin contract never stores one (a known gap).
+    "cobuyer_name", "cobuyer_address_line1", "cobuyer_city", "cobuyer_state", "cobuyer_zip",
 ]
+COBUYER_COLS = DEAL_COLS[-5:]
+COBUYER_PCT = 25  # share of deals with a co-buyer
+STREET_TYPES = ["St", "Ave", "Rd", "Ln", "Dr", "Ct"]
 SURCHARGE_SUBCATS = {"VSC-PT", "VSC-SC", "VSC-EN", "VSC-EX", "LTW", "RV", "PSP", "TECH"}
 
 
@@ -57,6 +64,22 @@ def surcharge_codes(subcat: np.ndarray, v: dict, rng: np.random.Generator) -> np
                 codes.append("DIESEL")  # charged on a gas vehicle
         out.append("|".join(codes))
     return np.array(out, dtype=object)
+
+
+def cobuyers(deal_id, last_name, city, state, zips, pools: sim.NamePools) -> dict[str, np.ndarray]:
+    """Co-buyer on about a quarter of deals, keyed on deal_id (no random draw moves). Half share the buyer's
+    last name; the address is a synthetic street in the dealer's city with the buyer's state and zip."""
+    h = np.array([zlib.crc32(f"cobuyer|{d}".encode()) for d in deal_id], dtype=np.int64)
+    has = h % 100 < COBUYER_PCT
+    first = pools.first[(h // 100) % len(pools.first)]
+    last = np.where((h // 7) % 2 == 0, np.asarray(last_name, dtype=object), pools.last[(h // 13) % len(pools.last)])
+    street = [f"{100 + int(k) % 9800} {cat.PLACE_WORDS_A[int(k) % len(cat.PLACE_WORDS_A)]} "
+              f"{STREET_TYPES[int(k) % len(STREET_TYPES)]}" for k in h // 17]
+    def on(v) -> np.ndarray:
+        return np.where(has, np.asarray(v, dtype=object), None)
+    return {"cobuyer_name": on([f"{a} {b}" for a, b in zip(first, last, strict=True)]),
+            "cobuyer_address_line1": on(street), "cobuyer_city": on(city), "cobuyer_state": on(state),
+            "cobuyer_zip": on(zips)}
 
 
 def make_deals(
@@ -121,6 +144,8 @@ def make_deals(
         "apr": apr, "lienholder_code": lien,
         **sim.customers(n, cust_state, pools, rng),
     })
+    deals = deals.assign(**cobuyers(deals["deal_id"], deals["customer_last_name"], d["city"].to_numpy(),
+                                    deals["customer_state"], deals["customer_zip"], pools))
     rated, reasons = rate_deals(deals.drop(columns=["coverage_cost"]), ref)
     if (reasons != "").any():  # the generator must only produce rateable deals
         raise RuntimeError(f"generator produced unrated deals: {reasons[reasons != ''].value_counts().to_dict()}")

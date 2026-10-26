@@ -229,6 +229,14 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
+	/// Effective cancellations / contracts written. The Experience page gauge; finance.mart_experience.cancel_pct counts the same contracts by entered-month cohort.
+	measure 'Cancel Pct' = DIVIDE([Effective Cancellations], [Contracts Written])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = cancel_pct
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
 	/// Funded-reserve filing: required reserve on the state's default basis.
 	measure 'Calculated Reserve' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Calculated Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Calculated Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
 		formatString: \$#,0;(\$#,0);\$#,0

@@ -27,3 +27,39 @@ seeds:
           - accepted_values:
               arguments:
                 values: [dealer_flag, dealer_number, contract_id_range, contract_number_pattern, test_customer_name]
+  - name: product_taxonomy_crosswalk
+    description: >
+      One row per Admin Core product code (docs/V3_DESIGN.md section 9, edit 16): the short code the
+      old report pack used, the legacy product code and coverage tier when the legacy book sold it,
+      and the modern subcategory / category. Product names change every plan year and carry a
+      program suffix; codes do not, so reports group by this crosswalk, never by name.
+    config:
+      column_types:
+        product_code: varchar
+        short_code: varchar
+        legacy_product_code: varchar
+        legacy_coverage_tier: varchar
+        subcategory_code: varchar
+        category_code: varchar
+        tier_rank: integer
+    columns:
+      - name: product_code
+        data_tests: [unique, not_null]
+      - name: short_code
+        data_tests: [unique, not_null]
+      - name: legacy_product_code
+        data_tests: [unique]
+  - name: agent_territory_hierarchy
+    description: >
+      Agent territory -> district -> region (National is the top level). Read by dim_agent for the
+      District > Regional > National commission roll-up (docs/V3_DESIGN.md section 9, edit 12).
+    config:
+      column_types:
+        territory: varchar
+        district: varchar
+        region: varchar
+    columns:
+      - name: territory
+        data_tests: [unique, not_null]
+      - name: region
+        data_tests: [not_null]

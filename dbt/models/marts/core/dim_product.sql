@@ -16,6 +16,14 @@ select
     pg.program_code,
     pg.program_name as program,
     p.plan_year,
+    -- V6 edit 16: parsed once in stg_admin_core__product; edit 3 program type; edit 6 compliance family.
+    p.model_year,
+    p.program_suffix,
+    p.is_do_not_use,
+    p.product_base_name,
+    p.program_type,
+    coalesce(f.compliance_family, 'UNMAPPED') as compliance_family,
+    x.short_code,
     coalesce(p.is_cancellable, 0) = 1 as is_cancellable,
     p.contract_prefix,
     pl.deductible_amount,
@@ -30,11 +38,14 @@ inner join {{ ref('stg_admin_core__plan') }} as pl using (plan_id)
 inner join {{ ref('stg_admin_core__product') }} as p using (product_id)
 left join {{ ref('stg_admin_core__product_subcategory') }} as s using (subcategory_id)
 left join {{ ref('stg_admin_core__product_category') }} as c on s.category_id = c.category_id
+left join {{ ref('compliance_product_family') }} as f on f.subcategory_code = s.subcategory_code
+left join {{ ref('product_taxonomy_crosswalk') }} as x on x.product_code = p.product_code
 where not pg.is_deleted and not pl.is_deleted and not p.is_deleted
 
 union all
 
 select
     '-1', null, null, null, 'UNKNOWN', 'Unknown', 'UNKNOWN', 'Unknown', 'UNKNOWN', 'Unknown product',
-    'UNKNOWN', 'Unknown plan', 'UNKNOWN', 'Unknown program', null, false, null, null, null, null,
-    current_timestamp
+    'UNKNOWN', 'Unknown plan', 'UNKNOWN', 'Unknown program', null,
+    null, null, false, 'Unknown product', 'UNKNOWN', 'UNMAPPED', 'UNKNOWN',
+    false, null, null, null, null, current_timestamp

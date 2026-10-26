@@ -16,6 +16,10 @@ table Obligor
 		dataType: string
 		sourceColumn: ENTITY_TYPE
 
+	column 'Obligor Kind'
+		dataType: string
+		sourceColumn: OBLIGOR_KIND
+
 	column 'Obligor Name'
 		dataType: string
 		sourceColumn: OBLIGOR_NAME
@@ -23,6 +27,12 @@ table Obligor
 	column State
 		dataType: string
 		sourceColumn: STATE
+
+	column 'Participation Entity ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: PARTICIPATION_ENTITY_ID
 
 	partition Obligor = m
 		mode: import

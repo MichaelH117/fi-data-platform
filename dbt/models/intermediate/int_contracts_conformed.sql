@@ -17,6 +17,7 @@ with catalog as (
         p.claim_wait_days,
         p.claim_wait_miles,
         p.coverage_limit,
+        p.program_type,
         s.subcategory_code,
         c.category_code
     from {{ ref('stg_admin_core__plan') }} as pl
@@ -44,6 +45,14 @@ sale_split as (
     inner join {{ ref('stg_admin_core__transaction') }} as t using (txn_id)
     where t.txn_type = 'SALE' and not d.is_deleted and not t.is_deleted
     group by 1
+),
+
+-- V6 edit 9: the e-contracting feed carries a co-buyer; the admin contract row never does. The flag
+-- (no name or address) travels on the conformed contract; the packet reads the names from staging.
+feed_cobuyer as (
+    select deal_id, true as has_feed_cobuyer
+    from {{ ref('stg_network_feed__deals') }}
+    where cobuyer_name is not null
 ),
 
 core as (
@@ -107,6 +116,8 @@ core as (
         c.current_obligor_id,
         case when c.current_obligor_id is not null then 'SOURCE' else 'MISSING' end as obligor_basis,
         c.insurer_id,
+        c.program_type,
+        coalesce(fc.has_feed_cobuyer, false) as has_feed_cobuyer,
         c.customer_key,
         c.customer_zip3,
         c.deal_id,
@@ -125,6 +136,7 @@ core as (
     left join dealers as d using (dealer_id)
     left join catalog as cat using (plan_id)
     left join sale_split as s using (contract_id)
+    left join feed_cobuyer as fc on fc.deal_id = c.deal_id
     where not c.is_deleted
 ),
 
@@ -233,6 +245,8 @@ legacy as (
         om.obligor_id as current_obligor_id,
         case when om.obligor_id is not null then 'CONVERSION_STATE_MAP' else 'MISSING' end as obligor_basis,
         cast(null as bigint) as insurer_id,
+        lp.program_type,  -- legacy rows take their catalog product's program type
+        false as has_feed_cobuyer,
         l.customer_key,
         l.customer_zip3,
         cast(null as varchar) as deal_id,

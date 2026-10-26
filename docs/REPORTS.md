@@ -52,6 +52,12 @@ Plug-ins read **marts only** (`core`, `finance`, `claims`, `dealer`, `regulatory
 5. **Readable by everyone.** Every chart has a plain-English "what this means" line and a data table
    ("Show data"). Status is always an icon plus a word. Light and dark mode both work.
 6. **KPIs stop at the last complete month**, because the as-of month is partial.
+7. **Product scope comes from the compliance family and the program type, never from a name.**
+   `seeds/regulatory/compliance_product_family.csv` maps every subcategory to VSC, GAP, MAINTENANCE or
+   ANCILLARY_OTHER (Limited Warranty is ANCILLARY_OTHER, never VSC); `dim_product.compliance_family`
+   and `program_type` carry it. Product names change every plan year and a "- DNU" twin reuses a
+   live code, so pages group by code or family. Who backs a contract is `dim_obligor.obligor_kind`:
+   `internal_provider` (the provider's own obligors) or `dealer_owned` (a dealer-owned obligor entity).
 
 ## Pages
 
@@ -62,25 +68,30 @@ Plug-ins read **marts only** (`core`, `finance`, `claims`, `dealer`, `regulatory
 | `claims.html` Claims & IBNR | What is still to come? Reported vs IBNR, ultimate loss ratio, triangle | Reporting Manager | actuarial, V1 claims trend |
 | `dealers.html`, `dealers/<code>.html` Dealer scorecards | How is my dealership doing against its peers? | Reporting Manager | V1 dealer marts, `data/publish/*` |
 | `quality.html` Data quality | Can I trust today's numbers? dbt results, freshness, ingest, suppression | Reporting Manager | `data/runs/*.json`, dbt artifacts, publish manifest |
-| `ops.html` Operations | Was today on time, gated and reconciled? SLA calendar (07:00), diagnostics with runbook keys, reconciliation, dealer packet index | Reporting Manager | `audit.pipeline_run`, `audit.diagnostics_result`, `audit.reconciliation` |
+| `ops.html` Operations | Was today on time, gated and reconciled? SLA calendar (07:00), diagnostics with runbook keys, reconciliation, database health (empty serving tables, stale statistics, refresh login used ad hoc), dealer packet index | Reporting Manager | `audit.pipeline_run`, `audit.diagnostics_result`, `audit.reconciliation`, `audit.db_health` |
 | `regulatory/index.html` Regulatory filings | Which states need a filing, and what goes in it? | Senior Data Analyst (regulatory) | `regulatory.*`, seeds |
 | `regulatory/funded-reserve-<st>.html` | State funded-reserve / provider renewal filing: Section 2 activity, Section 3 computation on both bases, notes. Excel tabs: Summary, ITD and period contracts, ITD and period claims | Senior Data Analyst (regulatory) | `mart_funded_reserve_summary`, `_contracts`, `_claims` |
 | `regulatory/market-survey-<st>.html` | State market survey: numbered items by provider x calendar year, with detail tabs | Senior Data Analyst (regulatory) | `mart_market_survey` |
+| `regulatory/inforce-list-<st>.html` | Which service contracts are in force in a state today, with lienholder, form code (from the contract document, never inferred) and obligor? Excel tabs: In Force Contracts, By Product, Form Code Coverage | Senior Data Analyst (regulatory) | `mart_state_inforce_list` |
 | `regulatory/report-definitions.html` | Which statuses, scope and basis does each line count? | Senior Data Analyst (regulatory) | `seeds.report_definitions`, `report_status_sets`, `state_reserve_method` |
 | `dealer/index.html` Dealer ops hub | What each dealer report answers, plus the Excel downloads | Senior Data Analyst (dealer & claims) | `dealer.*` |
 | `dealer/production.html` | Dealer x subcategory x month production pivot | same | `mart_dealer_production` |
-| `dealer/pending.html` | Pending contracts each dealer still has to finish (fake customer names, flagged PII) | same | `mart_dealer_pending_contracts` |
+| `dealer/pending.html` | Pending contracts each dealer still has to finish (fake customer and co-buyer names, flagged PII). The packet workbook has a fixed column list: customer, co-buyer (from the e-contracting feed), product, lienholder, provider and administrator, names in Proper Case, every column filterable | same | `mart_dealer_pending_contracts` |
 | `dealer/surcharge-audit.html` | Contracts that should, or should not, carry a vehicle surcharge | same | `mart_surcharge_audit` |
 | `dealer/specialty-line.html` | RV (with chassis VIN) and powersports contracts | same | `mart_specialty_line` |
 | `dealer/remittance-aging.html` | Remittance age bands and late fees per dealer | same | `mart_remittance_aging` |
 | `claims/kpi.html` Claims KPIs | Frequency, severity, denial rate, early claims (30-180 days), open claims aged 30+, top components, turnaround | Senior Data Analyst (dealer & claims) | `claims.mart_claims_kpi`, `mart_claim_summary`, `mart_claim_components` |
+| `downloads/claims/claims_header.xlsx`, `claims_detail.xlsx`, `claim_components.xlsx`, `claim_payees.xlsx` | Row-level claims exports, one per question, same columns every month; linked from the Claims KPIs page | Senior Data Analyst (dealer & claims) | `claims.mart_claim_summary`, `mart_claim_payment_lines`, `mart_claim_component_lines`, `mart_claim_payees` |
 | `finance/index.html` Finance | Hub: statement period, headline ratios, the Excel pack | Financial Analysts | `finance.*` |
-| `finance/cession.html` | Cession / experience per participation entity: earned reserve, claims, loss ratio, reserve balance, profit share | same | `mart_cession_experience` |
+| `finance/cession.html` | Cession / experience per participation entity: earned reserve, claims, loss ratio, reserve balance, profit share; run-off details and transfer summary | same | `mart_cession_experience`, `mart_participation_contract` |
 | `finance/profit-share.html` | Profit-share statement: opening due, movement, closing due, funding gap | same | `mart_profit_share_statement` |
 | `finance/commissions.html` | Commission statement: earned, chargebacks, advances, net, advance balance | same | `mart_commission_statement` |
 | `finance/pnl.html` | P&L by product: written to earned to margin, loss and combined ratio | same | `mart_pnl_by_product` |
-| `finance/remittance.html` | Remittance aging and the dealer late-fee bill | same | `mart_remittance_late_fees` |
-| `finance/controls.html` | Close controls: cost split vs transaction totals, reserve roll-forward | same | `mart_disbursement_control_totals`, `mart_reserve_rollforward` |
+| `finance/remittance.html` | Remittance aging, the dealer late-fee bill and the partner settlement statement | same | `mart_remittance_late_fees`, `mart_partner_settlement` |
+| `finance/controls.html` | Close controls: cost split vs transaction totals, reserve roll-forward, reserve bridge (New Reserves to Experience), booked cost vs rate card | same | `mart_disbursement_control_totals`, `mart_reserve_rollforward`, `mart_reserve_bridge`, `mart_rate_card_exceptions` |
+| `finance/experience.html` | Experience with a View by switch: net written, unearned, earned, claims, loss ratio, contracts, earned % | same | `mart_experience` |
+| `finance/new-reserves.html` | New reserves by product category x term-year bucket: average and % mix | same | `mart_new_reserves_by_term` |
+| `finance/commission-hierarchy.html` | Commission District > Regional > National against volume targets | same | `mart_commission_hierarchy` |
 | `actuarial.html` Actuarial | Earning curves, IBNR by cohort, loss-ratio forecast and backtest, early-claim emergence | Data Scientist | schema `actuarial` |
 
 The nav lists the five V1 pages first, then Regulatory, Dealer ops, Claims KPIs, Finance,

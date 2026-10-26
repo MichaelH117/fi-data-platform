@@ -153,11 +153,12 @@ def test_readme_names_every_diagnostics_gate_and_intake_source():
     from pipeline import diagnostics
     src = Path(diagnostics.__file__).read_text(encoding="utf-8")
     gates = sorted(set(re.findall(r'"(diag_[a-z_]+)": \(', src)))
-    assert len(gates) == 8, gates
+    assert len(gates) == 10, gates
     pitch = README.split("## Legacy vs better")[0]
-    assert "Eight\n  diagnostics gates" in pitch
+    assert "Ten\n  diagnostics gates" in pitch
     for words in ("product-dimension match rate", "contract key-bridge", "claim-to-contract coverage",
-                  "fan-out guard", "claim sign", "no demo rows", "freshness", "posting-period"):
+                  "fan-out guard", "claim sign", "no demo rows", "freshness", "posting-period",
+                  "form-code coverage", "co-buyer feed join"):
         assert words in pitch, words
     arch = README.split("## Architecture")[1].split("## What it builds")[0]
     for source in ("CRM / call-center export", "Admin API extract"):

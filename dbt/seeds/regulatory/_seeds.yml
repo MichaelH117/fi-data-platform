@@ -140,3 +140,24 @@ seeds:
           - accepted_values:
               arguments:
                 values: [SUM, LAST]
+  - name: compliance_product_family
+    description: >
+      Product subcategory -> compliance product family (docs/V3_DESIGN.md section 9, edit 6). Filings
+      scope products by family plus program_type, never by a name match. Limited Warranty is
+      ANCILLARY_OTHER, never VSC. is_service_contract marks the families filed as service contracts.
+      Owner: Data Engineering Manager.
+    config:
+      column_types:
+        subcategory_code: varchar
+        subcategory_name: varchar
+        compliance_family: varchar
+        is_service_contract: boolean
+    columns:
+      - name: subcategory_code
+        data_tests: [unique, not_null]
+      - name: compliance_family
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [VSC, GAP, MAINTENANCE, ANCILLARY_OTHER]

@@ -170,3 +170,51 @@ def with_mileage(p: pd.DataFrame, keys) -> pd.DataFrame:
 
 def miles_per_day(p: pd.DataFrame) -> np.ndarray:
     return p["daily_miles"].to_numpy(dtype=float) if "daily_miles" in p else np.full(len(p), 38.0)
+
+
+# ---------------------------------------------------------------- contract status set (V6 edit 14)
+# The 11 contract statuses and every transition the generator writes to contract_status_history.
+CONTRACT_STATUSES = ["PENDING", "INFORCE", "CANCELLED", "EXPIRED", "VOIDED", "DENIED", "SUSPENDED",
+                     "REINSTATEMENT_PENDING", "REINSTATEMENT_SUSPENDED", "REINSTATEMENT_VOIDED", "REINSTATEMENT_DENIED"]
+TRANSITIONS = {
+    "PENDING": ["INFORCE", "VOIDED", "DENIED"],           # remitted / voided or never remitted / denied
+    "INFORCE": ["CANCELLED", "EXPIRED", "SUSPENDED"],     # SUSPENDED: account hold (e.g. a payment or lien dispute)
+    "CANCELLED": ["INFORCE", "REINSTATEMENT_PENDING", "REINSTATEMENT_VOIDED", "REINSTATEMENT_DENIED"],
+    "REINSTATEMENT_PENDING": ["REINSTATEMENT_SUSPENDED"],  # request open; suspended while documents are missing
+}
+SUSPEND_PER_MILLE = 6       # of in-force contracts at the as-of date
+REINSTATE_ASK_PCT = 30      # of contracts cancelled in the last REINSTATE_WINDOW_DAYS
+REINSTATE_WINDOW_DAYS = 60
+
+
+def late_status_rows(last: pd.DataFrame, con: pd.DataFrame, as_of: np.datetime64) -> pd.DataFrame:
+    """History rows for the three hold statuses, as open items at the as-of date. ``last``: contract_id ->
+    to_status, changed_at (the latest history row); ``con``: contract rows indexed by contract_id.
+    Hash-keyed on contract_id, so no random draw moves. No money moves on a hold, so nothing else is posted."""
+    cols = ["tenant_id", "contract_id", "changed_at", "from_status", "to_status"]
+    last = last.reindex(con.index)
+    h = np.array([zlib.crc32(f"status|{c}".encode()) for c in con.index], dtype=np.int64)
+    changed = np.array([str(x)[:10] if isinstance(x, str) else "1900-01-01" for x in last["changed_at"]], dtype="M8[D]")
+    status = last["to_status"].to_numpy()
+    end = np.datetime64(as_of, "D")
+    exp = sim.parse_days(con["expiration_date"])
+    rows = []
+
+    def add(mask, day, frm, to, clock) -> None:
+        rows.append(pd.DataFrame({"tenant_id": con["tenant_id"].to_numpy()[mask], "contract_id": con.index[mask],
+                                  "changed_at": np.char.add(sim.iso(day[mask]), clock), "from_status": frm,
+                                  "to_status": to}))
+
+    sus_day = end - (1 + (h // 1000) % 45) * DAY
+    sus = (status == "INFORCE") & (h % 1000 < SUSPEND_PER_MILLE) & (exp > end) & (sus_day > changed)
+    add(sus, sus_day, "INFORCE", "SUSPENDED", " 10:15:00")
+    ask_day = changed + (2 + (h // 100) % 9) * DAY
+    ask = ((status == "CANCELLED") & (h % 100 < REINSTATE_ASK_PCT) & (changed >= end - REINSTATE_WINDOW_DAYS * DAY)
+           & (ask_day <= end))
+    add(ask, ask_day, "CANCELLED", "REINSTATEMENT_PENDING", " 09:40:00")
+    hold_day = ask_day + (3 + (h // 900) % 13) * DAY
+    hold = ask & ((h // 300) % 3 == 0) & (hold_day <= end)
+    add(hold, hold_day, "REINSTATEMENT_PENDING", "REINSTATEMENT_SUSPENDED", " 14:05:00")
+    out = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(columns=cols)
+    out["created_at"] = out["updated_at"] = out["changed_at"]
+    return out

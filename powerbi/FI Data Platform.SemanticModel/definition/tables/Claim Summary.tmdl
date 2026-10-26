@@ -20,6 +20,18 @@ table 'Claim Summary'
 		isHidden
 		sourceColumn: contract_key
 
+	column 'Contract Number'
+		dataType: string
+		sourceColumn: contract_number
+
+	column 'Product Code'
+		dataType: string
+		sourceColumn: product_code
+
+	column 'Dealer Number'
+		dataType: string
+		sourceColumn: dealer_number
+
 	column 'Has Contract Key'
 		dataType: boolean
 		isHidden
@@ -68,6 +80,28 @@ table 'Claim Summary'
 	column 'Denied Category'
 		dataType: string
 		sourceColumn: denied_category
+
+	column 'Repair Category'
+		dataType: string
+		sourceColumn: repair_category
+
+	column 'Requested Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: requested_amount
+
+	column 'Deductible Amount'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: deductible_amount
+
+	column 'Odometer At Loss'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: odometer_at_loss
 
 	column 'Loss Date'
 		dataType: dateTime

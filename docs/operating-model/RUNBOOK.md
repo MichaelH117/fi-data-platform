@@ -130,6 +130,25 @@ upstream of them:
   and that the fact gets its key through `int_posting_periods`. Closed periods roll late events
   forward to the first open period.
 
+### `diag_form_code_coverage`
+- **Checks:** every Admin Core contract entered from 2024 (`form_code_from_year`) takes its
+  `current_form_code` from its latest non-deleted CONTRACT document (`dim_contract_terms.form_code_source
+  = document`), for at least 99% of each entered year. Older years are reported (inferred or missing),
+  never failed.
+- **Usually means:** a batch of documents arrived without a form code, a regenerated document was
+  deleted together with its original, or `contract_document` did not load.
+- **Do:** the failing row names the year. Count `raw_admin_core.contract_document` rows for that year
+  with a NULL `form_code`; if the source is right, raise it with the administrator. Never backfill a
+  form code by hand.
+
+### `diag_cobuyer_feed_gap`
+- **Checks:** a feed deal with a co-buyer that matches an Admin Core contract on `deal_id` sets
+  `has_feed_cobuyer` on `int_contracts_conformed`. The measured value is how many contracts have a
+  co-buyer only in the e-contracting feed (the admin system has no co-buyer field); that count never fails.
+- **Usually means:** the deals staging model or the `deal_id` join changed.
+- **Do:** compare `stg_network_feed__deals.deal_id` with `stg_admin_core__contract.deal_id` for the
+  failing rows (type, padding); fix the join, not the data.
+
 ---
 
 ## Reconciliation (`pipeline/reconcile.py`, gate step 6)

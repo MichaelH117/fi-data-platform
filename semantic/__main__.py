@@ -1,7 +1,8 @@
 """CLI: ``python -m semantic [--target snowflake|postgres] [--out DIR] [--check] [--refresh-columns]``.
 
 ``python -m semantic export-docs [--out DIR]`` (alias ``export``) writes the Tabular-Editor-style CSV
-documentation instead; see ``semantic/export.py``.
+documentation instead; see ``semantic/export.py``. ``python -m semantic access-audit [--out FILE]``
+writes the app audience x report visibility CSV and checks its rules; see ``semantic/access.py``.
 
 Builds ``semantic/model/`` (TMDL-style Sales / Claims / Finance / Compliance models) from
 ``dbt/models/metrics.yml``. Column names and types come from ``semantic/columns.lock.json``, so the
@@ -62,7 +63,10 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] in ("export-docs", "export"):  # Tabular-Editor-style CSV docs (semantic/export.py)
         from semantic.export import main as export_main
         return export_main(argv[1:])
-    ap = argparse.ArgumentParser(prog="python -m semantic", description=__doc__.splitlines()[0])
+    if argv and argv[0] == "access-audit":  # app audience x report visibility CSV (semantic/access.py)
+        from semantic.access import main as access_main
+        return access_main(argv[1:])
+    ap =argparse.ArgumentParser(prog="python -m semantic", description=__doc__.splitlines()[0])
     ap.add_argument("--target", choices=TARGETS, default=DEFAULT_TARGET,
                     help="M source of the partitions (default: %(default)s)")
     ap.add_argument("--out", type=Path, help="output folder (default: the target's folder under semantic/)")

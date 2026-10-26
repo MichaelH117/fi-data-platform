@@ -19,6 +19,7 @@ DIAG_DIR = ROOT / "dbt" / "tests" / "diagnostics"
 EXPECTED = {
     "diag_product_dim_match_rate", "diag_contract_key_bridge_coverage", "diag_claim_contract_coverage",
     "diag_fan_out_guard", "diag_claim_sign", "diag_no_demo_rows", "diag_freshness", "diag_posting_period_integrity",
+    "diag_form_code_coverage", "diag_cobuyer_feed_gap",
 }
 
 

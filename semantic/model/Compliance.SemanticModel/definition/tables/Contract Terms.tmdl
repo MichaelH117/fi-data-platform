@@ -77,6 +77,24 @@ table 'Contract Terms'
 		summarizeBy: none
 		sourceColumn: SURCHARGE_AMOUNT
 
+	column 'Current Document ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CURRENT_DOCUMENT_ID
+
+	column 'Current Document Name'
+		dataType: string
+		sourceColumn: CURRENT_DOCUMENT_NAME
+
+	column 'Current Form Code'
+		dataType: string
+		sourceColumn: CURRENT_FORM_CODE
+
+	column 'Form Code Source'
+		dataType: string
+		sourceColumn: FORM_CODE_SOURCE
+
 	partition 'Contract Terms' = m
 		mode: import
 		source =

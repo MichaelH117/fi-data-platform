@@ -5,6 +5,8 @@ Funded-reserve filing, one workbook per filing state:
     Period Contracts, ITD Claims, Period Claims.
 Market survey, one workbook per survey state:
     one tab per provider (numbered items x calendar year + Total), Contracts, Cancels, Claims.
+State in-force list, one workbook per state:
+    In Force Contracts (the list for the regulator), By Product, Form Code Coverage.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ TITLE_FONT = Font(bold=True, size=14)
 BOLD = Font(bold=True)
 MONEY = '#,##0.00;[Red]-#,##0.00'
 COUNT = '#,##0'
+PCT = '0.0%'
 DATE = "yyyy-mm-dd"
 WRAP = Alignment(wrap_text=True, vertical="top")
 SHEET_NAME_MAX = 31
@@ -69,6 +72,8 @@ def _fmt(col: str, value) -> str | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, int | float):
+        if col.lower().endswith("share"):
+            return PCT
         return COUNT if col.lower().endswith("count") else MONEY
     return None
 
@@ -86,6 +91,8 @@ def detail_sheet(wb: Workbook, title: str, df: pd.DataFrame) -> None:
     for i, col in enumerate(df.columns):
         if i == 0:
             totals.append(_cell(ws, f"Total ({len(df):,} rows)", BOLD))
+        elif col.lower().endswith("share"):  # a ratio: the column total is not the sum of the rows
+            totals.append(_cell(ws, None))
         elif pd.api.types.is_numeric_dtype(df[col]) and not pd.api.types.is_bool_dtype(df[col]):
             totals.append(_cell(ws, float(df[col].sum()), BOLD, fmt=COUNT if col.lower().endswith("count") else MONEY))
         else:
@@ -212,6 +219,21 @@ def _write_survey(path: Path, state: str, state_name: str, survey: pd.DataFrame,
             for no, text in noted:
                 ws.append([_cell(ws, int(no)), _cell(ws, text, align=WRAP)])
     for title, df in details.items():
+        detail_sheet(wb, title, df)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
+    return path
+
+
+def write_inforce_list(path: Path, tabs: dict[str, pd.DataFrame]) -> Path:
+    """State in-force list workbook (in the background when a workbook pool is open)."""
+    jobs.run(_write_inforce_list, path, tabs)
+    return path
+
+
+def _write_inforce_list(path: Path, tabs: dict[str, pd.DataFrame]) -> Path:
+    wb = Workbook(write_only=True)
+    for title, df in tabs.items():
         detail_sheet(wb, title, df)
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

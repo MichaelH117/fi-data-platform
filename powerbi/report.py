@@ -195,14 +195,16 @@ class Page:
                   [(self.title, "18pt", INK, True), (self.subtitle, "10pt", INK_2, False)])
 
     # ---- visuals
-    def card(self, key: str, pos: dict, f: dict, title: str, tip: str, *, item: str | None = "T12M"):
+    def card(self, key: str, pos: dict, f: dict, title: str, tip: str, *, item: str | None = "T12M",
+             filters: list[dict] | None = None):
         v = {"visualType": "card",
              "query": {"queryState": {"Values": {"projections": [proj(f, title)]}}},
              "objects": {"labels": [{"properties": {"color": color(INK), "fontSize": lit(22)}}],
                          "categoryLabels": [{"properties": {"show": lit(False)}}]},
              "visualContainerObjects": self.chrome(f"{title} · {item}" if item else title, tip),
              "drillFilterOtherVisuals": True}
-        return self.add(key, pos, v, filters=[time_item(item, key)] if item else None)
+        flt = ([time_item(item, key)] if item else []) + (filters or [])
+        return self.add(key, pos, v, filters=flt or None)
 
     def slicer(self, key: str, pos: dict, f: dict, label: str, *, single: bool = False,
                sync: str | None = None, hidden: bool = False):
@@ -222,8 +224,12 @@ class Page:
 
     def chart(self, key: str, pos: dict, vtype: str, roles: dict[str, list[dict]], title: str, tip: str, *,
               filters: list[dict] | None = None, sort: tuple[dict, str] | None = None,
-              colors: list[str] | None = None, objects: dict | None = None):
+              colors: list[str] | None = None, objects: dict | None = None,
+              params: dict[str, dict] | None = None):
+        """``params``: role -> field-parameter column, projected at index 0 of that role."""
         qs = {role: {"projections": ps} for role, ps in roles.items() if ps}
+        for role, f in (params or {}).items():
+            qs[role]["fieldParameters"] = [{"parameterExpr": f, "index": 0, "length": 1}]
         query: dict = {"queryState": qs}
         if sort:
             query["sortDefinition"] = {"sort": [{"field": sort[0], "direction": sort[1]}], "isDefaultSort": False}
@@ -530,7 +536,110 @@ def finance() -> Page:
     return p
 
 
-PAGES = (executive, dealer, claims, regulatory, finance)
+VIEW = model.EXPERIENCE_VIEW
+LR_RESERVE = "Loss Ratio (on claims reserve)"
+
+
+def experience() -> Page:
+    p = Page("experience", "Experience",
+             "Everything to date on the claims-reserve basis, closed periods only. View by switches the rows and "
+             "bars: Date, Product, Dealer, State, Plan, Make, Entered year, Term. Every view adds up to the same "
+             "total. Site twin: finance/experience.html (finance.mart_experience).")
+    p.filters.append(CLOSED[1]("experience_page"))
+    view = column(VIEW, VIEW)
+    p.slicer("view", box(0, 3, ROW_FILTERS), view, "View by", single=True)
+    p.slicer("tenant", box(3, 3, ROW_FILTERS), column("Tenant", "Reportable Name"), "Program (tenant)")
+    p.slicer("category", box(6, 3, ROW_FILTERS), column("Product", "Category"), "Product category")
+    p.slicer("structure", box(9, 3, ROW_FILTERS), column("Dealer", "Participation Structure"),
+             "Participation structure")
+    kpis = [
+        ("Disbursed Claims Reserve", "Net written reserve", "Claims reserve written net of cancellations, to date."),
+        ("Earned Reserve", "Earned reserve", "Claims reserve earned to date on the earning curves."),
+        ("Earned Pct", "Earned %", "Earned reserve over net written reserve."),
+        ("Cancel Pct", "Cancel %", "Effective cancellations (not reinstated) over contracts written."),
+        ("Claims Paid", "Claims paid", "Claim dollars paid to date."),
+        (LR_RESERVE, "Loss ratio", "Claims incurred over earned claims reserve."),
+    ]
+    for i, (m, label, tip) in enumerate(kpis):
+        p.card(f"kpi{i}", box(2 * i, 2, ROW_KPI), measure(m), label, tip, item=None)
+    vals = [proj(view, "View by"), proj(measure("Contracts Written"), "Contracts"),
+            proj(measure("Disbursed Claims Reserve"), "Net written"), proj(measure("Earned Reserve"), "Earned"),
+            proj(measure("Earned Pct"), "Earned %"), proj(measure("Effective Cancellations"), "Cancelled"),
+            proj(measure("Cancel Pct"), "Cancel %"), proj(measure("Claims Paid"), "Claims paid"),
+            proj(measure(LR_RESERVE), "Loss ratio")]
+    lr = measure(LR_RESERVE)
+    p.chart("table", {**box(0, 8, ROW_A), "height": ROW_B[0] + ROW_B[1] - ROW_A[0]}, "tableEx", {"Values": vals},
+            "Experience by the View by pick",
+            "One row per value of the View by pick. Ratios are rebuilt from additive measures, so the total row "
+            "is a true ratio and is the same in every view.",
+            params={"Values": view}, sort=(measure("Disbursed Claims Reserve"), "Descending"),
+            objects={"values": [{"properties": {"backColor": rule_color(lr, [(2, 0.7, CRITICAL_SOFT),
+                                                                               (2, 0.55, WARNING_SOFT)])},
+                                 "selector": {"data": [{"dataViewWildcard": {"matchingOption": 1}}],
+                                              "metadata": f"{MEASURES}.{LR_RESERVE}"}}],
+                     "columnHeaders": [{"properties": {"fontColor": color(INK_2), "bold": lit(True)}}],
+                     "grid": [{"properties": {"gridHorizontalColor": color(GRID)}}]})
+    p.chart("lr", box(8, 4, ROW_A), "clusteredBarChart",
+            {"Category": [proj(view, "View by")], "Y": [proj(lr, "Loss ratio")]},
+            "Loss ratio by the View by pick", "Claims incurred over earned claims reserve, to date.",
+            params={"Category": view}, sort=(lr, "Descending"), colors=[SERIES[7]])
+    p.chart("pcts", box(8, 4, ROW_B), "clusteredBarChart",
+            {"Category": [proj(view, "View by")],
+             "Y": [proj(measure("Earned Pct"), "Earned %"), proj(measure("Cancel Pct"), "Cancel %")]},
+            "Earned % and Cancel % by the View by pick",
+            "How far each slice has earned, and how much of it cancelled.",
+            params={"Category": view}, sort=(measure("Earned Pct"), "Descending"), colors=[SERIES[0], SERIES[1]])
+    return p
+
+
+NEW_RESERVE = "Disbursed Claims Reserve"
+
+
+def _sale(key: str) -> list[dict]:
+    """New reserve = the claims reserve booked at sale: Disbursement rows with Txn Type SALE only."""
+    return [cat_filter(column("Disbursement", "Txn Type"), ["SALE"], key)]
+
+
+def new_reserves() -> Page:
+    p = Page("new_reserves", "New Reserves",
+             "Gross claims reserve booked at sale (before any cancel: the new-business basis a reinsurer reads), "
+             "by product category and term. " + NOTE_T12 + " Site twin: finance/new-reserves.html "
+             "(finance.mart_new_reserves_by_term) with the average and row-% matrices.")
+    p.slicer("tenant", box(0, 3, ROW_FILTERS), column("Tenant", "Reportable Name"), "Program (tenant)")
+    p.slicer("category", box(3, 3, ROW_FILTERS), column("Product", "Category"), "Product category")
+    p.slicer("year", box(6, 3, ROW_FILTERS), column(PERIOD, "Fiscal Year"), "Fiscal year")
+    term = column("Contract Terms", "Term Months")
+    p.slicer("term", box(9, 3, ROW_FILTERS), term, "Term (months)")
+    nr = measure(NEW_RESERVE)
+    p.card("kpi0", box(0, 3, ROW_KPI), nr, "New reserve", "Claims reserve on sale postings (Txn Type SALE).",
+           filters=_sale("kpi0"))
+    p.card("kpi1", box(3, 3, ROW_KPI), measure("Contracts Written"), "Contracts written",
+           "Contracts sold in the window (sales only).")
+    p.card("kpi2", box(6, 3, ROW_KPI), nr, "Net written reserve",
+           "Claims reserve on every posting (sales, cancels, amendments): what is left after cancels.")
+    p.card("kpi3", box(9, 3, ROW_KPI), measure("Effective Cancellations"), "Effective cancellations",
+           "Cancellations not later reinstated.")
+    p.chart("by_category", box(0, 6, ROW_A), "clusteredBarChart",
+            {"Category": [proj(column("Product", "Category"), "Product category")], "Y": [proj(nr, "New reserve")],
+             "Tooltips": [proj(measure("Contracts Written"), "Contracts")]},
+            "New reserve by product category · T12M", "Claims reserve booked at sale, trailing 12 closed months.",
+            filters=[time_item("T12M", "by_category"), *_sale("by_category")], sort=(nr, "Descending"),
+            colors=[SERIES[0]])
+    p.chart("by_term", box(6, 6, ROW_A), "clusteredColumnChart",
+            {"Category": [proj(term, "Term (months)")], "Y": [proj(nr, "New reserve")]},
+            "New reserve by term (months) · T12M", "Longer terms carry more reserve per contract.",
+            filters=[time_item("T12M", "by_term"), *_sale("by_term")], sort=(term, "Ascending"), colors=[SERIES[6]])
+    p.chart("matrix", box(0, 12, ROW_B), "pivotTable",
+            {"Rows": [proj(column("Product", "Category"), "Category")], "Columns": [proj(term, "Term (months)")],
+             "Values": [proj(nr, "New reserve"), proj(measure("Contracts Written"), "Contracts")]},
+            "New reserve and contracts by category x term · T12M",
+            "Contracts come from the sales fact, so the Txn Type filter does not change them.",
+            filters=[time_item("T12M", "matrix"), *_sale("matrix")],
+            objects={"columnHeaders": [{"properties": {"fontColor": color(INK_2), "bold": lit(True)}}]})
+    return p
+
+
+PAGES = (executive, dealer, claims, regulatory, finance, experience, new_reserves)
 
 
 # ---------------------------------------------------------------------- theme + report files

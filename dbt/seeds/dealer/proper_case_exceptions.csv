@@ -1,0 +1,20 @@
+token,replacement,notes
+llc,LLC,Business suffix
+inc,Inc,Business suffix
+co,Co,Business suffix
+corp,Corp,Business suffix
+fcu,FCU,Credit-union suffix
+na,NA,Bank suffix
+ii,II,Generational suffix
+iii,III,Generational suffix
+iv,IV,Generational suffix
+jr,Jr,Generational suffix
+sr,Sr,Generational suffix
+po,PO,Post-office box
+usa,USA,Acronym
+of,of,Lower-case joining word (never first word)
+and,and,Lower-case joining word (never first word)
+ne,NE,Street direction
+nw,NW,Street direction
+se,SE,Street direction
+sw,SW,Street direction

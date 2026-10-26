@@ -33,7 +33,15 @@ DISB_TYPES = {"ADMIN_FEE", "INSURER_FEE", "PREMIUM_TAX", "COMMISSION", "CLAIMS_R
 STRUCTURES = {"DEALER_OWNED_OBLIGOR", "CFC", "NCFC", "PORC", "RETRO", "PROFIT_SHARE"}
 REQUIRED_MARTS = {"mart_pnl_by_product", "mart_profit_share_statement", "mart_commission_statement",
                   "mart_cession_experience", "mart_reserve_rollforward", "mart_remittance_late_fees",
-                  "mart_disbursement_control_totals", "mart_funded_reserve_reconciliation"}
+                  "mart_disbursement_control_totals", "mart_funded_reserve_reconciliation",
+                  # V6 (docs/V3_DESIGN.md section 9)
+                  "mart_participation_contract", "mart_experience", "mart_new_reserves_by_term",
+                  "mart_reserve_bridge", "mart_commission_hierarchy", "mart_rate_card", "mart_rate_card_exceptions",
+                  "mart_partner_settlement", "mart_remit_register"}
+# V6 interim staging reads: core has no rate dimension and no contract rate id yet (DE Manager). Remove an
+# entry when core carries it; nothing else in finance may read staging.
+INTERIM_STAGING = {"mart_rate_card": {"stg_admin_core__rate", "stg_admin_core__rate_component"},
+                   "mart_rate_card_exceptions": {"stg_admin_core__contract"}}
 
 
 def _seed(name: str) -> list[dict]:
@@ -84,14 +92,37 @@ def test_finance_sql_reads_only_core_and_finance_seeds():
         text = path.read_text(encoding="utf-8")
         assert "source(" not in text, path.name
         for ref in re.findall(r"ref\('([^']+)'\)", text):
+            if ref in INTERIM_STAGING.get(path.stem, set()):
+                continue
             assert ref in allowed or ref in core, f"{path.name} refs {ref}"
             assert not ref.startswith(("stg_", "int_")), f"{path.name} refs {ref}"
 
 
 def test_reports_read_only_finance_marts_and_seeds():
-    text = (ROOT / "reports" / "finance" / "__init__.py").read_text(encoding="utf-8")
-    schemas = set(re.findall(r"\b(?:from|join)\s+([a-z_]+)\.[a-z_]+\b(?!\s+import)", text))
-    assert schemas <= {"finance", "seeds"}, schemas
+    for path in (ROOT / "reports" / "finance").glob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        schemas = set(re.findall(r"\b(?:from|join)\s+([a-z_]+)\.[a-z_]+\b(?!\s+import)", text))
+        assert schemas <= {"finance", "seeds"}, (path.name, schemas)
+
+
+def test_term_year_buckets_are_contiguous_and_cover_every_term():
+    rows = sorted(_seed("term_year_buckets"), key=lambda r: int(r["sort_order"]))
+    assert int(rows[0]["min_months"]) == 0 and int(rows[-1]["max_months"]) >= 999
+    for prev, nxt in zip(rows, rows[1:], strict=False):
+        assert int(nxt["min_months"]) == int(prev["max_months"]) + 1, (prev, nxt)
+    assert [r["bucket_label"] for r in rows[:2]] == ["0-1", "1-2"]
+
+
+def test_commission_targets_cover_every_mapped_district_once():
+    rows = _seed("commission_volume_targets")
+    keys = [(r["district"], r["product_type"]) for r in rows]
+    assert len(keys) == len(set(keys))
+    assert all(int(r["monthly_target_contracts"]) >= 0 for r in rows)
+    hierarchy = DBT_DIR / "seeds" / "core" / "agent_territory_hierarchy.csv"
+    if hierarchy.exists():  # district -> region lives in core (DE Manager); every district has a target
+        with open(hierarchy, newline="", encoding="utf-8") as f:
+            districts = {r["district"] for r in csv.DictReader(f)}
+        assert districts <= {r["district"] for r in rows}
 
 
 def test_money_cents_puts_the_sign_before_the_symbol():
@@ -235,6 +266,96 @@ create table core.fct_cash_transaction (dealer_key varchar, tenant_key bigint, p
 insert into core.fct_cash_transaction values ('D1', 1, 202302, 1300, 10, false, 0),
     ('D2', 1, 202303, 2300, 45, true, 34.5), ('D3', 1, 202303, 440, 95, true, 6.6);
 """
+
+# V6 (docs/V3_DESIGN.md section 9) columns and rows, added on top of the V5 mini so every V5 number above
+# still holds. C2 is effective in Feb 2023 although entered in Jan (the bridge's timing step); C1's cash
+# arrives in 202308, so its 202307 claim is a transient claim on the partner settlement; C2's reserve
+# sits with the obligor (AH_OB), so its 202308 claim is an obligor claim deducted.
+# Rate card: R1 and R2 are the cards C1 and C2 were booked on; C2 is booked 50 above its card (an
+# exception); R3 is on the card but unused. Agent A1 sits in district West.
+V6_DDL = """
+alter table core.dim_contract add column contract_number varchar;
+alter table core.dim_contract add column source_system varchar;
+alter table core.dim_contract add column tenant_key bigint;
+alter table core.dim_contract add column product_key varchar;
+alter table core.dim_contract add column agent_key varchar;
+alter table core.dim_contract add column entered_date date;
+alter table core.dim_contract add column effective_date date;
+alter table core.dim_contract add column reportable_state varchar;
+update core.dim_contract set contract_number = 'VSC0001', source_system = 'admin_core', tenant_key = 1,
+    product_key = 'P1', agent_key = 'A1', entered_date = date '2023-01-10', effective_date = date '2023-01-10',
+    reportable_state = 'TX' where contract_key = 'C1';
+update core.dim_contract set contract_number = 'VSC0002', source_system = 'admin_core', tenant_key = 1,
+    product_key = 'P1', agent_key = 'A1', entered_date = date '2023-01-20', effective_date = date '2023-02-01',
+    reportable_state = 'OK' where contract_key = 'C2';
+update core.dim_contract set contract_number = 'GAP0003', source_system = 'legacy_admin', tenant_key = 1,
+    product_key = 'P2', agent_key = '-1', entered_date = date '2023-02-05', effective_date = date '2023-02-05',
+    reportable_state = 'TX' where contract_key = 'C3';
+create table core.dim_contract_vehicle (contract_key varchar, vehicle_make varchar, odometer_band varchar);
+insert into core.dim_contract_vehicle values ('C1', 'Ford', '0-30K'), ('C2', 'Toyota', '30-60K'),
+    ('C3', 'Ford', null);
+create table core.dim_contract_terms (contract_key varchar, term_months integer, surcharge_amount double,
+    options_amount double);
+insert into core.dim_contract_terms values ('C1', 36, 0, 0), ('C2', 60, 0, 0), ('C3', 72, 0, 0);
+create table core.dim_contract_finance (contract_key varchar, coverage_cost double);
+insert into core.dim_contract_finance values ('C1', 1300), ('C2', 2300), ('C3', 440);
+alter table core.dim_product add column product varchar;
+alter table core.dim_product add column plan varchar;
+alter table core.dim_product add column plan_id bigint;
+alter table core.dim_product add column plan_code varchar;
+alter table core.dim_product add column plan_year integer;
+alter table core.dim_product add column program_type varchar;
+update core.dim_product set product = 'Powertrain', plan = 'Powertrain 2023 100 ded', plan_id = 11,
+    plan_code = 'VSC-PT-2023-D100', plan_year = 2023, program_type = 'AGENCY' where product_key = 'P1';
+update core.dim_product set product = 'GAP', plan = 'GAP 2023 0 ded', plan_id = 12, plan_code = 'GAP-2023-D0',
+    plan_year = 2023, program_type = 'FULL_INSURED' where product_key = 'P2';
+alter table core.dim_participation_entity add column status varchar;
+alter table core.dim_participation_entity add column runoff_date date;
+alter table core.dim_participation_entity add column cession_type varchar;
+alter table core.dim_participation_entity add column gl_class_code varchar;
+update core.dim_participation_entity set status = 'ACTIVE', cession_type = 'C', gl_class_code = 'GL-1'
+    where participation_entity_key = 'E1';
+update core.dim_participation_entity set status = 'ACTIVE', cession_type = 'S', gl_class_code = 'GL-2'
+    where participation_entity_key = 'E2';
+alter table core.dim_agent add column district varchar;
+alter table core.dim_agent add column region varchar;
+update core.dim_agent set territory = 'West', district = 'West', region = 'West';
+alter table core.fct_cancellation add column cancel_fee double;
+update core.fct_cancellation set cancel_fee = 50;
+alter table core.fct_cash_transaction add column cash_txn_key varchar;
+alter table core.fct_cash_transaction add column remit_batch_id varchar;
+alter table core.fct_cash_transaction add column contract_key varchar;
+alter table core.fct_cash_transaction add column contract_entered_date date;
+alter table core.fct_cash_transaction add column entered_at timestamp;
+alter table core.fct_cash_transaction add column sent_at timestamp;
+alter table core.fct_cash_transaction add column received_at timestamp;
+alter table core.fct_cash_transaction add column posted_at timestamp;
+update core.fct_cash_transaction set cash_txn_key = 'K1', remit_batch_id = 'RB1', contract_key = 'C1',
+    posting_period_key = 202308 where dealer_key = 'D1';
+update core.fct_cash_transaction set cash_txn_key = 'K2', remit_batch_id = 'RB2', contract_key = 'C2'
+    where dealer_key = 'D2';
+update core.fct_cash_transaction set cash_txn_key = 'K3', remit_batch_id = 'RB3', contract_key = 'C3'
+    where dealer_key = 'D3';
+create schema staging;
+create table staging.stg_admin_core__rate (rate_id bigint, tenant_id bigint, plan_id bigint, term_months integer,
+    term_miles integer, odometer_band varchar, class_code varchar, deductible_amount double,
+    coverage_cost double, suggested_retail double, coverage_level varchar, is_deleted boolean);
+insert into staging.stg_admin_core__rate values
+    (1, 1, 11, 36, 36000, '0-30K', 'A', 100, 1300, 2499, 'POWERTRAIN', false),
+    (2, 1, 11, 60, 60000, '30-60K', 'B', 100, 2250, 4299, 'POWERTRAIN', false),
+    (3, 1, 11, 24, 24000, '60K+', 'C', 100, 900, 1699, 'POWERTRAIN', false);
+create table staging.stg_admin_core__rate_component (rate_id bigint, disbursement_type varchar, amount double,
+    is_deleted boolean);
+insert into staging.stg_admin_core__rate_component values
+    (1, 'ADMIN_FEE', 100, false), (1, 'INSURER_FEE', 30, false), (1, 'PREMIUM_TAX', 20, false),
+    (1, 'COMMISSION', 150, false), (1, 'CLAIMS_RESERVE', 950, false), (1, 'PROFIT_SHARE_RESERVE', 50, false),
+    (2, 'ADMIN_FEE', 120, false), (2, 'COMMISSION', 80, false), (2, 'CLAIMS_RESERVE', 1950, false),
+    (2, 'PROFIT_SHARE_RESERVE', 100, false),
+    (3, 'ADMIN_FEE', 100, false), (3, 'COMMISSION', 50, false), (3, 'CLAIMS_RESERVE', 750, false);
+create table staging.stg_admin_core__contract (contract_number varchar, rate_id bigint, is_deleted boolean);
+insert into staging.stg_admin_core__contract values ('VSC0001', 1, false), ('VSC0002', 2, false);
+"""
+CORE_DDL += V6_DDL
 
 
 def _dbt_build(db: Path, tmp: Path) -> subprocess.CompletedProcess:
@@ -488,6 +609,163 @@ def test_controls_balance_and_cash_is_excluded(mini):
     assert df["txn_amount"].sum() == pytest.approx(1300 + 2300 - 550 + 440)
 
 
+# ---- V6 marts on the mini (as of 202401, the latest closed period)
+def _rows(db: Path, sql: str) -> list[tuple]:
+    with duckdb.connect(str(db), read_only=True) as con:
+        return con.execute(sql).fetchall()
+
+
+def test_participation_map_cedes_every_contract_while_active(mini):
+    assert _rows(mini, "select contract_key, participation_entity_key, entity_status, is_ceded "
+                       "from finance.mart_participation_contract order by 1") == [
+        ("C1", "E1", "ACTIVE", True), ("C2", "E2", "ACTIVE", True)]
+
+
+def test_experience_matches_hand_calculation_and_every_view_adds_up(mini):
+    # C1: net 1000, earned 800, paid 300; C2: 2000 - 500 cancel, earned 1000, paid 900, cancelled;
+    # C3 (legacy GAP, no entity): 400, earned 100, paid 50. CL4 has no contract and is not experience.
+    tot = _rows(mini, "select sum(net_written), sum(earned), sum(unearned), sum(claims_paid), "
+                      "sum(contracts_written), sum(contracts_cancelled), sum(contracts_net), sum(claims_count), "
+                      "min(as_of_period_key) from finance.mart_experience")[0]
+    assert tot == pytest.approx((2900, 1900, 1000, 1250, 3, 1, 2, 3, 202401))
+    for col in ("entered_year", "product_code", "dealer_key", "reportable_state", "plan", "vehicle_make",
+                "effective_year", "term_months"):
+        assert _rows(mini, f"select sum(net_written) from (select {col}, sum(net_written) as net_written "
+                           f"from finance.mart_experience group by 1)")[0][0] == pytest.approx(2900), col
+    ford = _rows(mini, "select sum(net_written), sum(earned), sum(claims_paid) from finance.mart_experience "
+                       "where vehicle_make = 'Ford'")[0]
+    assert ford == pytest.approx((1400, 900, 350))
+    c2 = _one(mini, "select * from finance.mart_experience where dealer_key = 'D2'")
+    assert c2["effective_year"] == 2023 and c2["participation_entity_key"] == "E2"
+    assert c2["cancel_pct"] == pytest.approx(1.0) and c2["earned_pct"] == pytest.approx(1000 / 1500)
+    assert c2["loss_ratio"] == pytest.approx(0.9)
+    assert _one(mini, "select * from finance.mart_experience where dealer_key = 'D3'")[
+        "participation_entity_key"] == "-1"
+
+
+def test_new_reserves_by_term_bucket(mini):
+    rows = _rows(mini, "select entered_month, category_code, bucket_label, contracts, new_reserve, avg_reserve, "
+                       "avg_term_months, row_pct from finance.mart_new_reserves_by_term order by 1, 3")
+    jan, feb = pd.Timestamp("2023-01-01").date(), pd.Timestamp("2023-02-01").date()
+    assert [r[:5] for r in rows] == [(jan, "VSC", "2-3", 1, 1000), (jan, "VSC", "4-5", 1, 2000),
+                                     (feb, "GAP", "5-6", 1, 400)]
+    assert [r[7] for r in rows] == pytest.approx([1 / 3, 2 / 3, 1.0])
+    assert rows[1][5] == pytest.approx(2000) and rows[1][6] == pytest.approx(60)
+
+
+def test_reserve_bridge_walks_new_reserves_to_net_written(mini):
+    # Jan: gross 3000 (C1 + C2) - C2's 2000 sale reserve + its 1500 remainder = 2500 entered; C2 is
+    # effective in Feb, so -1500 timing -> 1000 by effective month. Feb: C3 400 + C2's 1500 timing in.
+    rows = _rows(mini, "select month_start, gross_new_reserve, cancelled_contracts_reserve, partial_refund_remainder, "
+                       "other_adjustments, net_written_entered, timing_in, timing_out, net_written_effective, "
+                       "residual, contracts_gross, contracts_cancelled, contracts_net "
+                       "from finance.mart_reserve_bridge order by 1")
+    assert [r[1:] for r in rows] == pytest.approx([(3000, -2000, 1500, 0, 2500, 0, -1500, 1000, 0, 2, 1, 1),
+                                                   (400, 0, 0, 0, 400, 1500, 0, 1900, 0, 1, 0, 1)])
+
+
+def test_reserve_bridge_test_catches_a_break(mini, tmp_path):
+    import shutil
+    db = tmp_path / "broken_bridge.duckdb"
+    shutil.copy(mini, db)
+    with duckdb.connect(str(db)) as con:  # the Experience page drifts one dollar from the bridge
+        con.execute("update finance.mart_experience set net_written = net_written + 1 where dealer_key = 'D1'")
+    env = {**os.environ, "WAREHOUSE_PATH": str(db), "DBT_TARGET_PATH": str(tmp_path / "target"),
+           "DBT_LOG_PATH": str(tmp_path / "logs"), "DO_NOT_TRACK": "1", "DBT_SEND_ANONYMOUS_USAGE_STATS": "false"}
+    proc = subprocess.run([sys.executable, "-m", "dbt.cli.main", "test", "--project-dir", str(DBT_DIR),
+                           "--profiles-dir", str(DBT_DIR), "--select", "assert_reserve_bridge_closes"],
+                          cwd=ROOT, env=env, capture_output=True, text=True, timeout=600)
+    assert proc.returncode != 0 and _failed(tmp_path) == {"assert_reserve_bridge_closes"}
+
+
+def test_commission_hierarchy_rolls_up_against_targets(mini):
+    # A1 (district West, region West) sold C1 and C2 (VSC) in 202301 and was paid 150 + 80 then.
+    d = _one(mini, "select * from finance.mart_commission_hierarchy where level = 'DISTRICT' and node = 'West' "
+                   "and product_type = 'VSC' and posting_period_key = 202301")
+    target = {(r["district"], r["product_type"]): int(r["monthly_target_contracts"])
+              for r in _seed("commission_volume_targets")}
+    assert (d["contracts"], d["commission"], d["parent_node"]) == (2, pytest.approx(230), "West")
+    assert d["target_contracts"] == target[("West", "VSC")]
+    assert d["over_under_contracts"] == 2 - target[("West", "VSC")]
+    n = _one(mini, "select * from finance.mart_commission_hierarchy where level = 'NATIONAL' "
+                   "and product_type = 'VSC' and posting_period_key = 202301")
+    assert n["target_contracts"] == sum(v for (_, pt), v in target.items() if pt == "VSC")
+    # Each level's commission sums to the ledger (150 + 80 - 30 - 20); C3 has no agent: UNASSIGNED.
+    for level, total in _rows(mini, "select level, sum(commission) from finance.mart_commission_hierarchy "
+                                    "group by 1"):
+        assert total == pytest.approx(180), level
+    un = _one(mini, "select * from finance.mart_commission_hierarchy where level = 'DISTRICT' "
+                    "and node = 'UNASSIGNED' and posting_period_key = 202302")
+    assert un["contracts"] == 1 and pd.isna(un["target_contracts"]) and pd.isna(un["over_under_contracts"])
+
+
+def test_rate_card_fee_stack_and_reviewer_sort(mini):
+    import reports.finance as fin
+    r1 = _one(mini, "select * from finance.mart_rate_card where rate_id = 1")
+    assert (r1["rate"], r1["admin_fee"], r1["program_fee"], r1["premium_tax"], r1["dealer_pack"],
+            r1["fees_total"], r1["reserve"]) == pytest.approx((1300, 100, 30, 20, 150, 300, 1000))
+    assert r1["program_type"] == "AGENCY" and r1["product_code"] == "VSC-PT"
+    with duckdb.connect(str(mini), read_only=True) as con:
+        d = fin.load(con)
+    assert d["rate_card"]["term_months"].tolist() == [24, 36, 60]  # term first, then odometer band
+    ex = _rows(mini, "select contract_number, exception_type, difference from finance.mart_rate_card_exceptions")
+    assert ex == [("VSC0002", "COST_DIFFERS", 50.0)]  # booked 2300 on a 2250 card, no surcharges
+
+
+def test_partner_settlement_lines(mini):
+    rows = _rows(mini, "select dealer_number, posting_period_key, admin_premium_due, program_fee_adjustment, "
+                       "cancel_fees, transient_claims, obligor_claims_deducted, net_due, statement_status "
+                       "from finance.mart_partner_settlement order by 1, 2")
+    assert rows == [("DLR001", 202301, 1300, 0, 0, 0, 0, 1300, "FINAL"),
+                    ("DLR001", 202307, 0, 0, 0, 300, 0, 300, "FINAL"),       # paid before C1 was remitted
+                    ("DLR002", 202301, 2300, 0, 0, 0, 0, 2300, "FINAL"),
+                    ("DLR002", 202308, 0, 0, 0, 0, 900, -900, "FINAL"),      # obligor-held reserve
+                    ("DLR002", 202310, -550, 0, 50, 0, 0, -500, "FINAL")]
+    # Legacy C3 is not remitted through the partner.
+    assert not _rows(mini, "select * from finance.mart_partner_settlement where dealer_number = 'DLR003'")
+
+
+def test_remit_register_ties_to_cash(mini):
+    rows = _rows(mini, "select remit_batch_id, dealer_number, contract_number, posting_period_key, amount, "
+                       "late_fee from finance.mart_remit_register order by 1")
+    assert rows == [("RB1", "DLR001", "VSC0001", 202308, 1300, 0), ("RB2", "DLR002", "VSC0002", 202303, 2300, 34.5),
+                    ("RB3", "DLR003", "GAP0003", 202303, 440, 6.6)]
+
+
+# A run-off copy of the mini: E1 goes to run-off on 2023-06-30 and its dealer D1 sells C4 in Aug 2023.
+# C4's reserve (500) goes to the obligor, so it must stay out of E1's experience and show as a transfer.
+RUNOFF_DDL = """
+update core.dim_participation_entity set status = 'RUNOFF', runoff_date = date '2023-06-30'
+    where participation_entity_key = 'E1';
+insert into core.dim_contract (contract_key, dealer_key, contract_number, source_system, tenant_key, product_key,
+    agent_key, entered_date, effective_date, reportable_state)
+    values ('C4', 'D1', 'VSC0004', 'admin_core', 1, 'P1', 'A1', date '2023-08-15', date '2023-08-15', 'TX');
+insert into core.fct_transaction values ('T6', 'admin_core', 'C4', 'SALE', 202308, 500);
+insert into core.fct_disbursement values
+    ('T6', 'C4', 'D1', 'P1', 1, 'AH_OB', 'admin_core', 'SALE', 'CLAIMS_RESERVE', 202308, 500);
+insert into core.fct_gross_premium values ('C4', 'P1', 1, 202308, 1, 500, 800);
+"""
+
+
+def test_runoff_entity_keeps_its_book_and_transfers_new_business(tmp_path):
+    db = tmp_path / "runoff.duckdb"
+    with duckdb.connect(str(db)) as con:
+        con.execute(CORE_DDL + RUNOFF_DDL)
+    proc = _dbt_build(db, tmp_path)  # every finance mart and test, incl. the ledger attribution test
+    assert proc.returncode == 0, proc.stdout[-4000:]
+    assert _rows(db, "select contract_key, is_ceded, is_transferred from finance.mart_participation_contract "
+                     "where participation_entity_key = 'E1' order by 1") == [("C1", True, False), ("C4", False, True)]
+    e1 = _one(db, "select * from finance.mart_cession_experience "
+                  "where participation_entity_key = 'E1' and posting_period_key = 202402")
+    assert e1["entity_status"] == "RUNOFF" and e1["cession_type"] == "C"
+    assert e1["itd_written_reserve"] == pytest.approx(1000) and e1["reserve_balance"] == pytest.approx(700)
+    assert (e1["itd_contracts_transferred"], e1["itd_reserve_transferred"]) == (1, pytest.approx(500))
+    # The obligor's 500 is rest of book, and the reconciliation still has no difference.
+    r = _one(db, "select * from finance.mart_funded_reserve_reconciliation where posting_period_key = 202402")
+    assert r["rest_of_book_reserve_balance"] == pytest.approx(400 - 50 - 25 + 500)
+    assert abs(r["difference"]) < 0.005
+
+
 def test_injected_cost_split_break_fails_the_close_control(tmp_path):
     db = tmp_path / "broken.duckdb"
     with duckdb.connect(str(db)) as con:
@@ -513,7 +791,8 @@ def test_report_pages_and_workbook(mini, tmp_path):
     assert pages[0].path == "finance/index.html" and fin.NAV_LABEL == "Finance"
     paths = {p.path for p in pages}
     assert {"finance/cession.html", "finance/profit-share.html", "finance/commissions.html", "finance/pnl.html",
-            "finance/remittance.html", "finance/controls.html"} <= paths
+            "finance/remittance.html", "finance/controls.html", "finance/experience.html",
+            "finance/new-reserves.html", "finance/commission-hierarchy.html"} <= paths
 
     wb = load_workbook(tmp_path / "downloads" / "finance" / fin.WORKBOOK, read_only=True)
     names = wb.sheetnames
@@ -549,7 +828,8 @@ def test_report_pages_and_workbook(mini, tmp_path):
         parser = Links()
         page_file = tmp_path / p.path
         parser.feed(page_file.read_text(encoding="utf-8"))
-        broken += [f"{p.path} -> {r}" for r in parser.refs if not (page_file.parent / r).resolve().is_file()]
+        broken += [f"{p.path} -> {r}" for r in parser.refs
+                   if not (page_file.parent / r.split("#")[0]).resolve().is_file()]
     assert not broken
     cession = (tmp_path / "finance" / "cession.html").read_text(encoding="utf-8")
     assert "Summit Reinsurance Co" in cession and "Harbor Cars" not in cession
@@ -557,6 +837,18 @@ def test_report_pages_and_workbook(mini, tmp_path):
         assert "$-" not in (tmp_path / p.path).read_text(encoding="utf-8"), f"{p.path}: sign after the $"
     pnl = (tmp_path / "finance" / "pnl.html").read_text(encoding="utf-8")
     assert "Claims not matched to a contract" in pnl and "UNMATCHED" not in pnl and "Unknown" not in pnl
+    # V6: View by sections, the bridge and rate-card check on controls, run-off on cession, settlement.
+    exp = (tmp_path / "finance" / "experience.html").read_text(encoding="utf-8")
+    assert all(f"By {v}" in exp for v in ("Date", "Product", "Dealer", "State", "Plan", "Make", "Term"))
+    controls = (tmp_path / "finance" / "controls.html").read_text(encoding="utf-8")
+    assert "Reserve bridge" in controls and "Residual (must be $0.00)" in controls and "VSC0002" in controls
+    assert "Run-off details" in cession and "Transfer summary" in cession
+    assert "Partner settlement statement" in (tmp_path / "finance" / "remittance.html").read_text(encoding="utf-8")
+    index = (tmp_path / "finance" / "index.html").read_text(encoding="utf-8")
+    assert all(f'{h}"' in index for h in ("finance/experience.html", "finance/new-reserves.html",
+                                          "finance/commission-hierarchy.html"))
+    assert {"Experience", "New_Reserves", "Reserve_Bridge", "Commission_Hierarchy", "Rate_Card",
+            "Rate_Card_Exceptions", "Partner_Settlement", "Remit_Register"} <= set(names)
 
     ws = wb["Cession_ITD"]
     header = [c.value for c in next(ws.iter_rows(max_row=1))]

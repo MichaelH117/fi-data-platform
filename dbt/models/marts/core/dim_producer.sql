@@ -20,7 +20,7 @@ union all
 select
     o.obligor_key,
     'provider_entity',
-    'OBL' || lpad(cast(o.obligor_id as varchar), 2, '0'),
+    coalesce('OBL' || lpad(cast(o.obligor_id as varchar), 2, '0'), 'DOO' || cast(o.participation_entity_id as varchar)),
     o.obligor_name,
     o.state,
     null,

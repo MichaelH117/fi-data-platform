@@ -535,6 +535,9 @@ def usage_rows(reports, models: list[Model]) -> list[dict]:
                     dax = _one_line(meas.value)
                 elif cg_items:
                     dax = "calculation group: " + ", ".join(i.name for i in cg_items)
+                elif t.node.annotations().get("PBI_FieldParameter") == "true":
+                    src = "\n".join(s.value for p in t.node.kids("partition") for s in p.kids("source"))
+                    dax = "field parameter: " + ", ".join(re.findall(r'\("([^"]+)", NAMEOF', src))
                 else:
                     src_col = t.columns.get(re.sub(r"^\w+\((.*)\)$", r"\1", u.field), "")
             rows.append({"report": u.report, "page": u.page, "page_order": u.page_order, "visual": u.visual,

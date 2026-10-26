@@ -409,6 +409,10 @@ def build(
         "contract_id": ex["contract_id"].values, "changed_at": at, "from_status": "INFORCE", "to_status": "EXPIRED",
         "created_at": at, "updated_at": at})})
     hist = _concat(acc["contract_status_history"])
+    holds = lc.late_status_rows(_status_from_history(hist), con, end)  # V6 edit 14: open holds at the as-of
+    holds.insert(0, "status_history_id", ids.take("contract_status_history", len(holds)))
+    merge_rows(acc, {"contract_status_history": holds})
+    hist = _concat(acc["contract_status_history"])
     last = _status_from_history(hist)
     contract_df = acc["contract"][0]
     contract_df["status"] = contract_df["contract_id"].map(last["to_status"]).to_numpy()

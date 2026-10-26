@@ -134,6 +134,16 @@ models:
     columns:
       - name: status_history_id
         data_tests: [unique, not_null]
+  - name: stg_admin_core__contract_document
+    columns:
+      - name: document_id
+        data_tests: [unique, not_null]
+      - name: contract_id
+        data_tests: [not_null]
+      - name: document_type
+        data_tests:
+          - accepted_values:
+              arguments: {values: [CONTRACT, CANCEL, OTHER]}
   - name: stg_admin_core__contract_surcharge
     columns:
       - name: surcharge_id
@@ -179,9 +189,21 @@ models:
       - name: portal_user_id
         data_tests: [unique, not_null]
   - name: stg_admin_core__product
+    description: >
+      V6 edit 16: model_year, program_suffix and is_do_not_use are parsed from product_name
+      ("<name> <year> - <SUFFIX>"); a "- DNU" twin reuses a live product's code.
     columns:
       - name: product_id
         data_tests: [unique, not_null]
+      - name: model_year
+        data_tests: [not_null]
+      - name: program_suffix
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [FI, AG, PT, DNU]
+      - name: is_do_not_use
+        data_tests: [not_null]
   - name: stg_admin_core__product_category
     columns:
       - name: category_id

@@ -18,7 +18,7 @@ import pandas as pd
 from generator import admin_core as ac
 from generator import catalog as cat
 from generator import sim
-from generator.reference import INSURER_BY_OBLIGOR, obligor_for_state
+from generator.reference import INSURER_BY_OBLIGOR, claim_grace_days, obligor_for_state
 
 DISB_TYPES = ["ADMIN_FEE", "INSURER_FEE", "PREMIUM_TAX", "COMMISSION", "CLAIMS_RESERVE", "PROFIT_SHARE_RESERVE"]
 RESERVE_TO_ENTITY = {"CFC", "NCFC", "PORC", "RETRO", "DEALER_OWNED_OBLIGOR"}
@@ -59,7 +59,7 @@ class Ref:
         prod = live["product"].merge(sub, on="subcategory_id")
         plan = live["plan"].drop(columns=["created_at", "updated_at"], errors="ignore").merge(
             prod[["product_id", "product_code", "contract_prefix", "plan_year", "is_cancellable", "claim_wait_days",
-                  "claim_wait_miles", "coverage_limit", "subcategory_code"]], on="product_id")
+                  "claim_wait_miles", "coverage_limit", "subcategory_code", "program_type"]], on="product_id")
         comp = live["rate_component"]
         wide = comp.pivot_table(index="rate_id", columns="disbursement_type", values="amount", aggfunc="sum")
         refundable = comp.pivot_table(index="rate_id", columns="disbursement_type", values="is_refundable",
@@ -133,7 +133,8 @@ def rate_deals(deals: pd.DataFrame, ref: Ref) -> tuple[pd.DataFrame, pd.Series]:
     has_plan = d["plan_code"].isin(plan.index)
     reasons[~has_plan] += "unknown_plan;"
     for col in ["plan_id", "product_code", "contract_prefix", "plan_year", "deductible_amount", "deductible_name",
-                "claim_wait_days", "claim_wait_miles", "coverage_limit", "subcategory_code", "is_cancellable"]:
+                "claim_wait_days", "claim_wait_miles", "coverage_limit", "subcategory_code", "is_cancellable",
+                "program_type"]:
         d["_p_" + col] = d["plan_code"].map(plan[col])
     reasons[has_plan & (d["_p_product_code"] != d["product_code"])] += "plan_product_mismatch;"
     rated = d["_p_subcategory_code"].map(lambda s: cat.SUBCAT_BY_CODE[s].rated_by_vehicle if isinstance(s, str)
@@ -243,10 +244,13 @@ def sale_rows(d: pd.DataFrame, ref: Ref, ids: Ids, as_of: np.datetime64) -> dict
             "lienholder_id"].to_numpy(),
         **{c: d[c].to_numpy() for c in ["customer_first_name", "customer_last_name", "customer_email",
                                         "customer_phone", "customer_zip", "customer_state"]},
+        "program_type": d["_p_program_type"].to_numpy(),
+        **header_fields(d.assign(_booked_at=booked), sale),
         "created_at": booked,
         "updated_at": booked,
     })
     d["contract_id"] = contract["contract_id"].to_numpy()
+    docs = contract_documents(contract, d["_p_subcategory_code"].to_numpy(), d["_p_plan_year"].to_numpy(), ids, as_of)
 
     txn = pd.DataFrame({
         "txn_id": ids.take("transaction", n), "tenant_id": contract["tenant_id"],
@@ -277,7 +281,104 @@ def sale_rows(d: pd.DataFrame, ref: Ref, ids: Ids, as_of: np.datetime64) -> dict
     for frame, table in [(disb, "disbursement"), (comm, "commission")]:
         frame.insert(0, ac.pk(table), ids.take(table, len(frame)))
     return {"contract": contract, "transaction": txn, "disbursement": disb, "commission": comm,
-            "contract_surcharge": sur, "contract_option": opt, "contract_status_history": hist}
+            "contract_surcharge": sur, "contract_option": opt, "contract_status_history": hist,
+            "contract_document": docs}
+
+# ---------------------------------------------------------------- admin-screen header fields (V6 edit A)
+ESIGNED_PCT = 72  # share of contracts signed electronically (the rest are wet-signed paper jackets)
+
+
+def header_fields(d: pd.DataFrame, sale: np.ndarray) -> dict[str, np.ndarray]:
+    """Contract header fields the admin screen shows that the feed does not send: claim grace days (by
+    product), e-signed flag, finalized timestamp (= booking) and the vehicle in-service date (the sale date
+    for a new vehicle; for a used one a day in its model year's selling season, before the sale).
+    Hash-keyed on the contract number, so no random draw moves and the build and the feed promotion agree."""
+    h = _crc(d["contract_number"].to_numpy())
+    grace = d["_p_subcategory_code"].map(lambda s: claim_grace_days(cat.SUBCAT_BY_CODE[s])).to_numpy()
+    year = pd.to_numeric(d["vehicle_year"], errors="coerce").to_numpy()
+    year = np.where(np.isnan(year), sale.astype("M8[Y]").astype(int) + 1970, year).astype(int)
+    season = np.array([f"{y - 1}-10-01" for y in year], dtype="M8[D]") + (h % 365) * sim.DAY
+    used = d["new_used"].astype(str).str.upper().eq("USED").to_numpy()
+    in_service = np.where(used, np.minimum(season, sale - sim.DAY), sale)
+    return {"claim_grace_days": grace, "is_esigned": ((h // 13) % 100 < ESIGNED_PCT).astype(int),
+            "finalized_at": d["_booked_at"].to_numpy(), "in_service_date": sim.iso(in_service)}
+
+
+# ---------------------------------------------------------------- contract documents (V6 edit 4)
+FORM_CODE_FROM = 2024  # documents generated before this year carry no form_code (the field did not exist)
+REGEN_PCT, REGEN_DELETED_PCT, OTHER_PCT = 6, 2, 4  # regenerated CONTRACT doc; of those, deleted again; OTHER doc
+TENANT_CODE = {t[0]: t[1] for t in cat.TENANTS}
+
+
+def _doc_frame(ids: Ids, contract_id, tenant_id, related, kind: str, at, form, name, deleted) -> pd.DataFrame:
+    n = len(contract_id)
+    return pd.DataFrame({
+        "document_id": ids.take("contract_document", n), "tenant_id": np.asarray(tenant_id),
+        "contract_id": np.asarray(contract_id), "related_document_id": related, "document_type": kind,
+        "generated_at": np.asarray(at), "form_code": form, "document_name": name,
+        "is_deleted": np.broadcast_to(np.asarray(deleted, dtype=int), (n,)),
+        "created_at": np.asarray(at), "updated_at": np.asarray(at)})
+
+
+def doc_names(subcat, plan_year, tenant_id, kind: str, version: int) -> np.ndarray:
+    """``<FORM>_<KIND> - <ver> - <provider>``, e.g. ``VSCPT_STD - 2024.1 - PVA`` (KIND: STD, CXL, OTH)."""
+    return np.array([f"{str(s).replace('-', '')}_{kind} - {int(y)}.{version} - {TENANT_CODE.get(int(t), 'ADM')}"
+                     for s, y, t in zip(subcat, plan_year, tenant_id, strict=True)], dtype=object)
+
+
+def contract_documents(contract: pd.DataFrame, subcat: np.ndarray, plan_year: np.ndarray, ids: Ids,
+                       as_of: np.datetime64) -> pd.DataFrame:
+    """One CONTRACT document per booked contract at booking time. A few are regenerated 1-20 days later (the
+    new one points at the one it replaces via related_document_id, and some regenerations are deleted again,
+    so the original wins); a few contracts also get an OTHER document. Hash-keyed: no random draw is used."""
+    if contract.empty:
+        return pd.DataFrame()
+    at = contract["created_at"].astype(str).to_numpy()
+    ten = contract["tenant_id"].to_numpy()
+    cid = contract["contract_id"].to_numpy()
+    h = _crc(contract["contract_number"].to_numpy())
+    form_all = np.array([f"{str(s).replace('-', '')}-{int(y) % 100:02d}-{st}" for s, y, st in
+                         zip(subcat, plan_year, contract["reportable_state"], strict=True)], dtype=object)
+
+    def form_for(stamps) -> np.ndarray:
+        return np.array([int(str(a)[:4]) >= FORM_CODE_FROM for a in stamps], dtype=bool)
+
+    v1 = _doc_frame(ids, cid, ten, None, "CONTRACT", at, np.where(form_for(at), form_all, None),
+                    doc_names(subcat, plan_year, ten, "STD", 1), 0)
+    regen = np.array([a[:19] for a in at], dtype="M8[s]") + ((1 + (h // 100) % 20) * 86400).astype("m8[s]")
+    re = (h % 100 < REGEN_PCT) & (regen < (np.datetime64(as_of, "D") + sim.DAY).astype("M8[s]"))
+    re_at = np.array([str(x).replace("T", " ") for x in regen[re]], dtype=object)
+    v2 = _doc_frame(ids, cid[re], ten[re], v1["document_id"].to_numpy()[re], "CONTRACT", re_at,
+                    np.where(form_for(re_at), form_all[re], None),
+                    doc_names(subcat[re], plan_year[re], ten[re], "STD", 2), (h[re] % 100) < REGEN_DELETED_PCT)
+    oth = (h // 7) % 100 < OTHER_PCT
+    v3 = _doc_frame(ids, cid[oth], ten[oth], v1["document_id"].to_numpy()[oth], "OTHER", at[oth], None,
+                    doc_names(subcat[oth], plan_year[oth], ten[oth], "OTH", 1), 0)
+    return pd.concat([v1, v2, v3], ignore_index=True)
+
+
+def cancel_documents(cancel: pd.DataFrame, contract: pd.DataFrame, ref: Ref, ids: Ids) -> pd.DataFrame:
+    """One CANCEL document per cancellation, generated when the cancel is processed (no form code)."""
+    plan = ref.plan.set_index("plan_id")
+    pid = pd.Series(contract["plan_id"].to_numpy())
+    ten = cancel["tenant_id"].to_numpy()
+    return _doc_frame(ids, cancel["contract_id"].to_numpy(), ten, None, "CANCEL", cancel["processed_at"].to_numpy(),
+                      None, doc_names(pid.map(plan["subcategory_code"]).to_numpy(),
+                                      pid.map(plan["plan_year"]).fillna(0).to_numpy(), ten, "CXL", 1), 0)
+
+
+def ceding_entity(dealer_id: pd.Series, entered_date: pd.Series | None, ref: Ref) -> tuple[pd.Series, pd.Series]:
+    """(structure_type, entity_id) the dealer's reserve cedes to, per row. A run-off entity takes no contract
+    entered after its run-off date (V6 edit 13): those rows get no entity, so the reserve stays with the obligor."""
+    ent = ref.entity.set_index("dealer_id")
+    dealer_id = dealer_id.reset_index(drop=True)
+    structure, entity_id = dealer_id.map(ent["structure_type"]), dealer_id.map(ent["entity_id"])
+    if "runoff_date" in ent and entered_date is not None:
+        runoff = dealer_id.map(ent["runoff_date"]).to_numpy(dtype=object)
+        entered = pd.Series(entered_date).astype(str).to_numpy()
+        closed = np.array([isinstance(r, str) and e > r for r, e in zip(runoff, entered, strict=True)], dtype=bool)
+        structure, entity_id = structure.where(~closed), entity_id.where(~closed)
+    return structure, entity_id
 
 
 def disbursements(contract: pd.DataFrame, txn: pd.DataFrame, ref: Ref, sign: float, pct: np.ndarray) -> pd.DataFrame:
@@ -289,9 +390,7 @@ def disbursements(contract: pd.DataFrame, txn: pd.DataFrame, ref: Ref, sign: flo
     c["txn_id"] = txn["txn_id"].to_numpy()
     c["posted_at"] = txn["posted_at"].to_numpy()
     c = c.merge(ref.comp, on="rate_id", how="left")
-    ent = ref.entity.set_index("dealer_id")
-    structure = c["dealer_id"].map(ent["structure_type"])
-    entity_id = c["dealer_id"].map(ent["entity_id"])
+    structure, entity_id = ceding_entity(c["dealer_id"], contract.get("entered_date"), ref)
     reserve_holder = ref.holder_id("DEALER_RESERVE", entity_id)
     admin_holder = ref.holder_id("ADMIN", c["tenant_id"])
     obligor_holder = ref.holder_id("OBLIGOR", c["original_obligor_id"])
@@ -445,7 +544,7 @@ def cancel_rows(cx: pd.DataFrame, contract: pd.DataFrame, ref: Ref, ids: Ids) ->
     comm.insert(0, "commission_id", ids.take("commission", len(comm)))
     hist = status_rows(ids, cancel["tenant_id"], cancel["contract_id"], at, cx["from_status"].values, "CANCELLED")
     return {"cancellation": cancel, "transaction": txn, "disbursement": disb, "commission": comm,
-            "contract_status_history": hist}
+            "contract_status_history": hist, "contract_document": cancel_documents(cancel, c, ref, ids)}
 
 
 def reinstate_rows(rx: pd.DataFrame, cancel_disb: pd.DataFrame, cancel_comm: pd.DataFrame, ids: Ids
@@ -509,10 +608,9 @@ def amend_rows(am: pd.DataFrame, contract: pd.DataFrame, ref: Ref, ids: Ids) -> 
             "created_at": post["at"].values, "updated_at": post["at"].values,
         })
         c = contract.set_index("contract_id").loc[txn["contract_id"]].reset_index()
-        ent = ref.entity.set_index("dealer_id")
-        structure = c["dealer_id"].map(ent["structure_type"])
-        holder = np.where(structure.isin(RESERVE_TO_ENTITY), ref.holder_id("DEALER_RESERVE", c["dealer_id"].map(
-            ent["entity_id"])), ref.holder_id("OBLIGOR", c["original_obligor_id"]))
+        structure, entity_id = ceding_entity(c["dealer_id"], c.get("entered_date"), ref)
+        holder = np.where(structure.isin(RESERVE_TO_ENTITY), ref.holder_id("DEALER_RESERVE", entity_id),
+                          ref.holder_id("OBLIGOR", c["original_obligor_id"]))
         disb = pd.DataFrame({
             "disbursement_id": ids.take("disbursement", len(txn)), "tenant_id": txn["tenant_id"],
             "txn_id": txn["txn_id"], "contract_id": txn["contract_id"], "disbursement_type": "CLAIMS_RESERVE",

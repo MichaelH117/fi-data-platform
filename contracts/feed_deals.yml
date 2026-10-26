@@ -53,3 +53,10 @@ tables:
       customer_phone:      {type: string, pii: true}
       customer_zip:        {type: string, pii: true}
       customer_state:      {type: string}
+      # V6 edit 9: co-buyer, on about a quarter of deals. The admin contract never stores it (a known
+      # gap the conformed layer diagnoses), so staging keeps it from this feed only. Fake names.
+      cobuyer_name:          {type: string, pii: true}
+      cobuyer_address_line1: {type: string, pii: true}
+      cobuyer_city:          {type: string, pii: true}
+      cobuyer_state:         {type: string}
+      cobuyer_zip:           {type: string, pii: true, pattern: '[0-9]{5}'}

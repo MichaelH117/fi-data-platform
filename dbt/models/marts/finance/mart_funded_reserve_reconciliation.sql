@@ -13,9 +13,11 @@
 --                                   released by distributions, from the facts and the cession mart
 --   earned_surplus_difference     = (book closing funded - book closing unearned) - earned_surplus
 with entity_contract as (
-    select k.contract_key
-    from {{ ref('dim_contract') }} as k
-    inner join {{ ref('dim_participation_entity') }} as e using (dealer_key)
+    -- ceded contracts only: a contract entered after its entity's run-off date is rest of book
+    -- (mart_participation_contract, V6 edit 13)
+    select contract_key
+    from {{ ref('mart_participation_contract') }}
+    where is_ceded
 ),
 
 rest_written as (

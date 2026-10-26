@@ -186,6 +186,14 @@ models:
     - relationships:
         arguments: {to: ref('dim_tenant'), field: tenant_key}
   - {name: has_advance_agreement, data_type: boolean}
+  - {name: sub_agent, data_type: varchar}
+  - name: agent_category
+    data_type: varchar
+    data_tests:
+    - accepted_values:
+        arguments: {values: [ADVANCE, STANDARD]}
+  - {name: district, data_type: varchar, data_tests: [not_null]}
+  - {name: region, data_type: varchar, data_tests: [not_null]}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_product
   description: Product hierarchy at plan x program grain, from the complete Admin Core catalog.
@@ -212,6 +220,23 @@ models:
   - {name: program_code, data_type: varchar}
   - {name: program, data_type: varchar}
   - {name: plan_year, data_type: bigint}
+  - {name: model_year, data_type: integer}
+  - {name: program_suffix, data_type: varchar}
+  - name: is_do_not_use
+    data_type: boolean
+    description: A "- DNU" product twin; it has no plans, so it never reaches this dim (test assert_no_do_not_use_product_sold).
+  - {name: product_base_name, data_type: varchar}
+  - name: program_type
+    data_type: varchar
+    data_tests:
+    - accepted_values:
+        arguments: {values: [FULL_INSURED, AGENCY, PASS_THROUGH, UNKNOWN]}
+  - name: compliance_family
+    data_type: varchar
+    data_tests:
+    - accepted_values:
+        arguments: {values: [VSC, GAP, MAINTENANCE, ANCILLARY_OTHER, UNMAPPED]}
+  - {name: short_code, data_type: varchar}
   - {name: is_cancellable, data_type: boolean}
   - {name: contract_prefix, data_type: varchar}
   - {name: deductible_amount, data_type: double}
@@ -247,8 +272,15 @@ models:
     data_tests: [unique, not_null]
   - {name: obligor_id, data_type: bigint}
   - {name: entity_type, data_type: varchar}
+  - name: obligor_kind
+    data_type: varchar
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments: {values: [internal_provider, dealer_owned]}
   - {name: obligor_name, data_type: varchar}
   - {name: state, data_type: varchar}
+  - {name: participation_entity_id, data_type: bigint}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_insurer
   config:
@@ -263,6 +295,12 @@ models:
   - {name: insurer_id, data_type: bigint}
   - {name: entity_type, data_type: varchar}
   - {name: insurer_name, data_type: varchar}
+  - name: program_type
+    data_type: varchar
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments: {values: [FULL_INSURED, AGENCY, PASS_THROUGH, UNKNOWN]}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_participation_entity
   config:
@@ -291,6 +329,18 @@ models:
   - {name: reinsurer_name, data_type: varchar}
   - {name: effective_date, data_type: date}
   - {name: profit_share_pct, data_type: double}
+  - name: status
+    data_type: varchar
+    data_tests:
+    - accepted_values:
+        arguments: {values: [ACTIVE, RUNOFF]}
+  - {name: runoff_date, data_type: date}
+  - {name: cession_type, data_type: varchar}
+  - {name: gl_class_code, data_type: varchar}
+  - {name: reinsurer_status, data_type: varchar}
+  - {name: reinsurer_runoff_date, data_type: date}
+  - {name: reinsurer_cession_type, data_type: varchar}
+  - {name: reinsurer_gl_class_code, data_type: varchar}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_contract
   description: Contract core, one row per reportable contract from both systems, plus '-1'.
@@ -312,7 +362,8 @@ models:
     data_tests:
     - accepted_values:
         arguments:
-          values: [PENDING, INFORCE, CANCELLED, EXPIRED, VOIDED, DENIED, REINSTATEMENT_VOIDED, REINSTATEMENT_DENIED]
+          values: [PENDING, INFORCE, CANCELLED, EXPIRED, VOIDED, DENIED, SUSPENDED, REINSTATEMENT_PENDING,
+                   REINSTATEMENT_SUSPENDED, REINSTATEMENT_VOIDED, REINSTATEMENT_DENIED]
         config: {where: contract_key <> '-1'}
   - {name: entered_date, data_type: date}
   - {name: entered_date_key, data_type: integer}
@@ -421,6 +472,15 @@ models:
   - {name: surcharge_codes, data_type: varchar}
   - {name: surcharge_count, data_type: bigint}
   - {name: surcharge_amount, data_type: double}
+  - {name: current_document_id, data_type: bigint}
+  - {name: current_document_name, data_type: varchar}
+  - {name: current_form_code, data_type: varchar}
+  - name: form_code_source
+    data_type: varchar
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments: {values: [document, inferred, missing]}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_contract_finance
   config:
@@ -453,6 +513,12 @@ models:
   - {name: premium_tax, data_type: double}
   - {name: profit_share_reserve, data_type: double}
   - {name: is_amount_sign_fixed, data_type: boolean}
+  - name: program_type
+    data_type: varchar
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments: {values: [FULL_INSURED, AGENCY, PASS_THROUGH, UNKNOWN]}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_contract_vehicle
   config:
@@ -685,6 +751,12 @@ models:
   - {name: source_system, data_type: varchar}
   - {name: txn_type, data_type: varchar}
   - {name: disbursement_type, data_type: varchar}
+  - {name: program_type, data_type: varchar}
+  - name: incentive_group
+    data_type: varchar
+    data_tests:
+    - accepted_values:
+        arguments: {values: [PROGRAM_FEE, INSURER_PREMIUM, PRODUCER_INCENTIVE, ADMINISTRATION, RESERVE, TAX, OTHER]}
   - {name: posted_at, data_type: timestamp}
   - {name: posted_date_key, data_type: integer}
   - name: posting_period_key
@@ -1381,4 +1453,32 @@ models:
     data_type: double
     data_tests: [not_null]
   - {name: is_gated, data_type: boolean}
+  - {name: _built_at, data_type: timestamp with time zone}
+
+- name: dim_participation_entity_program
+  description: Participation entity x program type (V6 edit 13); contracts ceded vs retained after run-off.
+  config:
+    contract: {enforced: true}
+  constraints:
+  - type: primary_key
+    columns: [participation_entity_program_key]
+  columns:
+  - name: participation_entity_program_key
+    data_type: varchar
+    data_tests: [unique, not_null]
+  - name: participation_entity_key
+    data_type: varchar
+    data_tests:
+    - not_null
+    - relationships:
+        arguments: {to: ref('dim_participation_entity'), field: participation_entity_key}
+  - {name: program_type, data_type: varchar, data_tests: [not_null]}
+  - {name: status, data_type: varchar}
+  - {name: runoff_date, data_type: date}
+  - {name: cession_type, data_type: varchar}
+  - {name: contracts, data_type: bigint}
+  - {name: contracts_ceded, data_type: bigint}
+  - {name: contracts_retained, data_type: bigint}
+  - {name: first_entered_date, data_type: date}
+  - {name: last_entered_date, data_type: date}
   - {name: _built_at, data_type: timestamp with time zone}

@@ -46,12 +46,15 @@ TABLES: dict[str, tuple[str, str]] = {
     "obligor": ("obligor_id", """
         obligor_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, obligor_name TEXT NOT NULL, state TEXT"""),
     "insurer": ("insurer_id", """
-        insurer_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, insurer_name TEXT NOT NULL"""),
+        insurer_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, insurer_name TEXT NOT NULL,
+        program_type TEXT NOT NULL"""),
     "reinsurer": ("reinsurer_id", """
-        reinsurer_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, reinsurer_name TEXT NOT NULL"""),
+        reinsurer_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, reinsurer_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'ACTIVE', runoff_date DATE, cession_type TEXT, gl_class_code TEXT"""),
     "participation_entity": ("entity_id", """
         entity_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, dealer_id INTEGER NOT NULL, entity_name TEXT,
-        structure_type TEXT NOT NULL, reinsurer_id INTEGER, effective_date DATE, profit_share_pct REAL"""),
+        structure_type TEXT NOT NULL, reinsurer_id INTEGER, effective_date DATE, profit_share_pct REAL,
+        status TEXT NOT NULL DEFAULT 'ACTIVE', runoff_date DATE, cession_type TEXT, gl_class_code TEXT"""),
     # ---- products / rating
     "product_category": ("category_id", """
         category_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, category_code TEXT NOT NULL, category_name TEXT"""),
@@ -61,7 +64,8 @@ TABLES: dict[str, tuple[str, str]] = {
     "product": ("product_id", """
         product_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, subcategory_id INTEGER NOT NULL,
         product_code TEXT NOT NULL, product_name TEXT, contract_prefix TEXT NOT NULL, plan_year INTEGER NOT NULL,
-        is_cancellable INTEGER NOT NULL, claim_wait_days INTEGER, claim_wait_miles INTEGER, coverage_limit REAL"""),
+        is_cancellable INTEGER NOT NULL, claim_wait_days INTEGER, claim_wait_miles INTEGER, coverage_limit REAL,
+        program_type TEXT NOT NULL"""),
     "plan": ("plan_id", """
         plan_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, product_id INTEGER NOT NULL, plan_code TEXT NOT NULL,
         plan_name TEXT, deductible_amount REAL, deductible_name TEXT"""),
@@ -71,7 +75,7 @@ TABLES: dict[str, tuple[str, str]] = {
     "rate": ("rate_id", """
         rate_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, plan_id INTEGER NOT NULL, term_months INTEGER NOT NULL,
         term_miles INTEGER, odometer_band TEXT, class_code TEXT, deductible_amount REAL, coverage_cost REAL NOT NULL,
-        suggested_retail REAL"""),
+        suggested_retail REAL, coverage_level TEXT"""),
     "rate_component": ("rate_component_id", """
         rate_component_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, rate_id INTEGER NOT NULL,
         disbursement_type TEXT NOT NULL, account_holder_id INTEGER, amount REAL NOT NULL,
@@ -90,7 +94,9 @@ TABLES: dict[str, tuple[str, str]] = {
         cylinders INTEGER, drive_type TEXT, is_commercial INTEGER, title_brand TEXT, class_code TEXT,
         reportable_state TEXT NOT NULL, original_obligor_id INTEGER, current_obligor_id INTEGER,
         insurer_id INTEGER, lienholder_id INTEGER, customer_first_name TEXT, customer_last_name TEXT,
-        customer_email TEXT, customer_phone TEXT, customer_zip TEXT, customer_state TEXT"""),
+        customer_email TEXT, customer_phone TEXT, customer_zip TEXT, customer_state TEXT,
+        program_type TEXT NOT NULL, claim_grace_days INTEGER, is_esigned INTEGER, finalized_at TIMESTAMP,
+        in_service_date DATE"""),
     "contract_surcharge": ("surcharge_id", """
         surcharge_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, contract_id INTEGER NOT NULL,
         surcharge_code TEXT NOT NULL, amount REAL NOT NULL"""),
@@ -100,6 +106,12 @@ TABLES: dict[str, tuple[str, str]] = {
     "contract_status_history": ("status_history_id", """
         status_history_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, contract_id INTEGER NOT NULL,
         changed_at TIMESTAMP NOT NULL, from_status TEXT, to_status TEXT NOT NULL"""),
+    # ---- contract documents (V6 edit 4): 1..n per contract; the latest non-deleted CONTRACT document
+    # carries the contract's form code. form_code is NULL on documents generated before FORM_CODE_FROM.
+    "contract_document": ("document_id", """
+        document_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, contract_id INTEGER NOT NULL,
+        related_document_id INTEGER, document_type TEXT NOT NULL, generated_at TIMESTAMP NOT NULL,
+        form_code TEXT, document_name TEXT NOT NULL, is_deleted INTEGER NOT NULL DEFAULT 0"""),
     # ---- amendments / renewals
     "contract_amendment": ("amendment_id", """
         amendment_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, contract_id INTEGER,
@@ -210,7 +222,8 @@ def ddl() -> str:
         parts.append(f'CREATE INDEX ix_{name}_rv ON "{name}" (row_version);')
     for t, col in [("contract", "dealer_id"), ("contract", "status"), ("claim", "contract_id"),
                    ("claim", "status"), ("claim_payment_line", "claim_id"), ("cash_transaction", "contract_id"),
-                   ("transaction", "contract_id"), ("disbursement", "txn_id"), ("cancellation", "contract_id")]:
+                   ("transaction", "contract_id"), ("disbursement", "txn_id"), ("cancellation", "contract_id"),
+                   ("contract_document", "contract_id")]:
         parts.append(f'CREATE INDEX ix_{t}_{col} ON "{t}" ({col});')
     return "\n".join(parts)
 

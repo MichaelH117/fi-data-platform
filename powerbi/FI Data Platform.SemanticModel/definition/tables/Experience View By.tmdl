@@ -1,0 +1,42 @@
+/// Field parameter: the Experience page's View by switch (one pick at a time).
+table 'Experience View By'
+
+	column 'Experience View By'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: [Value1]
+		sortByColumn: 'Experience View By Order'
+
+		relatedColumnDetails
+			groupByColumn: 'Experience View By Fields'
+
+	column 'Experience View By Fields'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: [Value2]
+
+		extendedProperty ParameterMetadata =
+				{"version": 3, "kind": 2}
+
+	column 'Experience View By Order'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: [Value3]
+
+	partition 'Experience View By' = calculated
+		mode: import
+		source =
+				{
+				    ("Date", NAMEOF('Posting Period'[Period Start]), 0),
+				    ("Product", NAMEOF('Product'[Product]), 1),
+				    ("Dealer", NAMEOF('Dealer'[Dealer Name]), 2),
+				    ("State", NAMEOF('Contract'[Reportable State]), 3),
+				    ("Plan", NAMEOF('Product'[Plan]), 4),
+				    ("Make", NAMEOF('Contract Vehicle'[Vehicle Make]), 5),
+				    ("Entered year", NAMEOF('Contract'[Entered Year]), 6),
+				    ("Term (months)", NAMEOF('Contract Terms'[Term Months]), 7)
+				}
+
+	annotation PBI_FieldParameter = true

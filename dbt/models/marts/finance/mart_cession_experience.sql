@@ -1,6 +1,7 @@
 -- Cession / experience report. Grain: participation entity x posting period, from the entity's first
 -- activity to the as-of period (months without activity are kept, so ITD columns never skip).
--- A contract belongs to the participation entity of its dealer (one entity per dealer). Reserve
+-- A contract belongs to the participation entity of its dealer (one entity per dealer), unless it was
+-- entered after the entity's run-off date (mart_participation_contract). Reserve
 -- dollars come from the cost-split ledger (fct_disbursement), earning from fct_earned_disbursement
 -- (CLAIMS_RESERVE bucket), claims from fct_claim_payment_line. Statement terms come from the seed
 -- participation_structure_terms. loss_ratio = incurred / earned reserve (the metrics.yml posted_loss_ratio
@@ -36,10 +37,36 @@ entity as (
     inner join terms as t on t.structure_type = e.entity_type
 ),
 
+-- Run-off rule (V6 edit 13): only contracts the entity still cedes (mart_participation_contract);
+-- contracts entered after a run-off date stay with the obligor and show as transfers below.
 entity_contract as (
-    select k.contract_key, en.participation_entity_key
-    from {{ ref('dim_contract') }} as k
-    inner join entity as en using (dealer_key)
+    select m.contract_key, m.participation_entity_key
+    from {{ ref('mart_participation_contract') }} as m
+    inner join entity as en using (participation_entity_key)
+    where m.is_ceded
+),
+
+entity_status as (
+    select
+        participation_entity_key,
+        any_value(entity_status) as entity_status,
+        any_value(runoff_date) as runoff_date,
+        any_value(cession_type) as cession_type,
+        any_value(gl_class_code) as gl_class_code
+    from {{ ref('mart_participation_contract') }}
+    group by 1
+),
+
+transfers as (
+    select
+        m.participation_entity_key,
+        d.posting_period_key,
+        count(distinct d.contract_key) filter (where d.txn_type = 'SALE') as contracts_transferred,
+        sum(d.amount) as reserve_transferred
+    from {{ ref('fct_disbursement') }} as d
+    inner join {{ ref('mart_participation_contract') }} as m using (contract_key)
+    where m.is_transferred and d.disbursement_type = 'CLAIMS_RESERVE'
+    group by 1, 2
 ),
 
 ledger as (
@@ -88,6 +115,7 @@ activity as (
     select participation_entity_key, posting_period_key from ledger
     union all select participation_entity_key, posting_period_key from earned
     union all select participation_entity_key, posting_period_key from claims
+    union all select participation_entity_key, posting_period_key from transfers
 ),
 
 as_of as (
@@ -120,12 +148,15 @@ monthly as (
         coalesce(cl.paid_claims, 0) as paid_claims,
         coalesce(cl.case_reserve_change, 0) as case_reserve_change,
         coalesce(cl.incurred_claims, 0) as incurred_claims,
-        coalesce(cl.claims_paid_count, 0) as claims_paid_count
+        coalesce(cl.claims_paid_count, 0) as claims_paid_count,
+        coalesce(tr.contracts_transferred, 0) as contracts_transferred,
+        coalesce(tr.reserve_transferred, 0) as reserve_transferred
     from spine as s
     left join ledger as l using (participation_entity_key, posting_period_key)
     left join earned as e using (participation_entity_key, posting_period_key)
     left join claims as cl using (participation_entity_key, posting_period_key)
     left join sales as sa using (participation_entity_key, posting_period_key)
+    left join transfers as tr using (participation_entity_key, posting_period_key)
 ),
 
 itd as (
@@ -137,7 +168,9 @@ itd as (
         sum(case_reserve_change) over w as itd_case_reserve,
         sum(incurred_claims) over w as itd_incurred_claims,
         sum(written_profit_share_reserve) over w as itd_profit_share_reserve_funded,
-        sum(contracts_written) over w as itd_contracts_written
+        sum(contracts_written) over w as itd_contracts_written,
+        sum(contracts_transferred) over w as itd_contracts_transferred,
+        sum(reserve_transferred) over w as itd_reserve_transferred
     from monthly
     window w as (partition by participation_entity_key order by posting_period_key rows unbounded preceding)
 ),
@@ -237,6 +270,10 @@ select
     dealer_key,
     tenant_key,
     reinsurer_name,
+    coalesce(st.entity_status, 'ACTIVE') as entity_status,
+    st.runoff_date,
+    st.cession_type,
+    st.gl_class_code,
     owns_claims_reserve,
     dealer_share_pct,
     ceding_fee_pct,
@@ -279,5 +316,12 @@ select
     itd_claims_reserve_released,
     written_profit_share_reserve,
     itd_profit_share_reserve_funded,
+    -- Transfer summary (V6 edit 13): business the entity would have taken but did not, because it was
+    -- entered after the run-off date; the reserve stays with the obligor and is NOT in the columns above.
+    contracts_transferred,
+    reserve_transferred,
+    itd_contracts_transferred,
+    itd_reserve_transferred,
     {{ audit_columns() }}
 from flows
+left join entity_status as st using (participation_entity_key)

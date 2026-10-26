@@ -19,6 +19,18 @@
     "VARCHAR"
    ],
    [
+    "contract_number",
+    "VARCHAR"
+   ],
+   [
+    "product_code",
+    "VARCHAR"
+   ],
+   [
+    "dealer_number",
+    "VARCHAR"
+   ],
+   [
     "has_contract_key",
     "BOOLEAN"
    ],
@@ -61,6 +73,22 @@
    [
     "denied_category",
     "VARCHAR"
+   ],
+   [
+    "repair_category",
+    "VARCHAR"
+   ],
+   [
+    "requested_amount",
+    "DOUBLE"
+   ],
+   [
+    "deductible_amount",
+    "DOUBLE"
+   ],
+   [
+    "odometer_at_loss",
+    "BIGINT"
    ],
    [
     "loss_date",
@@ -221,6 +249,22 @@
    [
     "has_advance_agreement",
     "BOOLEAN"
+   ],
+   [
+    "sub_agent",
+    "VARCHAR"
+   ],
+   [
+    "agent_category",
+    "VARCHAR"
+   ],
+   [
+    "district",
+    "VARCHAR"
+   ],
+   [
+    "region",
+    "VARCHAR"
    ],
    [
     "_built_at",
@@ -689,6 +733,10 @@
     "BOOLEAN"
    ],
    [
+    "program_type",
+    "VARCHAR"
+   ],
+   [
     "_built_at",
     "TIMESTAMP WITH TIME ZONE"
    ]
@@ -757,6 +805,22 @@
    [
     "surcharge_amount",
     "DOUBLE"
+   ],
+   [
+    "current_document_id",
+    "BIGINT"
+   ],
+   [
+    "current_document_name",
+    "VARCHAR"
+   ],
+   [
+    "current_form_code",
+    "VARCHAR"
+   ],
+   [
+    "form_code_source",
+    "VARCHAR"
    ],
    [
     "_built_at",
@@ -995,12 +1059,20 @@
     "VARCHAR"
    ],
    [
+    "obligor_kind",
+    "VARCHAR"
+   ],
+   [
     "obligor_name",
     "VARCHAR"
    ],
    [
     "state",
     "VARCHAR"
+   ],
+   [
+    "participation_entity_id",
+    "BIGINT"
    ],
    [
     "_built_at",
@@ -1047,6 +1119,38 @@
    [
     "profit_share_pct",
     "DOUBLE"
+   ],
+   [
+    "status",
+    "VARCHAR"
+   ],
+   [
+    "runoff_date",
+    "DATE"
+   ],
+   [
+    "cession_type",
+    "VARCHAR"
+   ],
+   [
+    "gl_class_code",
+    "VARCHAR"
+   ],
+   [
+    "reinsurer_status",
+    "VARCHAR"
+   ],
+   [
+    "reinsurer_runoff_date",
+    "DATE"
+   ],
+   [
+    "reinsurer_cession_type",
+    "VARCHAR"
+   ],
+   [
+    "reinsurer_gl_class_code",
+    "VARCHAR"
    ],
    [
     "_built_at",
@@ -1155,6 +1259,34 @@
    [
     "plan_year",
     "BIGINT"
+   ],
+   [
+    "model_year",
+    "INTEGER"
+   ],
+   [
+    "program_suffix",
+    "VARCHAR"
+   ],
+   [
+    "is_do_not_use",
+    "BOOLEAN"
+   ],
+   [
+    "product_base_name",
+    "VARCHAR"
+   ],
+   [
+    "program_type",
+    "VARCHAR"
+   ],
+   [
+    "compliance_family",
+    "VARCHAR"
+   ],
+   [
+    "short_code",
+    "VARCHAR"
    ],
    [
     "is_cancellable",
@@ -1870,6 +2002,14 @@
    ],
    [
     "disbursement_type",
+    "VARCHAR"
+   ],
+   [
+    "program_type",
+    "VARCHAR"
+   ],
+   [
+    "incentive_group",
     "VARCHAR"
    ],
    [

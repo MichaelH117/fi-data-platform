@@ -190,6 +190,8 @@ def test_report_field_usage_covers_every_page_and_resolves_every_field(exported)
         assert r["model"] == "F&I Data Platform"
         if r["field_kind"] == "measure":
             assert r["dax"], r
+        elif r["dax"].startswith("field parameter: "):  # V6 Experience "View by" switch
+            assert "Make" in r["dax"] and "Term (months)" in r["dax"], r
         elif r["entity"] != "Time Intelligence":
             assert r["source_table"] and r["source_column"], r
     # the calculation group is used, and its filter value is read from the PBIR filter

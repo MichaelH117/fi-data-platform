@@ -3,12 +3,27 @@ DEALER_PRODUCTION,PENDING,Written business: a sold contract counts in its entere
 DEALER_PRODUCTION,INFORCE,Written business
 DEALER_PRODUCTION,CANCELLED,Written business: a later cancel does not remove the sale from production
 DEALER_PRODUCTION,EXPIRED,Written business
+DEALER_PRODUCTION,SUSPENDED,Written business: a hold does not remove the sale from production
+DEALER_PRODUCTION,REINSTATEMENT_PENDING,Written business (cancelled; reinstatement requested)
+DEALER_PRODUCTION,REINSTATEMENT_SUSPENDED,Written business (cancelled; reinstatement on hold)
 DEALER_PENDING,PENDING,Only contracts still waiting on dealer paperwork or remittance
 SPECIALTY_LINE,PENDING,All live and historical specialty contracts except voided and denied ones
 SPECIALTY_LINE,INFORCE,
 SPECIALTY_LINE,CANCELLED,
 SPECIALTY_LINE,EXPIRED,
+SPECIALTY_LINE,SUSPENDED,
+SPECIALTY_LINE,REINSTATEMENT_PENDING,
+SPECIALTY_LINE,REINSTATEMENT_SUSPENDED,
 SURCHARGE_AUDIT,PENDING,Audit every contract a dealer has written; voided and denied rows never priced
 SURCHARGE_AUDIT,INFORCE,
 SURCHARGE_AUDIT,CANCELLED,
 SURCHARGE_AUDIT,EXPIRED,
+SURCHARGE_AUDIT,SUSPENDED,
+SURCHARGE_AUDIT,REINSTATEMENT_PENDING,
+SURCHARGE_AUDIT,REINSTATEMENT_SUSPENDED,
+DEALER_PROD_PENDING,PENDING,Production split: still waiting on dealer paperwork or remittance
+DEALER_PROD_IN_FORCE,INFORCE,Production split: in force
+DEALER_PROD_IN_FORCE,SUSPENDED,Production split: a suspended contract is still in force (on hold)
+DEALER_PROD_CANCELLED,CANCELLED,Production split: cancelled
+DEALER_PROD_CANCELLED,REINSTATEMENT_PENDING,Production split: still cancelled until the reinstatement is approved
+DEALER_PROD_CANCELLED,REINSTATEMENT_SUSPENDED,Production split: still cancelled while the reinstatement is on hold

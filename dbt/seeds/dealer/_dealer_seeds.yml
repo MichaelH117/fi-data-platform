@@ -44,3 +44,14 @@ seeds:
     columns:
       - name: rule_id
         data_tests: [unique, not_null]
+  - name: proper_case_exceptions
+    description: >
+      Words the Proper Case macro (macros/text.sql) does not simply capitalize: suffixes, acronyms,
+      street directions and lower-case joining words. Matched on the whole lower-cased word.
+    config:
+      column_types: {token: varchar, replacement: varchar, notes: varchar}
+    columns:
+      - name: token
+        data_tests: [unique, not_null]
+      - name: replacement
+        data_tests: [not_null]

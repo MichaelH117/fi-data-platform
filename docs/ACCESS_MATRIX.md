@@ -112,3 +112,45 @@ How the dynamic map works:
 - [ ] A new tenant has its own `sg-bi-partner-<tenant>` group, and its users are mapped in `portal_user`.
 - [ ] Export of underlying data is off for the Partner Portal workspace.
 - [ ] The Compliance app audience includes only `sg-bi-internal-compliance` and leadership.
+- [ ] `python -m semantic access-audit` exits 0, and no item is shared directly (section 8).
+
+## 8. App audiences and what each one sees
+
+An app can carry several **audiences**. Each audience is one or more security groups (section 5) and
+sees only the reports ticked for it; the rest of the app is hidden from it. Rules:
+
+- **Audiences sit on top of RLS, never instead of it.** Hiding a report only tidies the navigation.
+  The rows anyone reads still come from their RLS role (section 4), so a dealer who finds a hidden
+  report's link sees their own dealers or nothing.
+- **Shared directly: never.** No report, model or dashboard is shared by link or direct access. Every
+  reader comes in through an app audience, so removing someone from a group removes all their access.
+- External audiences live only in the Dealer & Partner Reports app. A report is visible to an audience
+  only when every model it reads has that audience's RLS role (`spec.DOMAIN_ROLES`), so Compliance
+  reports can never reach an external reader.
+- Each row below is one thin report on the certified models. The generated report in `powerbi/`
+  carries the internal ones as pages so authors can build and test them in one file.
+
+`-` = the audience is not in that app.
+
+| App | Report | Models | Executive | Finance | Claims operations | Compliance | Field team | External partner | Dealer | Shared directly |
+|---|---|---|---|---|---|---|---|---|---|---|
+| VSC Internal | Executive overview | Sales, Claims, Finance | visible | visible | visible | - | visible | - | - | never |
+| VSC Internal | Dealer scorecard | Sales, Claims | visible | visible | visible | - | visible | - | - | never |
+| VSC Internal | Claims & IBNR (IBNR is actuarial output) | Claims | visible | visible | visible | - | hidden | - | - | never |
+| VSC Internal | Finance | Finance | visible | visible | hidden | - | hidden | - | - | never |
+| VSC Internal | Experience (V6 edit 1) | Finance, Sales, Claims | visible | visible | visible | - | hidden | - | - | never |
+| VSC Internal | New Reserves (V6 edit 11) | Finance, Sales | visible | visible | hidden | - | hidden | - | - | never |
+| VSC Internal | Commission hierarchy (V6 edit 12; agent pay is compensation data) | Finance | visible | visible | hidden | - | hidden | - | - | never |
+| VSC Compliance | Regulatory funded reserve | Compliance | visible | - | - | visible | - | - | - | never |
+| VSC Compliance | State in-force contract lists (contract-level rows) | Compliance | hidden | - | - | visible | - | - | - | never |
+| Dealer & Partner Reports | Dealer scorecard (partner view) | Sales, Claims | - | - | - | - | - | visible | visible | never |
+| Dealer & Partner Reports | Claims (partner view) | Claims | - | - | - | - | - | visible | visible | never |
+| Dealer & Partner Reports | Partner settlement statement (V6 edit 17; one statement per partner) | Finance | - | - | - | - | - | visible | hidden | never |
+
+How it was (legacy): the app audience was the only boundary. Reports were hidden per audience, but
+the models had no row filter, so anyone given a direct link or Build permission saw every dealer. Here
+audiences sit on top of RLS, and nothing is shared directly.
+
+Audit: `python -m semantic access-audit --out access_audit.csv` writes one row per app x audience x
+report (visibility, RLS role, models, shared directly) and exits 1 when a rule above is broken.
+`semantic/access.py` holds the list; `tests/test_semantic.py` fails if this table drifts from it.

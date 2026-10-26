@@ -59,3 +59,32 @@ seeds:
         data_tests:
           - expression_is_true:
               arguments: {expression: "payout_month between 1 and 12"}
+
+  - name: term_year_buckets
+    description: >
+      Term-year buckets for the New Reserves page (V6 edit 11): contract term in months -> bucket
+      (0-1 year = 0..12 months, 1-2 = 13..24, ...). Contiguous and covering every term.
+    config:
+      column_types: {term_bucket: varchar, bucket_label: varchar, min_months: integer, max_months: integer,
+                     sort_order: integer}
+    columns:
+      - name: term_bucket
+        data_tests: [unique, not_null]
+      - name: sort_order
+        data_tests: [unique, not_null]
+
+  - name: commission_volume_targets
+    description: >
+      Commission hierarchy input (V6 edit 12): the monthly contract volume target per district x product
+      type (product category). Over(+) / Under(-) is measured against it. District -> region is
+      dim_agent's (seeds/core/agent_territory_hierarchy.csv).
+    config:
+      column_types: {district: varchar, product_type: varchar, monthly_target_contracts: integer}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [district, product_type]}
+    columns:
+      - name: monthly_target_contracts
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "monthly_target_contracts >= 0"}

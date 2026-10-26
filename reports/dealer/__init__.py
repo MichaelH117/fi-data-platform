@@ -123,6 +123,16 @@ def page_production(con, out: Path, last_month: pd.Timestamp) -> tuple[Page, Pat
 
 
 # --------------------------------------------------------------------------- pending contracts
+# The pending packet's fixed column list (V6 edit 10): who bought it (customer, co-buyer from the
+# e-contracting feed), what was sold, who finances it, who backs it and who administers it. Names and
+# addresses arrive in Proper Case from the mart; the workbook writer freezes the header and filters
+# every column. reindex keeps the layout when an older warehouse lacks a column (empty column).
+PENDING_PACKET_COLUMNS = [
+    "dealer_number", "dealer_name", "contract_number", "customer_first_name", "customer_last_name",
+    "customer_state", "cobuyer_name", "cobuyer_address_line1", "cobuyer_city", "cobuyer_state", "cobuyer_zip",
+    "vin_token", "product_code", "product", "plan", "date_sold", "effective_date", "lienholder_name",
+    "provider_name", "administrator_name", "retail_price", "days_pending", "pending_age_band",
+]
 def page_pending(con, out: Path) -> tuple[Page, Path]:
     pend = _df(con, "select * from dealer.mart_dealer_pending_contracts order by days_pending desc")
     over60 = int((pend["days_pending"] > 60).sum())
@@ -167,12 +177,11 @@ def page_pending(con, out: Path) -> tuple[Page, Path]:
         note="Source: dealer.mart_dealer_pending_contracts (contains_pii: fake names only).",
     )
     xlsx = write_workbook(out / DOWNLOADS / "dealer_pending_contracts.xlsx", {
-        "Pending contracts": pend[["administrator_name", "dealer_number", "dealer_name", "contract_number",
-                                   "customer_first_name", "customer_last_name", "vin_token", "product_code",
-                                   "product", "plan", "date_sold", "effective_date", "lienholder_name",
-                                   "provider_name", "retail_price", "days_pending", "pending_age_band"]],
+        "Pending contracts": pend.reindex(columns=PENDING_PACKET_COLUMNS),
         "By dealer": by_dealer,
-    }, notes=["Pending contracts for dealer follow-up. Synthetic data: customer names are invented."])
+    }, notes=["Pending contracts for dealer follow-up. Synthetic data: customer and co-buyer names are invented.",
+              "Names and addresses are in Proper Case; every column has a filter. The co-buyer comes from the "
+              "e-contracting feed, so it is blank when the deal was not e-contracted or had no co-buyer."])
     page = _sub("dealer/pending.html", "Pending contracts",
                 "Contracts sold but not yet active, so each dealer can finish the paperwork.", kpis, [s1, s2, s3])
     return page, xlsx

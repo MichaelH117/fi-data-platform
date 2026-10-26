@@ -10,6 +10,7 @@ from reports.regulatory.data import (
     SUMMARY_COLUMN,
     RegulatoryData,
     filing_lines,
+    form_code_coverage,
     line_notes,
     split_notes,
     survey_notes,
@@ -28,6 +29,14 @@ def filing_href(state: str) -> str:
 
 def survey_href(state: str) -> str:
     return f"regulatory/market-survey-{state.lower()}.html"
+
+
+def inforce_href(state: str) -> str:
+    return f"regulatory/inforce-list-{state.lower()}.html"
+
+
+def pct(v: float) -> str:
+    return "n/a" if v is None or pd.isna(v) else f"{v:.0%}"
 
 
 def _status(final: bool) -> dict:
@@ -62,7 +71,7 @@ def shortfall_cause(basis: str, shortfall: float) -> str:
     return f"Funding gap on the coverage-cost basis the reserve is funded on. Expected action: {TOP_UP}."
 
 
-def index_page(d: RegulatoryData, files: dict[str, str]) -> Page:
+def index_page(d: RegulatoryData, files: dict[str, str], inforce: pd.DataFrame | None = None) -> Page:
     m = d.methods
     filed = sorted(d.summary.state.unique())
     skipped = m.loc[~m.has_requirement, "state"].tolist()
@@ -137,6 +146,7 @@ def index_page(d: RegulatoryData, files: dict[str, str]) -> Page:
                 "Numbered regulator questions by provider and calendar year, for the states that asked.",
                 cols=["State", "Years", "Providers", "Contracts issued", "Workbook"], rows=survey_rows,
                 table_open=True),
+        *([inforce_index_section(d, files, inforce)] if inforce is not None and len(inforce) else []),
         Section("Counting rules",
                 "Which statuses count, ITD versus period scope and coverage-cost versus retail basis are seed "
                 "tables, tested by dbt, not spreadsheet comments.",
@@ -283,3 +293,57 @@ def definitions_page(d: RegulatoryData) -> Page:
                             rows=meth, wide=True, table_open=True,
                             note="Illustrative synthetic rules for a portfolio project, not legal guidance."),
                 ], nav=INDEX, crumb=CRUMB)
+
+
+def inforce_index_section(d: RegulatoryData, files: dict[str, str], inforce: pd.DataFrame) -> Section:
+    """Index rows: one per state with its in-force count, form-code coverage and the Excel list."""
+    names = d.methods.set_index("state")["state_name"]
+    rows = []
+    for st, g in inforce.groupby("state", sort=True):
+        n = int(g.contract_count.sum())
+        rows.append([link(f"{st} · {names.get(st, st)}", inforce_href(st)), num(n),
+                     pct(g.form_code_source.eq("document").mean()), link("Excel", files[f"inforce:{st}"])])
+    as_of = pd.Timestamp(inforce.list_as_of_date.iloc[0])
+    return Section("State in-force contract lists",
+                   f"Every in-scope service contract in force in a state on {as_of:%b %d, %Y}, for regulators: "
+                   "contract date, contract number, product, dealer, lienholder, form code and obligor.",
+                   cols=["State", "Contracts in force", "With form code", "Workbook"], rows=rows, table_open=True)
+
+
+def inforce_page(d: RegulatoryData, state: str, rows: pd.DataFrame, workbook: str) -> Page:
+    """One state's in-force list: counts and form-code coverage here; the contract rows are in the Excel."""
+    name = d.methods.set_index("state")["state_name"].get(state, state)
+    as_of = pd.Timestamp(rows.list_as_of_date.iloc[0])
+    n = int(rows.contract_count.sum())
+    has = rows.form_code_source.eq("document")
+    kpis = [
+        Kpi("Contracts in force", num(n), f"on {as_of:%b %d, %Y}"),
+        Kpi("With form code", pct(has.mean()), "from the latest contract document"),
+        Kpi("Missing form code", num(int((~has).sum())), "no document form code; never inferred",
+            "good" if has.all() else "warning"),
+    ]
+    prod = rows.groupby(["category", "product_name"], dropna=False).contract_count.sum().reset_index()
+    cov = form_code_coverage(rows)
+    obl = rows.groupby(["obligor_name", "obligor_kind"], dropna=False).contract_count.sum().reset_index()
+    sections = [
+        Section("Contracts in force by product", "Filing product scope (the same scope as the funded-reserve "
+                                                 "filing).", cols=["Category", "Product", "Contracts"],
+                rows=[[r.category, r.product_name, num(r.contract_count)] for r in prod.itertuples()],
+                table_open=True),
+        Section("Form code coverage by contract year",
+                "The form code comes from the contract's latest non-deleted contract document. Older contracts "
+                "often have none; the list leaves those blank instead of guessing from product and state.",
+                cols=["Contract year", "Contracts", "With form code", "Missing", "Share"],
+                rows=[[int(r[0]), num(r[1]), num(r[2]), num(r[3]), pct(r[4])]
+                      for r in cov.itertuples(index=False)], table_open=True),
+        Section("Contracts in force by obligor", "The obligor backing each contract and its kind.",
+                cols=["Obligor", "Kind", "Contracts"],
+                rows=[[r.obligor_name, "" if pd.isna(r.obligor_kind) else str(r.obligor_kind).replace("_", " "),
+                       num(r.contract_count)] for r in obl.itertuples()], table_open=True),
+        Section("Download", "In Force Contracts (one row per contract), By Product and Form Code Coverage tabs.",
+                cols=["Workbook"], rows=[[link(workbook.rsplit("/", 1)[-1], workbook)]], table_open=True),
+    ]
+    return Page(inforce_href(state), f"In-force contract list · {name}",
+                f"Every in-scope service contract in force in {name} on {as_of:%B %d, %Y}: in-force statuses, "
+                "effective on or before the date, not expired or cancelled at that date.",
+                kpis, sections, nav=INDEX, crumb=CRUMB)

@@ -44,6 +44,7 @@ ref table 'Security User Access'
 ref table 'Reporting Date'
 ref table 'Payee Dealer Access'
 ref table 'IBNR by Cohort'
+ref table 'Experience View By'
 
 ref role Internal
 ref role 'Tenant Partner'

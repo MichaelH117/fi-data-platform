@@ -44,9 +44,10 @@ claims as (
 ),
 
 entity_contract as (
-    select k.contract_key, e.participation_entity_key
-    from {{ ref('dim_contract') }} as k
-    inner join {{ ref('dim_participation_entity') }} as e using (dealer_key)
+    -- ceded contracts only (run-off rule, mart_participation_contract)
+    select contract_key, participation_entity_key
+    from {{ ref('mart_participation_contract') }}
+    where is_ceded
 ),
 
 release as (

@@ -17,10 +17,12 @@ to_holder as (
 ),
 
 by_dealer as (
+    -- ceded contracts only: after a run-off date the ledger pays the obligor, not the entity
     select en.participation_entity_key, sum(d.amount) as amount
     from {{ ref('fct_disbursement') }} as d
-    inner join entity as en using (dealer_key)
-    where d.disbursement_type = 'CLAIMS_RESERVE' and d.source_system = 'admin_core'
+    inner join {{ ref('mart_participation_contract') }} as m using (contract_key)
+    inner join entity as en using (participation_entity_key)
+    where d.disbursement_type = 'CLAIMS_RESERVE' and d.source_system = 'admin_core' and m.is_ceded
     group by 1
 )
 

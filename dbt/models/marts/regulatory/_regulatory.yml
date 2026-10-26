@@ -91,3 +91,31 @@ models:
     data_tests:
       - unique_combination:
           arguments: {columns: [state, provider_key, calendar_year, item_no]}
+
+  - name: mart_state_inforce_list
+    description: >
+      State in-force contract list for compliance: every in-scope service contract in force on the
+      reporting as-of date, per state, with product, dealer, lienholder, form code (from the latest
+      non-deleted CONTRACT document, never inferred) and obligor.
+    meta: {grain: contract, contains_pii: false}
+    data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "effective_date <= list_as_of_date and coalesce(expiration_date, date '9999-12-31') > list_as_of_date"
+      - expression_is_true:
+          arguments: {expression: "(form_code_source = 'document') = (current_form_code is not null)"}
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+      - name: state
+        data_tests: [not_null]
+      - name: contract_number
+        data_tests: [not_null]
+      - name: form_code_source
+        data_tests:
+          - accepted_values:
+              arguments: {values: [document, inferred, missing]}
+      - name: obligor_kind
+        data_tests:
+          - accepted_values:
+              arguments: {values: [internal_provider, dealer_owned]}

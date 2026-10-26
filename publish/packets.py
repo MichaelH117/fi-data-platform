@@ -122,7 +122,8 @@ TABLE_SPECS: dict[str, Spec] = {
         "Pending contracts", "asof",
         f"""
         select contract_number, product, plan, date_sold, cast(days_pending as bigint) as days_pending,
-               pending_age_band, round(coverage_cost, 2) as coverage_cost, round(retail_price, 2) as retail_price
+               pending_age_band, round(coverage_cost, 2) as coverage_cost, round(retail_price, 2) as retail_price,
+               provider_name, administrator_name
         from dealer.mart_dealer_pending_contracts
         where {_DEALER}
         order by days_pending desc, contract_number
@@ -130,7 +131,8 @@ TABLE_SPECS: dict[str, Spec] = {
         (Col("contract_number", "Contract"), Col("product", "Product"), Col("plan", "Plan"),
          Col("date_sold", "Date sold", "date"), Col("days_pending", "Days pending", "int"),
          Col("pending_age_band", "Age band"), Col("coverage_cost", "Coverage cost", "money"),
-         Col("retail_price", "Retail price", "money")),
+         Col("retail_price", "Retail price", "money"), Col("provider_name", "Provider"),
+         Col("administrator_name", "Administrator")),
     ),
     "remittance_aging": Spec(
         "Remittance aging", "aging",
@@ -479,7 +481,11 @@ def _xlsx(path: Path, sheets: list[tuple[str, str, str, pd.DataFrame, tuple[Col,
             if c.fmt in XLSX_FORMATS:
                 for r in range(5, ws.max_row + 1):
                     ws.cell(row=r, column=j).number_format = XLSX_FORMATS[c.fmt]
-        if not len(df):
+        # header is row 4 (title, period, blank above it): freeze it and filter every column (V6 edit 10)
+        ws.freeze_panes = "A5"
+        if len(df):
+            ws.auto_filter.ref = f"A4:{ws.cell(row=4, column=len(cols)).column_letter}{ws.max_row}"
+        else:
             ws.append(["No rows for this period."])
     wb.save(path)
     return True

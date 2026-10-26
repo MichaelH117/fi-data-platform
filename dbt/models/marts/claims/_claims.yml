@@ -44,3 +44,38 @@ models:
     data_tests:
       - unique_combination:
           arguments: {columns: [component_code, status_group, month_start]}
+
+  # V6 edit 18: row-level exports (one per question, fixed columns every month; reports/claims).
+  - name: mart_claim_component_lines
+    description: >
+      Row-level claim components (Admin Core itemized lines; legacy repair category as one line).
+      mart_claim_components aggregates this model.
+    meta: {grain: "claim component line", contains_pii: false}
+    columns:
+      - name: component_line_id
+        data_tests: [unique, not_null]
+      - name: claim_key
+        data_tests: [not_null]
+      - name: component_source
+        data_tests:
+          - accepted_values:
+              arguments: {values: [claim_component, repair_category]}
+
+  - name: mart_claim_payment_lines
+    description: Row-level claim payment lines (core.fct_claim_payment_line plus claim and contract numbers).
+    meta: {grain: "claim payment line", contains_pii: false}
+    columns:
+      - name: line_key
+        data_tests: [unique, not_null]
+      - name: claim_number
+        data_tests: [not_null]
+
+  - name: mart_claim_payees
+    description: Claim x payee account holder, with paid, pending and incurred amounts and the payee type.
+    meta: {grain: "claim x payee", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [claim_key, payee_account_holder_key]}
+    columns:
+      - name: payee_type
+        data_tests: [not_null]

@@ -37,6 +37,13 @@ select
     {{ hash_pii('customer_email') }} as customer_key,
     left(trim(customer_zip), 3) as customer_zip3,
     upper(trim(customer_state)) as customer_state,
+    -- co-buyer (V6 edit 9): only this feed carries it; fake names, kept in staging (contains_pii) for
+    -- the pending-contracts packet, like the buyer name in stg_admin_core__contract.
+    nullif(trim(cobuyer_name), '') as cobuyer_name,
+    nullif(trim(cobuyer_address_line1), '') as cobuyer_address_line1,
+    nullif(trim(cobuyer_city), '') as cobuyer_city,
+    nullif(upper(trim(cobuyer_state)), '') as cobuyer_state,
+    nullif(trim(cobuyer_zip), '') as cobuyer_zip,
     {{ hash_pii('upper(vin)') }} as vin_hash,
     {{ is_valid_vin('vin') }} as is_valid_vin,
     _feed_date as feed_date,

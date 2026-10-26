@@ -43,6 +43,7 @@ sources:
         config: {freshness: null}
       - {name: contract_custom_field, description: "Custom-field values (EAV): one text value per contract x field. Never read past staging."}
       - {name: contract_status_history}
+      - {name: contract_document, description: "Contract documents (CONTRACT, CANCEL, OTHER), 1..n per contract. form_code is NULL before 2024; the latest non-deleted CONTRACT document carries the contract's form code."}
       - {name: contract_amendment, description: Amendments, renewals and transfers. May point at a legacy contract via legacy_contract_ref.}
       - {name: remit_batch}
       - {name: cash_transaction}

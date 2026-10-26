@@ -14,6 +14,8 @@ from powerbi import validate as pv
 from semantic import spec
 from semantic.metrics import has_time_word
 
+field_ref = report.field_ref
+
 MODEL_DEF = build.MODEL_DIR / "definition"
 
 
@@ -45,12 +47,76 @@ def test_pbip_binds_the_report_to_the_reporting_model_by_path():
     assert (build.MODEL_DIR / "definition.pbism").exists()
 
 
-def test_five_pages_in_order():
+def test_seven_pages_in_order():
     pages_dir = build.REPORT_DIR / "definition" / "pages"
     order = json.loads((pages_dir / "pages.json").read_text(encoding="utf-8"))["pageOrder"]
     names = [json.loads((pages_dir / p / "page.json").read_text(encoding="utf-8"))["displayName"] for p in order]
     assert names == ["Executive overview", "Dealer scorecard", "Claims & IBNR", "Regulatory funded reserve",
-                     "Finance"]
+                     "Finance", "Experience", "New Reserves"]
+
+
+# ---------------------------------------------------------------------- V6: Experience (1b), New Reserves (11b)
+def _page(key: str) -> report.Page:
+    return next(p for p in (f() for f in report.PAGES) if p.key == key)
+
+
+def _page_visuals(key: str) -> list[dict]:
+    return _page(key).visuals
+
+
+def test_experience_view_by_offers_the_planned_fields_in_order():
+    labels = [label for label, _, _ in model.EXPERIENCE_VIEW_FIELDS]
+    assert labels == ["Date", "Product", "Dealer", "State", "Plan", "Make", "Entered year", "Term (months)"]
+    text = (MODEL_DEF / "tables" / f"{model.EXPERIENCE_VIEW}.tmdl").read_text(encoding="utf-8")
+    assert "annotation PBI_FieldParameter = true" in text
+    for i, (label, _, _) in enumerate(model.EXPERIENCE_VIEW_FIELDS):
+        assert f'("{label}", NAMEOF(' in text and f"), {i})" in text, label
+    assert f"ref table '{model.EXPERIENCE_VIEW}'" in (MODEL_DEF / "model.tmdl").read_text(encoding="utf-8")
+
+
+def test_every_view_by_pick_slices_every_experience_measure():
+    """Each Experience measure reads a fact related straight to every View-by table, so no pick repeats a
+    total on every row (and every view adds up to the same total)."""
+    plan, columns = model.load_plan()
+    dm = model.portfolio_model(plan, columns)
+    related = {(f, t) for f, _, t, _ in dm.relationships}
+    used = {field_ref(pr["field"])[2] for v in _page_visuals("experience")
+            for role in v["visual"].get("query", {}).get("queryState", {}).values()
+            for pr in role["projections"] if "Measure" in pr["field"]}
+    assert used >= {"Earned Pct", "Cancel Pct", "Earned Reserve", "Claims Paid"}
+    facts = {t for m in dm.measures if m.name in used for t in m.tables if t in dm.facts}
+    assert len(facts) >= 4, facts
+    for fact in facts:
+        for _, table, _ in model.EXPERIENCE_VIEW_FIELDS:
+            assert (fact, table) in related, f"{fact} has no relationship to {table}"
+
+
+def test_experience_visuals_use_the_view_by_field_parameter_and_closed_periods():
+    page = _page("experience")
+    flt =page.page_json()["filterConfig"]["filters"]
+    assert any(field_ref(x["field"]) == ("Column", "Posting Period", "Is Closed") for x in flt)
+    with_param = [v for v in page.visuals
+                  if any("fieldParameters" in r for r in v["visual"].get("query", {}).get("queryState", {}).values())]
+    assert {v["visual"]["visualType"] for v in with_param} == {"tableEx", "clusteredBarChart"}
+    for v in with_param:
+        for r in v["visual"]["query"]["queryState"].values():
+            for fp in r.get("fieldParameters", []):
+                assert field_ref(fp["parameterExpr"]) == ("Column", model.EXPERIENCE_VIEW, model.EXPERIENCE_VIEW)
+                assert field_ref(r["projections"][fp["index"]]["field"])[1] == model.EXPERIENCE_VIEW
+
+
+def test_new_reserve_visuals_read_sale_postings_only():
+    """'New reserve' = claims reserve on SALE postings; the net card is the only unfiltered reserve visual."""
+    for v in _page_visuals("new_reserves"):
+        qs = v["visual"].get("query", {}).get("queryState", {})
+        labels = {pr.get("displayName") for r in qs.values() for pr in r["projections"]}
+        if "New reserve" not in labels:
+            continue
+        sale = [f for f in v.get("filterConfig", {}).get("filters", [])
+                if field_ref(f["field"]) == ("Column", "Disbursement", "Txn Type")]
+        assert sale, v["name"]
+        vals = sale[0]["filter"]["Where"][0]["Condition"]["In"]["Values"]
+        assert vals == [[{"Literal": {"Value": "'SALE'"}}]]
 
 
 # ---------------------------------------------------------------------- field references

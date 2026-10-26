@@ -61,7 +61,7 @@ flowchart LR
   GEN --> RM["F&I Data Platform<br/>combined report model"]
   CG["ONE calc group<br/>Current, MTD, QTD, YTD, PY, YoY %, T12M"] --- RM
   RLS["dynamic RLS<br/>Internal, Tenant Partner, Dealer User"] --- RM
-  RM --> PB["PBIR report<br/>5 pages"]
+  RM --> PB["PBIR report<br/>7 pages"]
   D1 & D2 & D3 & D4 --> TR["thin domain reports"]
 ```
 

@@ -420,3 +420,39 @@ def test_waived_reconciliation_rows_are_not_breaks(tmp_path):
     [page] = ops.build(con, tmp_path)
     kpi = {k.label: k for k in page.kpis}["Reconciliation breaks"]
     assert kpi.value == "0" and kpi.status == "good"
+
+
+# --------------------------------------------------------------------------- V6 edits 8 and 19
+def test_legacy_catalog_has_workspace_sprawl_without_a_made_up_number():
+    from legacy import report
+
+    [p] = [p for p in report.PAIN_POINTS if p.num == 12]
+    assert p.questions == () and p.failure == "sprawl" and p.measured_by
+    for word in ("Gen1", "UAT", "one workspace per client", "a semantic model per report", "owned by individual",
+                 "endorsement", "by hand"):
+        assert word in p.what, word
+    for word in ("certified", "deployment pipeline", "security group"):
+        assert word in p.fix, word
+    for path in (w.strip().split(" ")[0] for w in p.where.split(";")):
+        assert (ROOT / path).exists(), path
+    md = report.markdown({"questions": []})
+    entry = md.split("### 12. ")[1].split("\n## ")[0]
+    impact_line = entry.split("Measured impact:")[1].split("\n")[0]
+    assert "Not measured by a query" in impact_line and not re.search(r"\d", impact_line)
+    assert f"- **Measured by:** {p.measured_by}" in entry
+    assert "- **Measured by:** the schema-registry check" in md.split("### 10. ")[1].split("### 11. ")[0]
+    doc = (ROOT / "docs" / "LEGACY_BENCHMARK.md").read_text(encoding="utf-8")
+    assert "### 12. Workspace sprawl in the BI service" in doc
+    readme = (ROOT / "README.md").read_text(encoding="utf-8").split("## How it was, and how we fixed it")[1]
+    assert "| Workspace sprawl:" in readme.split("Every entry, with its plan")[0]
+
+
+def test_intake_form_has_the_required_fields_and_the_single_source_rule():
+    form = (OPS_DOCS / "INTAKE_FORM.md").read_text(encoding="utf-8")
+    fields = {m.group(1).strip() for m in re.finditer(r"^\| ([^|]+) \|", form, re.M)}
+    for field in ("Requesting department", "Original request date", "Change reason", "Acceptance criteria",
+                  "Attachments", "Story points", "Owner (role)", "Due date", "Definition of done"):
+        assert field in fields, field
+    assert "If it is not on the ticket, it is not in scope." in form
+    assert "original request email is attached" in form and "the ticket is the only source" in form
+    assert "word for word" in form and "regulator's blank form" in form

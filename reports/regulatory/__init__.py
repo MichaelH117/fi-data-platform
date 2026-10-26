@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import duckdb
+import pandas as pd
 
 from reports.build import Page
 from reports.regulatory import data, excel, pages
@@ -45,4 +46,12 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> list[Page]:
         excel.write_survey(out_dir / rel, state, names[state], s, details, d.as_of, data.survey_notes(d.definitions))
         files[f"survey:{state}"] = rel
         out.append(pages.survey_page(d, state, rel))
-    return [pages.index_page(d, files), *out, pages.definitions_page(d)]
+    inforce = data.inforce_list(con) if data.inforce_available(con) else None
+    if inforce is not None:
+        for state, rows in inforce.groupby("state", sort=True):
+            day = pd.Timestamp(rows.list_as_of_date.iloc[0])
+            rel = f"{DOWNLOADS}/inforce_service_contracts_{state.lower()}_{day:%Y%m%d}.xlsx"
+            excel.write_inforce_list(out_dir / rel, data.inforce_tabs(rows))
+            files[f"inforce:{state}"] = rel
+            out.append(pages.inforce_page(d, state, rows, rel))
+    return [pages.index_page(d, files, inforce), *out, pages.definitions_page(d)]

@@ -120,6 +120,7 @@ tables:
       insurer_id: INTEGER NOT NULL
       tenant_id: INTEGER NOT NULL
       insurer_name: TEXT NOT NULL
+      program_type: TEXT NOT NULL
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
@@ -130,6 +131,10 @@ tables:
       reinsurer_id: INTEGER NOT NULL
       tenant_id: INTEGER NOT NULL
       reinsurer_name: TEXT NOT NULL
+      status: TEXT NOT NULL
+      runoff_date: DATE
+      cession_type: TEXT
+      gl_class_code: TEXT
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
@@ -145,6 +150,10 @@ tables:
       reinsurer_id: INTEGER
       effective_date: DATE
       profit_share_pct: REAL
+      status: TEXT NOT NULL
+      runoff_date: DATE
+      cession_type: TEXT
+      gl_class_code: TEXT
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
@@ -186,6 +195,7 @@ tables:
       claim_wait_days: INTEGER
       claim_wait_miles: INTEGER
       coverage_limit: REAL
+      program_type: TEXT NOT NULL
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
@@ -229,6 +239,7 @@ tables:
       deductible_amount: REAL
       coverage_cost: REAL NOT NULL
       suggested_retail: REAL
+      coverage_level: TEXT
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
@@ -305,6 +316,11 @@ tables:
       customer_phone: TEXT
       customer_zip: TEXT
       customer_state: TEXT
+      program_type: TEXT NOT NULL
+      claim_grace_days: INTEGER
+      is_esigned: INTEGER
+      finalized_at: TIMESTAMP
+      in_service_date: DATE
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
@@ -342,6 +358,22 @@ tables:
       changed_at: TIMESTAMP NOT NULL
       from_status: TEXT
       to_status: TEXT NOT NULL
+      created_at: TIMESTAMP NOT NULL
+      updated_at: TIMESTAMP NOT NULL
+      row_version: INTEGER NOT NULL
+      removed_from_source: INTEGER NOT NULL
+  contract_document:
+    primary_key: [document_id]
+    columns:
+      document_id: INTEGER NOT NULL
+      tenant_id: INTEGER NOT NULL
+      contract_id: INTEGER NOT NULL
+      related_document_id: INTEGER
+      document_type: TEXT NOT NULL
+      generated_at: TIMESTAMP NOT NULL
+      form_code: TEXT
+      document_name: TEXT NOT NULL
+      is_deleted: INTEGER NOT NULL
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL

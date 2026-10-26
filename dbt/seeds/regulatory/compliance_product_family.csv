@@ -1,0 +1,18 @@
+subcategory_code,subcategory_name,compliance_family,is_service_contract
+VSC-PT,Powertrain,VSC,true
+VSC-SC,Stated Component,VSC,true
+VSC-EN,Enhanced,VSC,true
+VSC-EX,Exclusionary,VSC,true
+RV,RV Protection,VSC,true
+PSP,Powersports,VSC,true
+GAP,GAP,GAP,false
+PPM,Prepaid Maintenance,MAINTENANCE,false
+LTW,Limited Warranty,ANCILLARY_OTHER,false
+TW,Tire & Wheel,ANCILLARY_OTHER,false
+KEY,Key Replacement,ANCILLARY_OTHER,false
+PDR,Paintless Dent Repair,ANCILLARY_OTHER,false
+WS,Windshield,ANCILLARY_OTHER,false
+APP,Appearance Protection,ANCILLARY_OTHER,false
+ETCH,Theft Etch,ANCILLARY_OTHER,false
+TECH,Technology Protection,ANCILLARY_OTHER,false
+BNDL,Ancillary Bundle,ANCILLARY_OTHER,false

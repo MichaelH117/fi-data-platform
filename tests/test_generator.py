@@ -8,10 +8,12 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from generator import catalog as cat
+from generator import lifecycle as lc
 from generator.build import build
 from generator.daily import append_day
 
@@ -67,8 +69,7 @@ def test_contract_economics_tie_to_disbursements(src: Path) -> None:
                      where t.txn_type = 'SALE' group by 1""").set_index("contract_id")["amt"]
     assert (c["coverage_cost"] - d.reindex(c.index)).abs().max() < 0.02
     assert (c["purchase_price"] >= c["coverage_cost"]).all()
-    assert set(c["status"]) <= {"PENDING", "INFORCE", "CANCELLED", "EXPIRED", "VOIDED", "DENIED",
-                                "REINSTATEMENT_VOIDED", "REINSTATEMENT_DENIED"}
+    assert set(c["status"]) <= set(lc.CONTRACT_STATUSES)
     assert {"PENDING", "INFORCE", "CANCELLED", "VOIDED"} <= set(c["status"])
 
 
@@ -487,3 +488,97 @@ def test_rv_custom_fields_are_an_eav_store(src: Path) -> None:
     yr = eav[eav["field_id"] == cf.FIELD_ID["Model Year"]]
     assert (yr["value_text"] == yr["vehicle_year"].astype(str)).all()
     assert len(eav) == len(eav.drop_duplicates(["contract_id", "field_id"]))
+
+
+def test_v6_status_set_has_eleven_reachable_statuses(src: Path) -> None:
+    """V6 edit 14: every status is written through a documented transition; holds are open at the as-of."""
+    assert len(lc.CONTRACT_STATUSES) == 11
+    h = _read(src / "admin_core.db", "select from_status, to_status from contract_status_history")
+    pairs = set(h.dropna().itertuples(index=False, name=None))
+    allowed = {(f, t) for f, tos in lc.TRANSITIONS.items() for t in tos}
+    assert pairs <= allowed, pairs - allowed
+    reached = set(h["to_status"])
+    assert {"SUSPENDED", "REINSTATEMENT_PENDING"} <= reached
+    c = _read(src / "admin_core.db", "select status from contract")
+    assert set(c["status"]) <= set(lc.CONTRACT_STATUSES)
+
+
+def test_v6_program_type_flows_from_product_to_contract(src: Path) -> None:
+    """V6 edit 3: program_type is on insurer, product and contract; a contract takes its product's value."""
+    from generator.reference import PROGRAM_TYPES
+
+    db = src / "admin_core.db"
+    ins = _read(db, "select program_type from insurer")
+    assert set(ins["program_type"]) <= set(PROGRAM_TYPES)
+    m = _read(db, "select c.program_type c_pt, p.program_type p_pt from contract c join plan using (plan_id) "
+                  "join product p using (product_id)")
+    assert len(m) and (m["c_pt"] == m["p_pt"]).all() and m["c_pt"].notna().all()
+    assert set(m["c_pt"]) == set(PROGRAM_TYPES)
+
+
+def test_v6_contract_documents_one_live_contract_document_per_contract(src: Path) -> None:
+    """V6 edit 4: 1..n documents per contract; the latest non-deleted CONTRACT document has a form code
+    from the cutover year on, and none before it."""
+    from generator.booking import FORM_CODE_FROM
+
+    db = src / "admin_core.db"
+    d = _read(db, "select * from contract_document")
+    assert set(d["document_type"]) == {"CONTRACT", "CANCEL", "OTHER"}
+    n = _read(db, "select count(*) n from contract").iloc[0, 0]
+    live = d[(d["document_type"] == "CONTRACT") & (d["is_deleted"] == 0)]
+    assert live["contract_id"].nunique() == n  # every contract has a live CONTRACT document
+    assert (d["is_deleted"] == 1).any() and d["related_document_id"].notna().any()
+    year = d["generated_at"].str[:4].astype(int)
+    assert d.loc[year < FORM_CODE_FROM, "form_code"].isna().all()
+    assert live.loc[year[live.index] >= FORM_CODE_FROM, "form_code"].notna().all()
+    assert d["document_name"].str.match(r"^[A-Z]+_(STD|CXL|OTH) - \d{4}\.\d - [A-Z]+$").all()
+    cx = _read(db, "select count(*) n from cancellation").iloc[0, 0]
+    assert (d["document_type"] == "CANCEL").sum() == cx
+
+
+def test_v6_cobuyer_is_in_the_feed_only(src: Path) -> None:
+    """V6 edit 9: the network deals file carries a co-buyer on ~20-30% of deals; the admin contract never does."""
+    from generator import admin_core as ac
+    from generator.deals import COBUYER_COLS
+
+    deals = pd.concat([pd.read_csv(f, dtype=str) for f in sorted((src / "landing").glob("*/deals.csv"))])
+    assert set(COBUYER_COLS) <= set(deals.columns)
+    assert deals["cobuyer_name"].notna().any() and deals["cobuyer_name"].isna().any()
+    from generator.deals import cobuyers
+    from generator.sim import NamePools
+
+    pools = NamePools(first=np.array(["Ann", "Bo"], dtype=object), last=np.array(["Cole", "Dunn"], dtype=object))
+    ids = [f"DL{k:09d}" for k in range(5000)]
+    co = cobuyers(ids, ["Eck"] * 5000, ["Town"] * 5000, ["TX"] * 5000, ["75001"] * 5000, pools)
+    assert 0.2 < pd.notna(co["cobuyer_name"]).mean() < 0.3  # the contract: ~20-30% of deals
+    assert deals.loc[deals["cobuyer_name"].notna(), "cobuyer_zip"].str.fullmatch(r"\d{5}").all()
+    assert not set(COBUYER_COLS) & set(ac.column_specs()["contract"])
+
+
+def test_v6_reference_columns_runoff_and_product_names(src: Path) -> None:
+    """V6 edits 13, 15, 16 and A (source side)."""
+    from generator.reference import DNU_SUFFIX, RUNOFF_DATE
+
+    db = src / "admin_core.db"
+    pe = _read(db, "select * from participation_entity")
+    assert set(pe["status"]) == {"ACTIVE", "RUNOFF"} and pe["cession_type"].str.len().eq(1).all()
+    assert pe["gl_class_code"].notna().all()
+    assert set(_read(db, "select status from reinsurer")["status"]) == {"ACTIVE", "RUNOFF"}
+    late = _read(db, f"""select count(*) n from disbursement d join contract c using (contract_id)
+        join participation_entity e on e.dealer_id = c.dealer_id
+        join account_holder h on h.account_holder_id = d.account_holder_id
+        where e.status = 'RUNOFF' and c.entered_date > '{RUNOFF_DATE}' and h.holder_type = 'DEALER_RESERVE'""")
+    assert late.iloc[0, 0] == 0  # a run-off entity takes no contract entered after its run-off date
+    p = _read(db, "select product_id, product_code, product_name from product")
+    assert p["product_name"].str.match(r"^.+ \d{4} - [A-Z]+$").all()
+    dnu = p[p["product_name"].str.endswith(f" - {DNU_SUFFIX}")]
+    assert len(dnu) and dnu["product_code"].isin(p.loc[~p.index.isin(dnu.index), "product_code"]).all()
+    plans = _read(db, "select distinct product_id from plan")
+    assert not set(dnu["product_id"]) & set(plans["product_id"])  # a do-not-use product can never be sold
+    r = _read(db, """select r.coverage_cost, sum(c.amount) parts from rate r join rate_component c using (rate_id)
+                     group by r.rate_id, r.coverage_cost""")
+    assert (r["coverage_cost"] - r["parts"]).abs().max() < 0.005  # rate - fees = reserve to the cent
+    assert _read(db, "select count(*) from rate where coverage_level is null").iloc[0, 0] == 0
+    c = _read(db, "select entered_date, finalized_at, in_service_date, is_esigned, claim_grace_days from contract")
+    assert c["finalized_at"].notna().all() and (c["in_service_date"] <= c["entered_date"]).all()
+    assert set(c["is_esigned"]) == {0, 1} and c["claim_grace_days"].notna().all()

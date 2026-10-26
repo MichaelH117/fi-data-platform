@@ -501,6 +501,12 @@ def sync(warehouse: Path = WAREHOUSE_PATH, settings: Settings | None = None,
                 raise SyncError("Postgres copy does not reconcile with DuckDB (rolled back):\n  "
                                 + "\n  ".join(problems[:30]))
             pg.commit()
+        # The in-transaction ANALYZE helps FK validation, but the load's row counts are only reported
+        # at commit, so pg_stat still shows every row as "modified since ANALYZE". Re-analyze after commit
+        # so planner statistics (and the db_health stale-statistics check) are current.
+        with s.connect(autocommit=True) as pg, pg.cursor() as cur:
+            for tb in tables:
+                cur.execute(sql.SQL("ANALYZE {}").format(sql.Identifier(tb.schema, tb.name)))
     totals.update(rls_tables=n_rls, access_rows=n_map, seconds=round(time.perf_counter() - t0, 1),
                   fk_validated=len(fks["validated"]), fk_not_valid=len(fks["not_valid"]))
     log.info("synced %(tables)d tables, %(rows)d rows, float total %(float_sum).2f; RLS on %(rls_tables)d tables, "

@@ -23,12 +23,37 @@ TERM_WEIGHTS = {1: [1.0], 2: [0.4, 0.6], 3: [0.25, 0.45, 0.30], 4: [0.15, 0.30, 
 INSURER_BY_OBLIGOR = {1: 1, 2: 2, 3: 3, 4: 1, 5: 2}
 LEGACY_TENANT = 1
 
+# Program type (V6 edit 3): how the risk is carried. It lives on the source rows (insurer, product,
+# contract) so filings, disbursement routing and pages read one value. A contract takes its product's.
+PROGRAM_TYPES = ("FULL_INSURED", "AGENCY", "PASS_THROUGH")
+PROGRAM_TYPE_BY_CATEGORY = {"VSC": "FULL_INSURED", "SPECIALTY": "FULL_INSURED", "GAP": "AGENCY",
+                            "LIMITED_WARRANTY": "AGENCY", "MAINTENANCE": "PASS_THROUGH", "ANCILLARY": "PASS_THROUGH"}
+INSURER_PROGRAM_TYPE = {1: "FULL_INSURED", 2: "AGENCY", 3: "PASS_THROUGH"}
+# Product names (V6 edit 16, source side): "<name> <year> - <SUFFIX>". The suffix is the program
+# suffix; a "- DNU" (do not use) twin of the first plan year reuses the same product code and has no
+# plans, so it can never be sold. Staging derives is_do_not_use from the suffix (not emitted here).
+PROGRAM_SUFFIX = {"FULL_INSURED": "FI", "AGENCY": "AG", "PASS_THROUGH": "PT"}
+DNU_SUFFIX = "DNU"
+# Reinsurance run-off (V6 edit 13, source side). One reinsurer stops taking new business on this date;
+# its participation entities go to run-off with it: no contract entered after the date cedes to them.
+RUNOFF_REINSURER_ID = 3
+RUNOFF_DATE = "2025-07-01"
+REINSURER_CESSION_TYPE = {1: "Q", 2: "Q", 3: "X"}  # Q = quota share, X = excess of loss
+CESSION_TYPE = {"CFC": "C", "NCFC": "N", "PORC": "P", "RETRO": "R", "PROFIT_SHARE": "S", "DEALER_OWNED_OBLIGOR": "D"}
+GL_CLASS = {"C": "4110", "N": "4120", "P": "4130", "R": "4140", "S": "4150", "D": "4160", "Q": "4210", "X": "4220"}
+
 
 def obligor_for_state(state: str) -> int:
     for oid, _, states in cat.OBLIGORS:
         if states and state in states:
             return oid
     return cat.OBLIGORS[-1][0]
+
+
+def claim_grace_days(s: cat.Subcategory) -> int:
+    """Days after the waiting period in which a loss already in progress is still reviewed (admin header
+    field). Vehicle-rated VSC and specialty lines carry a 10-day grace; flat ancillary products none."""
+    return 10 if s.rated_by_vehicle or s.category == "SPECIALTY" else 0
 
 
 def _stamp(created: str, n: int) -> dict[str, list[str]]:
@@ -154,9 +179,14 @@ def build_reference(seed: int, created: str) -> tuple[dict[str, pd.DataFrame], d
         [dict(obligor_id=o, tenant_id=PLATFORM, obligor_name=nm, state=(s[0] if s else "DE"))
          for o, nm, s in cat.OBLIGORS]
     )
-    t["insurer"] = pd.DataFrame([dict(insurer_id=i, tenant_id=PLATFORM, insurer_name=nm) for i, nm in cat.INSURERS])
+    t["insurer"] = pd.DataFrame([dict(insurer_id=i, tenant_id=PLATFORM, insurer_name=nm,
+                                      program_type=INSURER_PROGRAM_TYPE[i]) for i, nm in cat.INSURERS])
     t["reinsurer"] = pd.DataFrame(
-        [dict(reinsurer_id=i, tenant_id=PLATFORM, reinsurer_name=nm) for i, nm in cat.REINSURERS]
+        [dict(reinsurer_id=i, tenant_id=PLATFORM, reinsurer_name=nm,
+              status="RUNOFF" if i == RUNOFF_REINSURER_ID else "ACTIVE",
+              runoff_date=RUNOFF_DATE if i == RUNOFF_REINSURER_ID else None,
+              cession_type=REINSURER_CESSION_TYPE[i], gl_class_code=f"GL-{GL_CLASS[REINSURER_CESSION_TYPE[i]]}")
+         for i, nm in cat.REINSURERS]
     )
     real = t["dealer"][t["dealer"]["is_demo"] == 0]
     chosen = real.sample(frac=cat.PARTICIPATION_SHARE, random_state=int(rng.integers(1 << 31))).sort_values("dealer_id")
@@ -172,6 +202,12 @@ def build_reference(seed: int, created: str) -> tuple[dict[str, pd.DataFrame], d
         "effective_date": chosen["onboarded_date"].to_numpy(),
         "profit_share_pct": [0.5 if k in ("PROFIT_SHARE", "RETRO") else None for k in kinds],
     })
+    pe = t["participation_entity"]
+    runoff = pe["reinsurer_id"].eq(RUNOFF_REINSURER_ID).to_numpy()
+    pe["status"] = np.where(runoff, "RUNOFF", "ACTIVE")
+    pe["runoff_date"] = np.where(runoff, RUNOFF_DATE, None)
+    pe["cession_type"] = pe["structure_type"].map(CESSION_TYPE)
+    pe["gl_class_code"] = "GL-" + pe["cession_type"].map(GL_CLASS)
 
     # ---- account holders
     holders = []
@@ -211,12 +247,14 @@ def build_reference(seed: int, created: str) -> tuple[dict[str, pd.DataFrame], d
     )
     products, plans, programs, rates, comps = [], [], [], [], []
     for si, s in enumerate(cat.SUBCATEGORIES):
+        ptype = PROGRAM_TYPE_BY_CATEGORY[s.category]
         for year in cat.PLAN_YEARS:
             pid = len(products) + 1
             products.append(dict(product_id=pid, tenant_id=PLATFORM, subcategory_id=si + 1, product_code=s.code,
-                                 product_name=f"{s.name} {year}", contract_prefix=s.prefix, plan_year=year,
-                                 is_cancellable=int(s.cancellable), claim_wait_days=s.wait_days,
-                                 claim_wait_miles=s.wait_miles, coverage_limit=s.coverage_limit))
+                                 product_name=f"{s.name} {year} - {PROGRAM_SUFFIX[ptype]}", contract_prefix=s.prefix,
+                                 plan_year=year, is_cancellable=int(s.cancellable), claim_wait_days=s.wait_days,
+                                 claim_wait_miles=s.wait_miles, coverage_limit=s.coverage_limit,
+                                 program_type=ptype))
             trend = (1 + INFLATION) ** (year - cat.PLAN_YEARS[0])
             for ded in s.deductibles:
                 plan_id = len(plans) + 1
@@ -246,7 +284,8 @@ def build_reference(seed: int, created: str) -> tuple[dict[str, pd.DataFrame], d
                                      "PROFIT_SHARE_RESERVE": psr}
                             cost = round(sum(parts.values()), 2)
                             rid = len(rates) + 1
-                            rates.append(dict(rate_id=rid, tenant_id=PLATFORM, plan_id=plan_id, term_months=term,
+                            rates.append(dict(rate_id=rid, tenant_id=PLATFORM, plan_id=plan_id,
+                                              coverage_level=s.name.upper(), term_months=term,
                                               term_miles=term * s.miles_per_month or None, odometer_band=band,
                                               class_code=klass, deductible_amount=ded, coverage_cost=cost,
                                               suggested_retail=float(round(cost * 1.9, -1) - 1)))
@@ -255,6 +294,9 @@ def build_reference(seed: int, created: str) -> tuple[dict[str, pd.DataFrame], d
                                                   disbursement_type=kind, account_holder_id=None, amount=amt,
                                                   is_refundable=int(kind != "ADMIN_FEE"),
                                                   is_renewable=int(kind in ("CLAIMS_RESERVE", "ADMIN_FEE"))))
+    for p in [p for p in products if p["plan_year"] == cat.PLAN_YEARS[0]]:  # do-not-use twins: no plans, never sold
+        products.append({**p, "product_id": len(products) + 1,
+                         "product_name": p["product_name"].rsplit(" - ", 1)[0] + f" - {DNU_SUFFIX}"})
     t["product"], t["plan"], t["program"] = pd.DataFrame(products), pd.DataFrame(plans), pd.DataFrame(programs)
     t["rate"], t["rate_component"] = pd.DataFrame(rates), pd.DataFrame(comps)
 

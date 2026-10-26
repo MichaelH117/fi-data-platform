@@ -99,7 +99,8 @@ class PainPoint:
     fix: str
     where: str
     questions: tuple[str, ...]
-    failure: str  # lost | doubled | zeroed | sign | stale | timeout/slow | skewed | extra step | clutter
+    failure: str  # lost | doubled | zeroed | sign | stale | timeout/slow | skewed | extra step | clutter | sprawl
+    measured_by: str = ""  # only for entries with no benchmark question (default: the schema-registry check)
 
 
 def _impact_1(r: Result) -> str:
@@ -209,6 +210,14 @@ def _impact_11(r: Result) -> str:
             f"{timing(r.side('q09', 'modern'))}.")
 
 
+def _impact_12(r: Result) -> str:
+    # Structure only: the BI service tenant is not rebuilt here, so there is no query and no number to read.
+    return ("Not measured by a query: the BI service itself is not rebuilt in this repo. Each copy is one more "
+            "place where the same number can disagree; a fix made in one generation copy or client workspace does "
+            "not reach the others; an item owned by a person has no owner after that person leaves; and with no "
+            "endorsement or sensitivity label, a reader cannot tell the certified model from a test copy.")
+
+
 PAIN_POINTS: tuple[PainPoint, ...] = (
     PainPoint(1, "One semantic model per source schema, and a contract \"dim\" that is a query",
               "Three source-named schemas each backed their own model; finance carried _gen2/_gen3 copies that "
@@ -292,9 +301,23 @@ PAIN_POINTS: tuple[PainPoint, ...] = (
               "The custom fields are pivoted in staging into typed columns on dim_contract_vehicle.",
               "dbt/models/staging/admin_core/stg_admin_core__contract_custom_field.sql; dim_contract_vehicle.sql",
               ("q09",), "extra step"),
+    PainPoint(12, "Workspace sprawl in the BI service",
+              "Generation copies of the same reports (Gen1 next to Gen2), DEV, UAT and POC copies living inside "
+              "production workspaces, one workspace per client for custom reports, a semantic model per report, "
+              "items owned by individual people, no endorsement or sensitivity labels, and refreshes started by "
+              "hand.",
+              "Publishing was open to anyone, so every new need became a new copy; promotion, ownership and "
+              "certification were never part of how an item reached production.",
+              "One certified shared model that thin reports connect to live; items reach Test and Prod only through "
+              "the deployment pipeline; every item is owned by a security group, not a person; client views are "
+              "row-level security on the same model, not a workspace per client.",
+              "docs/ACCESS_MATRIX.md (workspaces and apps); docs/SEMANTIC_STRATEGY.md; "
+              "docs/operating-model/RELEASE.md; semantic/model/",
+              (), "sprawl",
+              "a structure review of the BI service (no query: the service is not rebuilt here)"),
 )
 IMPACT = {1: _impact_1, 2: _impact_2, 3: _impact_3, 4: _impact_4, 5: _impact_5, 6: _impact_6, 7: _impact_7,
-          8: _impact_8, 9: _impact_9, 10: _impact_10, 11: _impact_11}
+          8: _impact_8, 9: _impact_9, 10: _impact_10, 11: _impact_11, 12: _impact_12}
 
 
 def impact(p: PainPoint, r: Result) -> str:
@@ -309,7 +332,9 @@ def impact(p: PainPoint, r: Result) -> str:
 def entries(data: dict) -> list[dict]:
     r = Result(data)
     return [{"num": p.num, "title": p.title, "what": p.what, "impact": impact(p, r), "root_cause": p.root_cause,
-             "fix": p.fix, "where": p.where, "questions": list(p.questions), "failure": p.failure} for p in PAIN_POINTS]
+             "fix": p.fix, "where": p.where, "questions": list(p.questions), "failure": p.failure,
+             "measured_by": p.measured_by}
+            for p in PAIN_POINTS]
 
 
 def question_rows(data: dict) -> list[list[str]]:
@@ -364,6 +389,7 @@ def markdown(data: dict) -> str:
                   f"- **The fix:** {e['fix']}",
                   "- **Where it lives:** " + "; ".join(f"`{w.strip()}`" for w in e["where"].split(";")),
                   (f"- **Measured by:** {', '.join(q.upper() for q in e['questions'])}" if e["questions"]
+                   else f"- **Measured by:** {e['measured_by']}" if e["measured_by"]
                    else "- **Measured by:** the schema-registry check (`python -m pipeline.clutter_check --postgres`)"),
                   ""]
     lines += ["## Plans", "", "Top plan nodes per question (legacy, then modern).", ""]

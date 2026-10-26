@@ -26,6 +26,8 @@ select
     c.premium_tax,
     c.profit_share_reserve,
     c.is_amount_sign_fixed,
+    -- V6 edit 3: the contract's program type (= its product's; legacy rows take the catalog product's).
+    coalesce(c.program_type, 'UNKNOWN') as program_type,
     {{ audit_columns() }}
 from c
 left join {{ ref('stg_admin_core__lienholder') }} as l using (lienholder_id)

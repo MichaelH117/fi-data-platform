@@ -1,6 +1,6 @@
 # F&I Data Platform: Power BI report (PBIP)
 
-A five-page Power BI report over the warehouse on the local PostgreSQL server. It is saved as a
+A seven-page Power BI report over the warehouse on the local PostgreSQL server. It is saved as a
 **Power BI project (PBIP)**: plain text files instead of one binary `.pbix`, so git can show every
 change.
 
@@ -19,7 +19,9 @@ Pages: **Executive overview** (KPI cards, written vs earned trend, loss ratio), 
 (table with slicers and conditional formatting, RLS note), **Claims & IBNR** (frequency and
 severity, aging, top components, IBNR by accident quarter), **Regulatory funded reserve** (state
 and scope slicers, section 2 and 3 filed lines), **Finance** (P&L by product, cession and profit
-share, MTD/QTD/YTD from the calculation group).
+share, MTD/QTD/YTD from the calculation group), **Experience** (a "View by" field parameter:
+Date, Product, Dealer, State, Plan, Make, Entered year, Term; closed periods to date) and **New
+Reserves** (claims reserve booked at sale by product category and term).
 
 ## Open it, step by step
 
@@ -71,7 +73,7 @@ share, MTD/QTD/YTD from the calculation group).
 
 ## Why one combined model
 
-A Power BI report connects to exactly **one** semantic model, but these five pages need measures
+A Power BI report connects to exactly **one** semantic model, but these seven pages need measures
 from all four domain models in `semantic/` (scorecard: Sales; claims: Claims; filing:
 Compliance; P&L: Finance). So `model.py` builds one internal **reporting model**, `F&I Data Platform`,
 from the same plan as `python -m semantic`: the same 80 measures (each still maps to one metric

@@ -8,12 +8,12 @@ Snowflake-shaped warehouse, accounting-grade facts, a Power BI-ready semantic mo
 dealer statements and per-dealer packets. All of it is rebuilt every day by one command, and it refuses to
 publish a number that does not reconcile.
 
-- **Reliable.** `python -m pipeline.run` rebuilds everything from an empty folder in about 9 minutes, on a laptop,
+- **Reliable.** `python -m pipeline.run` rebuilds everything from an empty folder in about 10 minutes, on a laptop,
   with no Docker, no servers and no paid accounts. Each step fails fast, and every run is logged.
-- **Reconciled.** Row counts and dollar totals are tied out from source to raw to marts on every run. Eight
+- **Reconciled.** Row counts and dollar totals are tied out from source to raw to marts on every run. Ten
   diagnostics gates **block publishing** when one breaks: product-dimension match rate, contract key-bridge
-  coverage, claim-to-contract coverage, fan-out guard, claim sign, no demo rows, freshness and posting-period
-  integrity (`diag_*` in [pipeline/diagnostics.py](pipeline/diagnostics.py)).
+  coverage, claim-to-contract coverage, fan-out guard, claim sign, no demo rows, freshness, posting-period
+  integrity, form-code coverage and the co-buyer feed join (`diag_*` in [pipeline/diagnostics.py](pipeline/diagnostics.py)).
 - **Secure.** PII is hashed or dropped at staging. The raw-data portal returns customer initials and masked
   VINs only (no e-mail, phone or ZIP); full contact data is an opt-in scope for a dealer's admin login, and every
   export is written to an access log. A dealer can only see its own rows, and a partner program only
@@ -102,6 +102,7 @@ modern star schema (`python -m legacy demo`). Measured on synthetic data at abou
 | Sentinel date in the earnings series | 2019 loss ratio 49.24% vs 48.88% with the dropped rows | no sentinel rows | NULL + flag in staging, date index |
 | EAV custom fields in another database | one-query join impossible; two steps + export | one query | pivoted to typed columns |
 | Backups, empty shells, personal schemas | 22 registry findings | 0 | schema registry + CI clutter check |
+| Workspace sprawl: generation copies, test copies in prod, a workspace per client, a model per report, person-owned items | not a query (BI-service structure) | one certified model, three staged workspaces | deployment pipeline only, group-owned items, endorsement + labels |
 
 Every entry, with its plan, timing and where the fix lives, is in
 [docs/LEGACY_BENCHMARK.md](docs/LEGACY_BENCHMARK.md) and on the site page **Platform > Legacy vs better**. Both are
@@ -143,7 +144,7 @@ Python 3.12+ (tested on 3.13).
 ```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m pipeline.run                # full run from nothing, about 9 minutes
+.venv\Scripts\python.exe -m pipeline.run                # full run from nothing, about 10 minutes
 .venv\Scripts\python.exe -m pipeline.run --append-day   # next business day: CDC loads only new versions
 start site\index.html
 ```
@@ -197,7 +198,7 @@ or refusal is logged. It is a local demo (plain HTTP, in-memory sessions); see [
 ## Real Power BI on a real database
 
 The default run needs no servers. As an opt-in extra, the marts are copied into a real local PostgreSQL 16
-database and a five-page Power BI report reads from it. Everything below runs as your own Windows user: no
+database and a seven-page Power BI report reads from it. Everything below runs as your own Windows user: no
 admin rights, no Windows service, no Docker.
 
 1. **Get the two free programs.** PostgreSQL 16 binaries (the zip from EDB, unzipped to a folder you own) and
@@ -263,7 +264,7 @@ actuarial, semantic, publish, reports. Steps after the gates never run when a ga
 | Operational source | Admin Core and legacy system in SQLite | SQL Server with change tracking |
 | Intake | Daily dealer-feed landing folder with manifest checksums; CRM call-center export and paginated admin API extract, each with a data contract and quarantine. CRM contacts feed `core.fct_call_center_contact` and claim contact rates; the admin-API roster is checked against `dim_dealer` by a reconciliation gate test; both are tied out in `audit.reconciliation` | Partner SFTP, CRM exports and admin API pulls |
 | Warehouse | DuckDB, one schema per layer | Snowflake `RAW` / `ANALYTICS` databases, see [warehouse/snowflake/](warehouse/snowflake/) |
-| Transform | dbt Core (150+ models, 4 snapshots, 15 seeds, 560+ data tests; counts from `dbt/target/manifest.json`) | the same project on the dbt `snowflake` target |
+| Transform | dbt Core (160+ models, 4 snapshots, 21 seeds, 650+ data tests; counts from `dbt/target/manifest.json`) | the same project on the dbt `snowflake` target |
 | Orchestration | `python -m pipeline.run` | Airflow DAG calling the same steps ([pipeline/airflow/](pipeline/airflow/)) |
 | BI | Static HTML + Excel site, TMDL model spec; opt-in: PostgreSQL copy of the marts + a Power BI project (PBIP) that opens and refreshes in Desktop | Power BI semantic models with dynamic RLS on Snowflake |
 
@@ -283,7 +284,7 @@ Details: [ARCHITECTURE](docs/ARCHITECTURE.md), [DATA_MODEL](docs/DATA_MODEL.md),
   statement, P&L by product, actuarial reserves, and an operations page with run history.
 - **Semantic layer** ([semantic/](semantic/)): Sales, Claims, Finance and Compliance models, generated from
   [dbt/models/metrics.yml](dbt/models/metrics.yml). A test proves every measure maps to a metric.
-- **Power BI report** ([powerbi/](powerbi/)): a five-page PBIP project over a reconciled PostgreSQL copy of the
+- **Power BI report** ([powerbi/](powerbi/)): a seven-page PBIP project over a reconciled PostgreSQL copy of the
   marts, with dealer row-level security (opt-in, see [Real Power BI on a real database](#real-power-bi-on-a-real-database)).
 - **Raw-data portal** ([portal/](portal/README.md)): a CLI, a read-only HTTP API and a browser UI, all scoped to
   one dealer or one partner program and written to an access log.
@@ -342,7 +343,7 @@ The top items:
 6. The Snowflake scripts, the dbt `snowflake` target and the Airflow DAG are written but not executed here.
    Running them needs accounts or Docker. The Postgres target is real but opt-in: a local server, a
    reconciled copy of the marts and a Power BI model pointed at it ([warehouse/postgres](warehouse/postgres/README.md)).
-7. The full run takes about 9 minutes against a 5-minute goal; dbt (about 4 minutes) and generate plus ingest
+7. The full run takes about 10 minutes against a 5-minute goal; dbt (about 4 minutes) and generate plus ingest
    (about 2 minutes) are the largest steps.
 
 ## Author

@@ -34,6 +34,22 @@ table Agent
 		dataType: boolean
 		sourceColumn: HAS_ADVANCE_AGREEMENT
 
+	column 'Sub Agent'
+		dataType: string
+		sourceColumn: SUB_AGENT
+
+	column 'Agent Category'
+		dataType: string
+		sourceColumn: AGENT_CATEGORY
+
+	column District
+		dataType: string
+		sourceColumn: DISTRICT
+
+	column Region
+		dataType: string
+		sourceColumn: REGION
+
 	partition Agent = m
 		mode: import
 		source =

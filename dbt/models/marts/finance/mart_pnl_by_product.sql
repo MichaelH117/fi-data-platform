@@ -90,9 +90,9 @@ claims as (
 -- Dealer participation: each entity's period profit share, spread over its products by ITD earned
 -- claims reserve (by contracts written while an entity has earned nothing yet).
 entity_contract as (
-    select k.contract_key, pe.participation_entity_key
-    from {{ ref('dim_contract') }} as k
-    inner join {{ ref('dim_participation_entity') }} as pe using (dealer_key)
+    select contract_key, participation_entity_key  -- ceded contracts only (run-off rule)
+    from {{ ref('mart_participation_contract') }}
+    where is_ceded
 ),
 
 entity_earned as (

@@ -148,10 +148,10 @@ def test_marts_read_core_only_except_documented_pii():
     """Marts build on core (and seeds); only documented exceptions reach into staging/intermediate."""
     allowed = {
         "mart_dealer_pending_contracts.sql": {"int_contract_key_bridge", "stg_admin_core__contract",
-                                              "stg_legacy_admin__contracts"},
+                                              "stg_legacy_admin__contracts", "stg_network_feed__deals"},
         "mart_surcharge_audit.sql": {"stg_admin_core__contract_surcharge"},
         "mart_claim_summary.sql": {"stg_admin_core__claim_component", "int_claim_number_bridge"},
-        "mart_claim_components.sql": {"stg_admin_core__claim_component", "int_claim_number_bridge"},
+        "mart_claim_component_lines.sql": {"stg_admin_core__claim_component", "int_claim_number_bridge"},
     }
     for path in [*DEALER_MODELS.glob("*.sql"), *CLAIMS_MODELS.glob("*.sql")]:
         refs = set(re.findall(r"ref\('([^']+)'\)", path.read_text(encoding="utf-8")))
@@ -702,3 +702,138 @@ def test_real_same_dealer_same_label_same_value(tmp_path):
     assert all(by_dealer[r[0].split()[0]] == r[j] for r in s1.rows)
     links = dealer_watch.packet_links(cur)
     assert links.get("D1001", "").endswith("/D1001/index.html")
+
+
+# --------------------------------------------------------------------------- V6 edits 10, 18, status split
+def _proper_case_sql(expr: str, exceptions: str) -> str:
+    """Render the dbt macro proper_case (macros/text.sql) outside dbt."""
+    text = (ROOT / "dbt" / "macros" / "text.sql").read_text(encoding="utf-8")
+    return str(Environment().from_string(text).module.proper_case(expr, exceptions))
+
+
+def test_proper_case_exceptions_seed_is_lower_case_and_unique():
+    rows = seed("proper_case_exceptions")
+    tokens = [r["token"] for r in rows]
+    assert tokens == [t.lower() for t in tokens] and len(set(tokens)) == len(tokens)
+    assert all(r["replacement"].lower() == r["token"] for r in rows), "a replacement only changes the case"
+    assert {"llc", "ii", "iii", "jr"} <= set(tokens)
+
+
+def test_proper_case_macro_names_and_addresses():
+    con = duckdb.connect()
+    rows = seed("proper_case_exceptions")
+    con.execute("create table ex as select map(?, ?) as exceptions",
+                [[r["token"] for r in rows], [r["replacement"] for r in rows]])
+    sql = _proper_case_sql("t.x", "ex.exceptions")
+    cases = {
+        "JOHN SMITH-JONES II": "John Smith-Jones II",
+        "o'neil motors llc": "O'Neil Motors LLC",
+        "  ann   lee  jr ": "Ann Lee Jr",
+        "bank of the north na": "Bank of The North NA",
+        "of counsel lending": "Of Counsel Lending",
+        "123 nw main st": "123 NW Main St",
+        "": None,
+        None: None,
+    }
+    con.execute("create table t (x varchar)")
+    con.executemany("insert into t values (?)", [[k] for k in cases])
+    got = dict(con.execute(f"select t.x, {sql} from t cross join ex").fetchall())
+    assert got == cases
+
+
+def test_pending_mart_formats_packet_columns():
+    sql = (DEALER_MODELS / "mart_dealer_pending_contracts.sql").read_text(encoding="utf-8")
+    for col in ("customer_first_name", "customer_last_name", "cobuyer_name", "cobuyer_address_line1",
+                "cobuyer_city", "lienholder_name", "provider_name"):
+        assert re.search(r"proper_case\('[a-z]+\.[a-z0-9_]+'\) }} as " + col, sql), col
+    assert "cb.deal_id = p.deal_id" in sql and "administrator_name" in sql
+    assert set(dealer_report.PENDING_PACKET_COLUMNS) >= {
+        "cobuyer_name", "cobuyer_address_line1", "cobuyer_city", "cobuyer_state", "cobuyer_zip",
+        "lienholder_name", "provider_name", "administrator_name", "customer_state"}
+
+
+def test_pending_workbook_has_fixed_columns_filter_and_frozen_header(mini_wh, tmp_path):
+    from openpyxl import load_workbook
+
+    _, xlsx = dealer_report.page_pending(mini_wh, tmp_path)
+    detail = pd.read_excel(xlsx, sheet_name="Pending contracts")
+    assert list(detail.columns) == dealer_report.PENDING_PACKET_COLUMNS  # missing columns come out empty
+    ws = load_workbook(xlsx)["Pending contracts"]
+    assert ws.freeze_panes == "A2"
+    assert ws.auto_filter.ref == ws.dimensions
+
+
+def test_dealer_packet_xlsx_filters_every_column(tmp_path):
+    from datetime import date
+
+    from openpyxl import load_workbook
+
+    import publish.packets as pk
+
+    spec = pk.TABLE_SPECS["pending_contracts"]
+    assert {c.key for c in spec.cols} >= {"provider_name", "administrator_name"}
+    per = pk.Periods(date(2026, 10, 21), date(2025, 10, 1), date(2026, 9, 1))
+    df = pd.DataFrame([{c.key: None for c in spec.cols} | {"contract_number": "VSC-1", "days_pending": 3}])
+    path = tmp_path / "p.xlsx"
+    assert pk._xlsx(path, [("Pending", "Pending contracts", "as of", df, spec.cols)], per)
+    ws = load_workbook(path)["Pending"]
+    assert ws.freeze_panes == "A5"
+    assert ws.auto_filter.ref == f"A4:{ws.cell(row=4, column=len(spec.cols)).column_letter}5"
+
+
+def test_production_split_comes_from_the_status_seed():
+    rows = seed("dealer_report_status_sets")
+    written = {r["status"] for r in rows if r["report_id"] == "DEALER_PRODUCTION"}
+    buckets = {b: {r["status"] for r in rows if r["report_id"] == b}
+               for b in ("DEALER_PROD_PENDING", "DEALER_PROD_IN_FORCE", "DEALER_PROD_CANCELLED")}
+    assert all(buckets.values())
+    flat = [s for v in buckets.values() for s in v]
+    assert len(flat) == len(set(flat)), "a status counts in at most one bucket"
+    assert set(flat) <= written
+    assert {"SUSPENDED"} <= buckets["DEALER_PROD_IN_FORCE"]
+    assert {"REINSTATEMENT_PENDING", "REINSTATEMENT_SUSPENDED"} <= buckets["DEALER_PROD_CANCELLED"]
+    sql = (DEALER_MODELS / "mart_dealer_production.sql").read_text(encoding="utf-8")
+    assert not re.search(r"status = '[A-Z_]+'", sql), "no hard-coded status in the production split"
+
+
+def test_claim_components_aggregate_the_row_level_export():
+    sql = (CLAIMS_MODELS / "mart_claim_components.sql").read_text(encoding="utf-8")
+    assert set(re.findall(r"ref\('([^']+)'\)", sql)) == {"mart_claim_component_lines"}
+    assert (ROOT / "dbt" / "tests" / "claims" / "assert_claim_exports_tie_to_summary.sql").is_file()
+
+
+def _add_export_marts(con: duckdb.DuckDBPyConnection) -> None:
+    """Give the fixture the V6 export columns: new marts get one row, the summary gets its new columns."""
+    for _, _, mart, cols, _ in claims_report.EXPORTS:
+        have = {r[0] for r in con.execute(f"describe {mart}").fetchall()} if mart.endswith("summary") else None
+        if have is not None:
+            for c in cols:
+                if c not in have:
+                    con.execute(f"alter table {mart} add column {c} varchar")
+            con.execute(f"update {mart} set claim_number = 'CL-' || claim_key")
+        else:
+            sel = ", ".join(f"'CL-1' as {c}" if c == "claim_number" else f"1 as {c}" for c in cols)
+            con.execute(f"create table {mart} as select {sel}, 'x' as component_line_id, '-1' as _built_at")
+
+
+def test_claims_row_level_exports_fixed_columns(mini_wh, tmp_path):
+    out = tmp_path / "site"
+    pages = claims_report.build(mini_wh, out)  # the fixture's pre-V6 summary has no claim_number: no exports
+    assert not any(s.title == "Row-level exports" for s in pages[0].sections)
+    _add_export_marts(mini_wh)
+    pages = claims_report.build(mini_wh, out)
+    sec = [s for s in pages[0].sections if s.title == "Row-level exports"]
+    assert len(sec) == 1 and len(sec[0].rows) == len(claims_report.EXPORTS)
+    for stem, sheet, _, cols, _ in claims_report.EXPORTS:
+        path = out / "downloads" / "claims" / f"{stem}.xlsx"
+        book = pd.ExcelFile(path)
+        assert book.sheet_names == ["About", sheet]
+        assert list(pd.read_excel(path, sheet_name=sheet).columns) == cols
+    render(pages, out)
+    assert broken_links(out) == []
+
+
+def test_claims_exports_skip_quietly_without_their_marts(tmp_path):
+    con = duckdb.connect()
+    con.execute("create schema claims")
+    assert claims_report.write_exports(con, tmp_path, "Sep 2026") == []

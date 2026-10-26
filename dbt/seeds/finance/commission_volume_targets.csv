@@ -1,0 +1,37 @@
+district,product_type,monthly_target_contracts
+Mid-Atlantic,ANCILLARY,35
+Mid-Atlantic,GAP,18
+Mid-Atlantic,LIMITED_WARRANTY,4
+Mid-Atlantic,MAINTENANCE,8
+Mid-Atlantic,SPECIALTY,5
+Mid-Atlantic,VSC,85
+Midwest,ANCILLARY,30
+Midwest,GAP,20
+Midwest,LIMITED_WARRANTY,5
+Midwest,MAINTENANCE,9
+Midwest,SPECIALTY,5
+Midwest,VSC,85
+Northeast,ANCILLARY,22
+Northeast,GAP,14
+Northeast,LIMITED_WARRANTY,4
+Northeast,MAINTENANCE,7
+Northeast,SPECIALTY,3
+Northeast,VSC,65
+South Central,ANCILLARY,50
+South Central,GAP,30
+South Central,LIMITED_WARRANTY,6
+South Central,MAINTENANCE,14
+South Central,SPECIALTY,9
+South Central,VSC,130
+Southeast,ANCILLARY,35
+Southeast,GAP,26
+Southeast,LIMITED_WARRANTY,5
+Southeast,MAINTENANCE,11
+Southeast,SPECIALTY,5
+Southeast,VSC,105
+West,ANCILLARY,22
+West,GAP,16
+West,LIMITED_WARRANTY,2
+West,MAINTENANCE,6
+West,SPECIALTY,3
+West,VSC,55

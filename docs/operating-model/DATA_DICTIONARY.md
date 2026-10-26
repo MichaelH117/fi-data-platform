@@ -7,7 +7,7 @@ Keys are md5 strings and `'-1'` is the unknown member; `posting_period_key` is `
 
 Metric formulas are not repeated here; they are in [docs/METRICS.md](../METRICS.md).
 
-Column coverage: 330 of 1,195 consumer-facing columns described (28%).
+Column coverage: 364 of 1,323 consumer-facing columns described (28%).
 
 ## Core star schema (`core`)
 
@@ -32,7 +32,7 @@ Column coverage: 330 of 1,195 consumer-facing columns described (28%).
 | `agent_code` | VARCHAR | *undocumented* |  |
 | `agent_name` | VARCHAR | *undocumented* |  |
 | `territory` | VARCHAR | *undocumented* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `has_advance_agreement` | BOOLEAN | Yes/no flag *(naming convention)* |  |
 
 ### `core.dim_claim`
@@ -47,7 +47,7 @@ One row per claim (both systems, converted claims once). No money columns.
 | `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `has_contract_key` | BOOLEAN | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
 | `is_converted` | BOOLEAN | Yes/no flag *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `status` | VARCHAR | *undocumented* |  |
 | `substatus` | VARCHAR | *undocumented* |  |
 | `status_group` | VARCHAR | *undocumented* |  |
@@ -94,18 +94,20 @@ Contract core, one row per reportable contract from both systems, plus '-1'.
 | `entered_year` | BIGINT | *undocumented* |  |
 | `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null, relationships |
 | `dealer_number` | VARCHAR | *undocumented* |  |
-| `agent_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `agent_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null, relationships |
 | `product_code` | VARCHAR | *undocumented* |  |
 | `subcategory_code` | VARCHAR | *undocumented* |  |
 | `category_code` | VARCHAR | *undocumented* |  |
 | `plan_year` | BIGINT | *undocumented* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `reportable_state` | VARCHAR | *undocumented* |  |
-| `original_obligor_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `current_obligor_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `original_obligor_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `current_obligor_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `selling_dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `provider_entity_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `obligor_basis` | VARCHAR | SOURCE (obligor on the record), CONVERSION_STATE_MAP (legacy book, mapped at conversion) or MISSING. | accepted_values |
-| `insurer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `insurer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `customer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
 | `deal_id` | VARCHAR | Natural id in the source system *(naming convention)* |  |
 | `cancel_date` | DATE | *undocumented* |  |
@@ -119,7 +121,7 @@ Contract core, one row per reportable contract from both systems, plus '-1'.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null, relationships |
 | `class_code` | VARCHAR | *undocumented* |  |
 | `odometer_band` | VARCHAR | *undocumented* |  |
 | `vehicle_age_band` | VARCHAR | *undocumented* |  |
@@ -134,7 +136,7 @@ Per-contract claim roll-up DERIVED from fct_claim_payment_line.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null, relationships |
 | `claims_reported` | BIGINT | *undocumented* |  |
 | `claim_count` | BIGINT | *undocumented* |  |
 | `claims_denied` | BIGINT | *undocumented* |  |
@@ -153,7 +155,7 @@ Per-contract claim roll-up DERIVED from fct_claim_payment_line.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null, relationships |
 | `purchase_price` | DOUBLE | *undocumented* |  |
 | `coverage_cost` | DOUBLE | *undocumented* |  |
 | `retail_price` | DOUBLE | *undocumented* |  |
@@ -176,7 +178,7 @@ Per-contract claim roll-up DERIVED from fct_claim_payment_line.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null, relationships |
 | `term_months` | BIGINT | *undocumented* |  |
 | `term_miles` | BIGINT | *undocumented* |  |
 | `term_band` | VARCHAR | *undocumented* |  |
@@ -197,7 +199,7 @@ Per-contract claim roll-up DERIVED from fct_claim_payment_line.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null, relationships |
 | `vin_hash` | VARCHAR | *undocumented* |  |
 | `is_valid_vin` | BOOLEAN | Yes/no flag *(naming convention)* |  |
 | `chassis_vin_hash` | VARCHAR | *undocumented* |  |
@@ -213,6 +215,13 @@ Per-contract claim roll-up DERIVED from fct_claim_payment_line.
 | `new_used` | VARCHAR | *undocumented* |  |
 | `odometer` | BIGINT | *undocumented* |  |
 | `odometer_band` | VARCHAR | *undocumented* |  |
+| `coach_make` | VARCHAR | *undocumented* |  |
+| `coach_model` | VARCHAR | *undocumented* |  |
+| `chassis_make` | VARCHAR | *undocumented* |  |
+| `custom_chassis_vin_hash` | VARCHAR | *undocumented* |  |
+| `custom_model_year` | INTEGER | *undocumented* |  |
+| `has_custom_fields` | BOOLEAN | Yes/no flag *(naming convention)* |  |
+| `custom_field_invalid_count` | BIGINT | *undocumented* |  |
 
 ### `core.dim_date`
 
@@ -251,9 +260,9 @@ Current dealer rows (history in snapshots.snap_dealer); demo dealers excluded; '
 | `state` | VARCHAR | *undocumented* |  |
 | `dealer_status` | VARCHAR | *undocumented* |  |
 | `onboarded_date` | DATE | *undocumented* |  |
-| `dealer_group_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `agent_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `dealer_group_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `agent_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `remit_rule` | VARCHAR | *undocumented* |  |
 | `is_weekly_remit` | BOOLEAN | Yes/no flag *(naming convention)* |  |
 | `program` | VARCHAR | *undocumented* |  |
@@ -266,6 +275,23 @@ Current dealer rows (history in snapshots.snap_dealer); demo dealers excluded; '
 | `participation_structure` | VARCHAR | *undocumented* | accepted_values |
 | `participation_label` | VARCHAR | Display label: '<entity name>, <structure>', or 'no dealer participation'. Never NULL. | not_null |
 
+### `core.dim_dealer_crosswalk`
+
+Dealer master crosswalk: every source dealer identity (both systems) -> the surviving dealer_key in dim_dealer, with match_rule (self \| number_base \| name_state \| unknown). Look a dealer up here by ANY of its numbers.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `dealer_crosswalk_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `source_system` | VARCHAR | *undocumented* |  |
+| `source_dealer_id` | BIGINT | Natural id in the source system *(naming convention)* |  |
+| `source_dealer_number` | VARCHAR | *undocumented* |  |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null, relationships |
+| `surviving_dealer_number` | VARCHAR | *undocumented* |  |
+| `match_rule` | VARCHAR | *undocumented* | accepted_values |
+| `is_survivor` | BOOLEAN | Yes/no flag *(naming convention)* |  |
+| `is_source_active` | BOOLEAN | Yes/no flag *(naming convention)* |  |
+| `identities_in_cluster` | BIGINT | *undocumented* |  |
+
 ### `core.dim_dealer_group`
 
 | Column | Type | Description | Tests |
@@ -274,7 +300,7 @@ Current dealer rows (history in snapshots.snap_dealer); demo dealers excluded; '
 | `dealer_group_id` | BIGINT | Natural id in the source system *(naming convention)* |  |
 | `group_code` | VARCHAR | *undocumented* |  |
 | `group_name` | VARCHAR | *undocumented* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 
 ### `core.dim_insurer`
 
@@ -303,12 +329,30 @@ Current dealer rows (history in snapshots.snap_dealer); demo dealers excluded; '
 | `entity_id` | BIGINT | Natural id in the source system *(naming convention)* |  |
 | `entity_name` | VARCHAR | *undocumented* |  |
 | `entity_type` | VARCHAR | *undocumented* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `state` | VARCHAR | *undocumented* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `reinsurer_name` | VARCHAR | *undocumented* |  |
 | `effective_date` | DATE | *undocumented* |  |
 | `profit_share_pct` | DOUBLE | *undocumented* |  |
+
+### `core.dim_participation_entity_program`
+
+Participation entity x program type (V6 edit 13); contracts ceded vs retained after run-off.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `participation_entity_program_key` | varchar | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `participation_entity_key` | varchar | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null, relationships |
+| `program_type` | varchar | *undocumented* | not_null |
+| `status` | varchar | *undocumented* |  |
+| `runoff_date` | date | *undocumented* |  |
+| `cession_type` | varchar | *undocumented* |  |
+| `contracts` | bigint | *undocumented* |  |
+| `contracts_ceded` | bigint | *undocumented* |  |
+| `contracts_retained` | bigint | *undocumented* |  |
+| `first_entered_date` | date | *undocumented* |  |
+| `last_entered_date` | date | *undocumented* |  |
 
 ### `core.dim_posting_period`
 
@@ -325,6 +369,19 @@ Accounting months with close date and is_closed (period lock, docs/V3_DESIGN.md 
 | `fiscal_quarter` | BIGINT | *undocumented* |  |
 | `fiscal_month` | BIGINT | *undocumented* |  |
 | `period_label` | VARCHAR | *undocumented* |  |
+
+### `core.dim_producer`
+
+Producer with an explicit producer_role: selling_dealer (producer_key = dealer_key) or provider_entity (producer_key = obligor_key). dim_contract carries both roles by name (selling_dealer_key, provider_entity_key), so a "producer" filter can never pick the wrong one.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `producer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `producer_role` | VARCHAR | *undocumented* | not_null, accepted_values |
+| `producer_code` | VARCHAR | *undocumented* |  |
+| `producer_name` | VARCHAR | *undocumented* |  |
+| `state` | VARCHAR | *undocumented* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 
 ### `core.dim_product`
 
@@ -388,7 +445,7 @@ RLS map portal user -> tenant, dealer (semantic RLS table, dealer packets, porta
 | `user_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `user_login` | VARCHAR | *undocumented* |  |
 | `role` | VARCHAR | *undocumented* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `tenant_code` | VARCHAR | *undocumented* |  |
 | `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `dealer_number` | VARCHAR | *undocumented* |  |
@@ -408,10 +465,10 @@ Call-center contacts from the CRM export, one row per call_id. Contract resolved
 | `queue` | VARCHAR | *undocumented* |  |
 | `reason` | VARCHAR | *undocumented* | accepted_values |
 | `disposition` | VARCHAR | *undocumented* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null, relationships |
 | `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null, relationships |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `claim_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `contract_match_method` | VARCHAR | *undocumented* | accepted_values |
 | `is_complaint` | BOOLEAN | Yes/no flag *(naming convention)* |  |
@@ -427,13 +484,13 @@ Call-center contacts from the CRM export, one row per call_id. Contract resolved
 | `cancel_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `source_system` | VARCHAR | *undocumented* |  |
 | `source_cancel_id` | VARCHAR | Natural id in the source system *(naming convention)* |  |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `cancel_date` | DATE | *undocumented* |  |
 | `cancel_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `initiated_by` | VARCHAR | *undocumented* |  |
 | `reason` | VARCHAR | *undocumented* |  |
@@ -459,10 +516,10 @@ Call-center contacts from the CRM export, one row per call_id. Contract resolved
 | `cash_txn_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `cash_txn_id` | BIGINT | Natural id in the source system *(naming convention)* |  |
 | `remit_batch_id` | VARCHAR | Natural id in the source system *(naming convention)* |  |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `remit_status` | VARCHAR | *undocumented* |  |
 | `remit_source` | VARCHAR | *undocumented* |  |
 | `entered_at` | TIMESTAMP | *undocumented* |  |
@@ -470,7 +527,7 @@ Call-center contacts from the CRM export, one row per call_id. Contract resolved
 | `received_at` | TIMESTAMP | *undocumented* |  |
 | `posted_at` | TIMESTAMP | *undocumented* |  |
 | `posted_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `contract_entered_date` | DATE | *undocumented* |  |
 | `amount` | DOUBLE | *undocumented* |  |
@@ -483,14 +540,14 @@ Call-center contacts from the CRM export, one row per call_id. Contract resolved
 | Column | Type | Description | Tests |
 |---|---|---|---|
 | `claim_history_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
-| `claim_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `claim_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `changed_at` | TIMESTAMP | *undocumented* |  |
 | `changed_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `from_status` | VARCHAR | *undocumented* |  |
 | `to_status` | VARCHAR | *undocumented* |  |
@@ -506,17 +563,17 @@ THE claims fact (payment-line grain). Every claim roll-up is derived from it.
 |---|---|---|---|
 | `line_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `claim_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null, relationships |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
-| `payee_account_holder_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
+| `payee_account_holder_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `source_system` | VARCHAR | *undocumented* |  |
 | `source_line_id` | VARCHAR | Natural id in the source system *(naming convention)* |  |
 | `line_type` | VARCHAR | *undocumented* |  |
 | `posted_at` | TIMESTAMP | *undocumented* |  |
 | `posted_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `loss_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
 | `reported_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
@@ -535,14 +592,14 @@ THE claims fact (payment-line grain). Every claim roll-up is derived from it.
 |---|---|---|---|
 | `commission_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `commission_id` | BIGINT | Natural id in the source system *(naming convention)* |  |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
-| `agent_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
+| `agent_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `posted_at` | TIMESTAMP | *undocumented* |  |
 | `posted_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `amount` | DOUBLE | *undocumented* |  |
 | `share_pct` | DOUBLE | *undocumented* |  |
@@ -550,23 +607,25 @@ THE claims fact (payment-line grain). Every claim roll-up is derived from it.
 
 ### `core.fct_contract_monthly`
 
-Contract x month earning and claims (accident-month basis). Kept for actuarial/.
+Contract x month earning and claims (accident-month basis). Kept for actuarial/. row_type EARN is one row per contract x month; VOID_REVERSAL reverses a contract voided after activation; WRITTEN_CATCH_UP books a later AMEND (written + its share of months already booked) in the AMEND's posting period, so an AMEND never re-prices a closed period. posting_period_key is where the month is booked (catch-up into the first open period when the month was closed at activation); month_start / earned_month_key is the month being earned.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
 | `contract_month_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `row_type` | VARCHAR | *undocumented* | accepted_values |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `contract_id` | VARCHAR | Natural id in the source system *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `dealer_code` | VARCHAR | *undocumented* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `product_code` | VARCHAR | *undocumented* |  |
 | `subcategory_code` | VARCHAR | *undocumented* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `new_used` | VARCHAR | *undocumented* |  |
 | `month_start` | DATE | *undocumented* |  |
+| `earned_month_key` | INTEGER | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
 | `month_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `sale_month` | DATE | *undocumented* |  |
 | `months_since_effective` | BIGINT | *undocumented* |  |
@@ -575,7 +634,7 @@ Contract x month earning and claims (accident-month basis). Kept for actuarial/.
 | `earned_pct` | DOUBLE | *undocumented* |  |
 | `earned_pct_cumulative` | DOUBLE | *undocumented* |  |
 | `unearned_premium_eom` | DOUBLE | *undocumented* |  |
-| `earned_days` | BIGINT | *undocumented* |  |
+| `earned_days` | HUGEINT | *undocumented* |  |
 | `exposure_years` | DOUBLE | *undocumented* |  |
 | `is_in_force_eom` | BOOLEAN | Yes/no flag *(naming convention)* |  |
 | `claim_count` | BIGINT | *undocumented* |  |
@@ -590,17 +649,17 @@ Transaction x disbursement type x account holder.
 |---|---|---|---|
 | `disbursement_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `txn_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
-| `account_holder_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
+| `account_holder_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
 | `source_system` | VARCHAR | *undocumented* |  |
 | `txn_type` | VARCHAR | *undocumented* |  |
 | `disbursement_type` | VARCHAR | *undocumented* |  |
 | `posted_at` | TIMESTAMP | *undocumented* |  |
 | `posted_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `amount` | DOUBLE | *undocumented* |  |
 | `reserve_amount` | DOUBLE | *undocumented* |  |
@@ -610,18 +669,19 @@ Transaction x disbursement type x account holder.
 
 ### `core.fct_earned_disbursement`
 
-Contract x disbursement type x posting period earned (pro-rata default, R78 via var), plus a cancel true-up in the cancel's posting period so earned + refunded = written once cancelled.
+Contract x disbursement type x posting period x earned month (pro-rata default, R78 via var), plus a cancel true-up in the cancel's posting period so earned + refunded = written once cancelled. Earning a month already closed when the contract activated is booked in the first open period (earned_month_key keeps the true month); a VOID after activation posts a reversal. Closed periods are never restated (test core_earned_never_restates_closed_periods).
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `disbursement_type` | VARCHAR | *undocumented* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `month_start` | DATE | *undocumented* |  |
+| `earned_month_key` | INTEGER | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null, expression_is_true |
 | `written_amount` | DOUBLE | *undocumented* |  |
 | `earned_pct` | DOUBLE | *undocumented* |  |
 | `earned_pct_cumulative` | DOUBLE | *undocumented* |  |
@@ -635,12 +695,12 @@ Contract x posting period of sale or amendment.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `entered_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
 | `posted_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
 | `coverage_cost` | DOUBLE | *undocumented* |  |
@@ -658,14 +718,14 @@ Contract x posting period of sale or amendment.
 | `reinstatement_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `reinstatement_id` | BIGINT | Natural id in the source system *(naming convention)* |  |
 | `cancel_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `status` | VARCHAR | *undocumented* |  |
 | `reinstated_at` | TIMESTAMP | *undocumented* |  |
 | `reinstated_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `reversal_amount` | DOUBLE | *undocumented* |  |
 
@@ -678,14 +738,14 @@ One row per accounting transaction (coverage-cost basis).
 | `txn_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `source_system` | VARCHAR | *undocumented* |  |
 | `source_txn_id` | VARCHAR | Natural id in the source system *(naming convention)* |  |
-| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
-| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `contract_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `product_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | relationships |
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* | relationships |
 | `txn_type` | VARCHAR | *undocumented* | accepted_values |
 | `posted_at` | TIMESTAMP | *undocumented* |  |
 | `posted_date_key` | INTEGER | Date as INTEGER yyyymmdd (FK `dim_date`) *(naming convention)* |  |
-| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* | not_null, relationships |
 | `posting_period_start_date` | DATE | *undocumented* |  |
 | `amount` | DOUBLE | *undocumented* |  |
 | `source_ref` | VARCHAR | *undocumented* |  |
@@ -707,6 +767,26 @@ Call-center contacts per claim, by dealer and claim-reported month, from the CRM
 | `claim_contact_rate` | DOUBLE | *undocumented* |  |
 | `repeat_contact_rate` | DOUBLE | *undocumented* |  |
 | `contacts_per_claim` | DOUBLE | *undocumented* |  |
+
+### `core.mart_intake_quarantine`
+
+One row per rejected intake row, all sources: reject reason and control family, the row's business key, and its resolution (replayed = key later accepted from a corrected or re-sent file; duplicate_dropped = an accepted copy exists; recovered = legacy row replayed by staging; open = still missing). Feeds the data quality page.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `reject_row_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `source_system` | VARCHAR | *undocumented* | accepted_values |
+| `source_table` | VARCHAR | *undocumented* |  |
+| `reject_reason` | VARCHAR | *undocumented* |  |
+| `reject_control` | VARCHAR | *undocumented* |  |
+| `reject_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* |  |
+| `feed_date` | DATE | *undocumented* |  |
+| `source_file` | VARCHAR | *undocumented* |  |
+| `source_row_number` | BIGINT | *undocumented* |  |
+| `resolution_status` | VARCHAR | *undocumented* | not_null, accepted_values |
+| `is_resolved` | BOOLEAN | Yes/no flag *(naming convention)* |  |
+| `resolved_by_file` | VARCHAR | *undocumented* |  |
+| `is_logged_in_admin_core` | BOOLEAN | Yes/no flag *(naming convention)* |  |
 
 ### `core.mart_migration_parallel_run`
 
@@ -731,6 +811,21 @@ Migration parallel run at cutover: the same claims and contracts counted in the 
 | `unexplained_rows` | BIGINT | *undocumented* |  |
 | `unexplained_amount` | DOUBLE | *undocumented* |  |
 | `status` | VARCHAR | *undocumented* | accepted_values |
+
+### `core.mart_unknown_member_share`
+
+Orphans made visible: rows on the '-1' unknown member per core fact x foreign key. tests/core/core_unknown_member_share fails the build when a gated key (contract, dealer, product) exceeds var max_unknown_member_share.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `unknown_member_share_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `model_name` | VARCHAR | *undocumented* |  |
+| `key_column` | VARCHAR | *undocumented* |  |
+| `dimension` | VARCHAR | *undocumented* |  |
+| `row_count` | BIGINT | *undocumented* |  |
+| `unknown_rows` | BIGINT | *undocumented* |  |
+| `unknown_share` | DOUBLE | *undocumented* | not_null |
+| `is_gated` | BOOLEAN | Yes/no flag *(naming convention)* |  |
 
 ## Finance marts (`finance`)
 
@@ -786,13 +881,23 @@ Cession / experience per participation entity x posting period: earned reserve, 
 | `written_profit_share_reserve` | DOUBLE | *undocumented* |  |
 | `itd_profit_share_reserve_funded` | DOUBLE | *undocumented* |  |
 
+### `finance.mart_commission_hierarchy`
+
+Commission District > Regional > National (V6 edit 12) per product type x posting period: contracts entered vs the monthly volume target (seed commission_volume_targets), over/under, and commission posted. Each level's commission sums to the commission ledger.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `level` |  | *undocumented* | accepted_values |
+
 ### `finance.mart_commission_statement`
 
-Commission statement per agent x posting period: commission written (paid + advances paid), commission expensed (cash basis: standard commission paid at sale plus advances earned down on the contract's commission curve), chargebacks (always negative), advances paid, advance recoveries (the earning-down), advances net, net commission (= cash, ties to fct_commission), chargeback rate on commission written, commission earned on the cost-split curve (the P&L basis) with the bridge expensed_ahead_of_curve, and the running advance balance (unearned advance). One reconciling row per tenant x period x source system (is_no_agent_ledger) carries cost-split commission on contracts with no agent-ledger line (the legacy book), so the statement ties to the cost-split COMMISSION bucket.
+Commission statement per agent x posting period: commission written (paid + advances paid), commission expensed (cash basis: standard commission paid at sale plus advances earned down on the contract's commission curve), chargebacks (always negative), advances paid, advance recoveries (the earning-down), advances net, net commission (= cash, ties to fct_commission), chargeback rate on commission written, commission earned on the cost-split curve (the P&L basis) with the bridge expensed_ahead_of_curve, and the running advance balance (unearned advance). One reconciling row per tenant x period x source system (is_no_agent_ledger) carries cost-split commission on contracts with no agent-ledger line (the legacy book), so the statement ties to the cost-split COMMISSION bucket. Contract counts: contracts_commissioned is per period only (not additive over periods); contracts_first_commissioned (per agent) and contracts_first_commissioned_primary (each contract once, for its primary agent) count a contract in the period of its first positive line, so they sum over periods (test fin_commission_contracts_within_sales).
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
 | `agent_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null |
+| `is_no_agent_ledger` | BOOLEAN | Yes/no flag *(naming convention)* |  |
+| `source_system` | VARCHAR | *undocumented* |  |
 | `agent_code` | VARCHAR | *undocumented* |  |
 | `agent_name` | VARCHAR | *undocumented* |  |
 | `territory` | VARCHAR | *undocumented* |  |
@@ -801,8 +906,12 @@ Commission statement per agent x posting period: commission written (paid + adva
 | `period_end` | DATE | *undocumented* |  |
 | `statement_status` | VARCHAR | *undocumented* |  |
 | `contracts_commissioned` | BIGINT | *undocumented* |  |
+| `contracts_first_commissioned` | BIGINT | *undocumented* |  |
+| `contracts_first_commissioned_primary` | BIGINT | *undocumented* |  |
 | `commission_lines` | BIGINT | *undocumented* |  |
-| `commission_earned` | DOUBLE | *undocumented* |  |
+| `commission_paid` | DOUBLE | *undocumented* |  |
+| `commission_written` | DOUBLE | *undocumented* |  |
+| `commission_expensed` | DOUBLE | *undocumented* |  |
 | `commission_chargebacks` | DOUBLE | *undocumented* |  |
 | `advances_paid` | DOUBLE | *undocumented* |  |
 | `advance_recoveries` | DOUBLE | *undocumented* |  |
@@ -810,6 +919,8 @@ Commission statement per agent x posting period: commission written (paid + adva
 | `advance_chargebacks` | DOUBLE | *undocumented* |  |
 | `net_commission` | DOUBLE | *undocumented* |  |
 | `chargeback_rate` | DOUBLE | *undocumented* |  |
+| `commission_earned_on_curve` | DOUBLE | *undocumented* |  |
+| `expensed_ahead_of_curve` | DOUBLE | *undocumented* |  |
 | `advance_balance` | DOUBLE | *undocumented* |  |
 | `itd_net_commission` | DOUBLE | *undocumented* |  |
 
@@ -840,13 +951,55 @@ Close control totals: transaction amount vs the sum of its cost split, per posti
 | `txns_out_of_tolerance` | BIGINT | *undocumented* |  |
 | `is_balanced` | BOOLEAN | Yes/no flag *(naming convention)* |  |
 
+### `finance.mart_experience`
+
+Experience report (V6 edit 1), inception to date at the latest closed period, reserve basis: net written, unearned, earned, claims paid, contracts (written, cancelled, net), claims count, earned %, cancel %, loss ratio. One grain serves every "View by" (date, product, dealer, state, plan, make, effective year, term).
+
 ### `finance.mart_funded_reserve_reconciliation`
 
 Funded claims-reserve reconciliation per tenant x posting period. Each side is computed on its own: participation reserve balance (mart_cession_experience), the rest of the book recomputed from the core facts (CLAIMS_RESERVE cost split less claim payments on contracts with no participation entity, and claim payments with no contract key), and the book-wide closing funded reserve (mart_reserve_rollforward). difference must be 0.00. The earned surplus is recomputed from the facts (ITD earned claims reserve - claims paid - surplus released) and checked against closing funded - closing unearned (earned_surplus_difference).
 
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `posting_period_key` | INTEGER | Accounting month of the post date, INTEGER yyyymm (FK `dim_posting_period`) *(naming convention)* |  |
+| `period_end` | DATE | *undocumented* |  |
+| `is_closed` | BOOLEAN | Yes/no flag *(naming convention)* |  |
+| `participation_reserve_balance` | DOUBLE | *undocumented* |  |
+| `participation_entities` | BIGINT | *undocumented* |  |
+| `rest_of_book_reserve_balance` | DOUBLE | *undocumented* |  |
+| `unmatched_claims_paid` | DOUBLE | *undocumented* |  |
+| `book_closing_funded_reserve` | DOUBLE | *undocumented* |  |
+| `book_closing_unearned_reserve` | DOUBLE | *undocumented* |  |
+| `earned_surplus` | DOUBLE | *undocumented* |  |
+| `reconciled_funded_reserve` | DOUBLE | *undocumented* |  |
+| `difference` | DOUBLE | *undocumented* |  |
+| `earned_surplus_difference` | DOUBLE | *undocumented* |  |
+
+### `finance.mart_new_reserves_by_term`
+
+New reserves (gross claims reserve at sale) per tenant x entered month x product category x term-year bucket (seed term_year_buckets): reserve, contracts, average reserve, average term, row % within the category (V6 edit 11).
+
+### `finance.mart_participation_contract`
+
+Contract -> participation entity with the run-off rule (V6 edit 13): a contract entered after its entity's run-off date is not ceded (is_ceded = false, is_transferred = true); its reserve stays with the obligor. Every finance mart that attributes contracts to entities reads this.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `contract_key` |  | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `entity_status` |  | *undocumented* | accepted_values |
+
+### `finance.mart_partner_settlement`
+
+Partner settlement statement (V6 edit 17) per tenant x dealer x posting period: admin / premium due, insurer-program fee adjustment, cancel fees, transient claims, obligor claims deducted, net due (signed sum).
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `statement_status` |  | *undocumented* | accepted_values |
+
 ### `finance.mart_pnl_by_product`
 
-P&L by product code x tenant x posting period: written and refunded coverage cost, earned premium by P&L line (seed pnl_line_map), paid and incurred claims, reserve margin, program margin before and after dealer participation, posted_loss_ratio (incurred / earned claims reserve), loss_ratio (incurred / earned premium) and combined ratio. Written side is the posted ledger: refunds on every cancel and approved reinstatements added back in their own period. Claims with no contract key are one reconciling row (product_code UNMATCHED, is_unmatched_claims), not a product.
+P&L by product code x tenant x posting period: written and refunded coverage cost, earned premium by P&L line (seed pnl_line_map), paid and incurred claims, reserve margin, program margin before and after dealer participation, posted_loss_ratio (incurred / earned claims reserve), loss_ratio (incurred / earned premium) and combined ratio. The admin fee is a program cost in both program_margin and combined_ratio, so program_margin / earned_premium = 1 - combined_ratio (test fin_pnl_margin_matches_combined_ratio); administrator_result = admin fee + margin after participation. Written side is the posted ledger: refunds on every cancel and approved reinstatements added back in their own period. Claims with no contract key are one reconciling row (product_code UNMATCHED, is_unmatched_claims), not a product.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
@@ -882,6 +1035,7 @@ P&L by product code x tenant x posting period: written and refunded coverage cos
 | `reserve_margin` | DOUBLE | *undocumented* |  |
 | `program_margin` | DOUBLE | *undocumented* |  |
 | `program_margin_after_participation` | DOUBLE | *undocumented* |  |
+| `administrator_result` | DOUBLE | *undocumented* |  |
 | `posted_loss_ratio` | DOUBLE | *undocumented* |  |
 | `loss_ratio` | DOUBLE | *undocumented* |  |
 | `combined_ratio` | DOUBLE | *undocumented* |  |
@@ -928,6 +1082,31 @@ Profit-share statement per participation entity x posting period: opening due, p
 | `ps_reserve_shortfall` | DOUBLE | *undocumented* |  |
 | `funding_gap` | DOUBLE | *undocumented* |  |
 
+### `finance.mart_rate_card`
+
+Rate card (V6 edit 15) from the source rate + rate_component tables: rate (dealer cost), fee stack (admin fee, insurer-program fee, premium tax, dealer pack) and reserve = rate - fees, per plan x coverage level x term x odometer band x class. Sort by term first, then band.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `rate_id` |  | Natural id in the source system *(naming convention)* | unique, not_null |
+
+### `finance.mart_rate_card_exceptions`
+
+Diagnostic (V6 edit 15): Admin Core contracts whose booked coverage cost less surcharges and options differs from the card rate, or whose rate is not on the card. Empty when every contract was priced from the card.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `contract_key` |  | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique |
+| `exception_type` |  | *undocumented* | accepted_values |
+
+### `finance.mart_remit_register`
+
+Remit register (V6 edit 18): one row per cash receipt with batch, dealer, contract, entered / sent / received dates, amount, age and late fee. Ties to fct_cash_transaction.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `cash_txn_key` |  | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+
 ### `finance.mart_remittance_late_fees`
 
 Remittance aging (days from contract entry to cash receipt, seed remit_aging_buckets) and the dealer late-fee bill per dealer x posting period x aging bucket.
@@ -949,6 +1128,10 @@ Remittance aging (days from contract entry to cash receipt, seed remit_aging_buc
 | `late_fee_billed` | DOUBLE | *undocumented* | expression_is_true |
 | `avg_remit_age_days` | DOUBLE | *undocumented* |  |
 | `max_remit_age_days` | BIGINT | *undocumented* |  |
+
+### `finance.mart_reserve_bridge`
+
+Reserve bridge per tenant x month (V6 edit 2): gross new reserve (New Reserves) -> cancelled contracts' reserve -> partial-refund remainder -> other adjustments -> net written by entered month (Experience) -> entered-vs-effective timing -> net written by effective month. residual must be 0.00 (singular test assert_reserve_bridge_closes).
 
 ### `finance.mart_reserve_rollforward`
 
@@ -1076,6 +1259,27 @@ Claims KPI cube by tenant x subcategory x loss month: frequency, severity, denia
 
 ## Dealer marts (`dealer`)
 
+### `dealer.mart_dealer_early_claim_ae`
+
+Dealer early-claim watch of record, per tenant x dealer x month: early-claim incidence per contract (first loss within the seed window of effective, denied claims included) as actual vs expected, where expected uses the portfolio rate of each contract's own product segment (category x subcategory x new/used). Each month is evaluated at its month end (the as-of date for the current month), so the as-of row is the same test as the Actuarial page dealer list (actuarial early_claim_by_dealer). Thresholds: seed dealer_claim_kpi_rules (scorecard_early_claim_*). mart_dealer_scorecard takes its is_watch_early_claims from here. · grain: tenant x dealer x month
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `tenant_key` | BIGINT | Administrator (white-label tenant) id (FK `dim_tenant`) *(naming convention)* |  |
+| `dealer_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null |
+| `dealer_number` | VARCHAR | *undocumented* |  |
+| `month_start` | DATE | *undocumented* |  |
+| `month_key` | INTEGER | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | not_null |
+| `reference_date` | DATE | *undocumented* | not_null |
+| `window_days` | INTEGER | *undocumented* |  |
+| `contracts_exposed` | BIGINT | *undocumented* |  |
+| `early_claim_contracts` | HUGEINT | *undocumented* |  |
+| `expected_early_claims` | DOUBLE | *undocumented* |  |
+| `early_claim_incidence` | DOUBLE | *undocumented* |  |
+| `actual_to_expected` | DOUBLE | *undocumented* |  |
+| `z_score` | DOUBLE | *undocumented* |  |
+| `is_flagged` | BOOLEAN | Yes/no flag *(naming convention)* |  |
+
 ### `dealer.mart_dealer_pending_contracts`
 
 Contract-level list of PENDING contracts for the dealer to finish. Carries FAKE customer names from the synthetic generator (the one documented PII exception past staging); VINs stay hashed. · grain: contract · **contains PII (fake)**
@@ -1176,6 +1380,13 @@ Dealer scorecard per tenant x dealer x month: production and cohort cancel rate 
 | `t12_claims_reported` | HUGEINT | *undocumented* |  |
 | `t12_early_claims` | HUGEINT | *undocumented* |  |
 | `t12_early_claim_rate` | DOUBLE | *undocumented* |  |
+| `early_claim_ae_window_days` | INTEGER | *undocumented* |  |
+| `early_claim_ae_contracts_exposed` | BIGINT | *undocumented* |  |
+| `early_claim_ae_early_contracts` | HUGEINT | *undocumented* |  |
+| `early_claim_ae_expected` | DOUBLE | *undocumented* |  |
+| `early_claim_ae_incidence` | DOUBLE | *undocumented* |  |
+| `early_claim_actual_to_expected` | DOUBLE | *undocumented* |  |
+| `early_claim_ae_z_score` | DOUBLE | *undocumented* |  |
 | `t12_remittances` | HUGEINT | *undocumented* |  |
 | `t12_late_remittances` | HUGEINT | *undocumented* |  |
 | `t12_late_remit_rate` | DOUBLE | *undocumented* |  |
@@ -1424,6 +1635,7 @@ The line engine. One value per report line x window x provider, zero-filled. · 
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
+| `line_value_key` | VARCHAR | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
 | `report_id` | VARCHAR | Natural id in the source system *(naming convention)* |  |
 | `state` | VARCHAR | *undocumented* |  |
 | `scope` | VARCHAR | *undocumented* |  |
@@ -1458,7 +1670,45 @@ Reporting windows per report and state (FUNDED_RESERVE ITD + regulatory year; MA
 | `window_end` | DATE | *undocumented* |  |
 | `is_final` | BOOLEAN | Yes/no flag *(naming convention)* |  |
 
+### `regulatory.mart_state_inforce_list`
+
+State in-force contract list for compliance: every in-scope service contract in force on the reporting as-of date, per state, with product, dealer, lienholder, form code (from the latest non-deleted CONTRACT document, never inferred) and obligor. · grain: contract
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `contract_key` |  | Surrogate key, md5 string; `'-1'` is the unknown member *(naming convention)* | unique, not_null |
+| `state` |  | *undocumented* | not_null |
+| `contract_number` |  | *undocumented* | not_null |
+| `form_code_source` |  | *undocumented* | accepted_values |
+| `obligor_kind` |  | *undocumented* | accepted_values |
+
 ## Seeds: counting rules and reference tables (`seeds`)
+
+### `seeds.agent_territory_hierarchy`
+
+Agent territory -> district -> region (National is the top level). Read by dim_agent for the District > Regional > National commission roll-up (docs/V3_DESIGN.md section 9, edit 12).
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `territory` |  | *undocumented* | unique, not_null |
+| `region` |  | *undocumented* | not_null |
+
+### `seeds.commission_volume_targets`
+
+Commission hierarchy inputs (V6 edit 12): district -> region, and the monthly contract volume target per district x product type (product category). Over(+) / Under(-) is measured against it.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `monthly_target_contracts` |  | *undocumented* | expression_is_true |
+
+### `seeds.compliance_product_family`
+
+Product subcategory -> compliance product family (docs/V3_DESIGN.md section 9, edit 6). Filings scope products by family plus program_type, never by a name match. Limited Warranty is ANCILLARY_OTHER, never VSC. is_service_contract marks the families filed as service contracts. Owner: Data Engineering Manager.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `subcategory_code` |  | *undocumented* | unique, not_null |
+| `compliance_family` |  | *undocumented* | not_null, accepted_values |
 
 ### `seeds.control_tolerances`
 
@@ -1536,7 +1786,7 @@ Product subcategories rated with vehicle surcharges (others are never audited).
 
 ### `seeds.demo_exclusions`
 
-Dealers and contract ranges that are never reportable. Read ONCE, by int_reportable_scope; every mart reads through that model. rule_type is one of dealer_flag (use the source is_demo flag), dealer_number, contract_id_range, contract_number_pattern (regex on the cleaned contract number).
+Dealers and contract ranges that are never reportable. Read ONCE, by int_reportable_scope; every mart reads through that model. rule_type is one of dealer_flag (use the source is_demo flag), dealer_number, contract_id_range, contract_number_pattern (regex on the cleaned contract number), test_customer_name (regex, in contract_number_pattern, on the trimmed upper-case customer full name: API test contracts; the name never leaves staging, only the flag does).
 
 | Column | Type | Description | Tests |
 |---|---|---|---|
@@ -1573,6 +1823,16 @@ Maps each cost-split bucket (disbursement_type) to a P&L line and group.
 | `pnl_group` | VARCHAR | *undocumented* | accepted_values |
 | `sort_order` | INTEGER | *undocumented* |  |
 | `notes` | VARCHAR | *undocumented* |  |
+
+### `seeds.product_taxonomy_crosswalk`
+
+One row per Admin Core product code (docs/V3_DESIGN.md section 9, edit 16): the short code the old report pack used, the legacy product code and coverage tier when the legacy book sold it, and the modern subcategory / category. Product names change every plan year and carry a program suffix; codes do not, so reports group by this crosswalk, never by name.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `product_code` |  | *undocumented* | unique, not_null |
+| `short_code` |  | *undocumented* | unique, not_null |
+| `legacy_product_code` |  | *undocumented* | unique |
 
 ### `seeds.profit_share_payout_schedule`
 
@@ -1644,6 +1904,15 @@ State -> funded-reserve method matrix: all 50 states + DC, one row each. States 
 | `market_survey` | BOOLEAN | *undocumented* |  |
 | `notes` | VARCHAR | *undocumented* |  |
 
+### `seeds.term_year_buckets`
+
+Term-year buckets for the New Reserves page (V6 edit 11): contract term in months -> bucket (0-1 year = 0..12 months, 1-2 = 13..24, ...). Contiguous and covering every term.
+
+| Column | Type | Description | Tests |
+|---|---|---|---|
+| `term_bucket` |  | *undocumented* | unique, not_null |
+| `sort_order` |  | *undocumented* | unique, not_null |
+
 ## Snapshots: daily SCD2 history (`snapshots`)
 
 ### `snapshots.snap_claim_status`
@@ -1714,16 +1983,58 @@ State -> funded-reserve method matrix: all 50 states + DC, one row each. States 
 | Model | Description |
 |---|---|
 | `stg_admin_api__dealer` | Admin-API dealer roster minus quarantined records and incomplete extracts, newest accepted record per dealer. |
+| `stg_admin_core__account_holder` | *undocumented* |
+| `stg_admin_core__admin_user` | *undocumented* |
+| `stg_admin_core__administrator` | *undocumented* |
+| `stg_admin_core__agent` | *undocumented* |
+| `stg_admin_core__cancellation` | *undocumented* |
+| `stg_admin_core__cash_transaction` | *undocumented* |
 | `stg_admin_core__claim` | *undocumented* |
+| `stg_admin_core__claim_component` | *undocumented* |
+| `stg_admin_core__claim_history` | *undocumented* |
+| `stg_admin_core__claim_note` | *undocumented* |
+| `stg_admin_core__claim_payment_line` | *undocumented* |
+| `stg_admin_core__commission` | *undocumented* |
+| `stg_admin_core__complaint` | *undocumented* |
 | `stg_admin_core__contract` | *undocumented* **contains PII (fake)** |
+| `stg_admin_core__contract_amendment` | *undocumented* |
+| `stg_admin_core__contract_custom_field` | Admin Core custom fields (EAV) pivoted once into typed columns, one row per contract with any custom field (coach make / model, chassis make, chassis VIN hash, model year). Empty, same columns, until the raw EAV tables exist. |
+| `stg_admin_core__contract_document` | *undocumented* |
+| `stg_admin_core__contract_option` | *undocumented* |
+| `stg_admin_core__contract_status_history` | *undocumented* |
+| `stg_admin_core__contract_surcharge` | *undocumented* |
 | `stg_admin_core__dealer` | *undocumented* |
+| `stg_admin_core__dealer_group` | *undocumented* |
+| `stg_admin_core__disbursement` | *undocumented* |
+| `stg_admin_core__insurer` | *undocumented* |
+| `stg_admin_core__intake_file` | *undocumented* |
+| `stg_admin_core__intake_reject` | *undocumented* |
+| `stg_admin_core__lienholder` | *undocumented* |
+| `stg_admin_core__obligor` | *undocumented* |
+| `stg_admin_core__participation_entity` | *undocumented* |
+| `stg_admin_core__plan` | *undocumented* |
+| `stg_admin_core__portal_user` | *undocumented* |
+| `stg_admin_core__product` | V6 edit 16: model_year, program_suffix and is_do_not_use are parsed from product_name ("<name> <year> - <SUFFIX>"); a "- DNU" twin reuses a live product's code. |
+| `stg_admin_core__product_category` | *undocumented* |
+| `stg_admin_core__product_subcategory` | *undocumented* |
+| `stg_admin_core__program` | *undocumented* |
+| `stg_admin_core__rate` | *undocumented* |
+| `stg_admin_core__rate_component` | *undocumented* |
+| `stg_admin_core__reinstatement` | *undocumented* |
+| `stg_admin_core__reinsurer` | *undocumented* |
+| `stg_admin_core__remit_batch` | *undocumented* |
 | `stg_admin_core__transaction` | Admin Core `transaction` (a reserved word, quoted in the source definition). |
 | `stg_crm__calls` | Call-center CRM contacts minus quarantined rows, latest delivery per call_id. Customer key is contract_number and/or phone_hash (hashed by the CRM; no raw phone). |
+| `stg_legacy_admin__agents` | *undocumented* |
+| `stg_legacy_admin__cancellations` | *undocumented* |
 | `stg_legacy_admin__claims` | Legacy claims keyed by the normalized claim number; money sign flipped to positive. |
 | `stg_legacy_admin__contracts` | Legacy contracts incl. rows replayed from quarantine (MM/DD/YYYY sale dates). **contains PII (fake)** |
 | `stg_legacy_admin__dealers` | *undocumented* |
+| `stg_legacy_admin__products` | *undocumented* |
 | `stg_network_feed__deals` | *undocumented* |
 | `stg_network_feed__econtract_events` | *undocumented* |
+| `stg_network_feed__manifest` | *undocumented* |
+| `stg_network_feed__remittance` | *undocumented* |
 
 ## Intermediate (`intermediate`, internal)
 
@@ -1734,13 +2045,18 @@ State -> funded-reserve method matrix: all 50 states + DC, one row each. States 
 | `int_cancellations_conformed` | Cancellations from both systems; is_effective_cancel marks the one that stops earning. |
 | `int_claim_lines_conformed` | Claim payment lines, sign normalized (paid always >= 0); legacy claims become one line each. |
 | `int_claim_number_bridge` | Claim numbers normalized with ltrim(claim_no, '0') -> claim_key and contract_key; has_contract_key flag. |
+| `int_claim_versions` | Every claim header version in raw (both systems, conformed claim_key) as SCD2 rows; snap_claim_status is the cross-check. |
 | `int_claims_conformed` | Claim headers from both systems (converted claims once, from Admin Core). |
 | `int_contract_key_bridge` | legacy_contract_id or Admin Core contract_id -> conformed contract_key, with source_system. |
-| `int_contract_months` | Contract x month earning spine (pro-rata and rule of 78 fractions). |
+| `int_contract_months` | Contract x month earning spine (pro-rata and rule of 78 fractions) driven by the status timeline: earning starts once the contract activated (first earning status); months already closed at activation post to the first open period; a VOID after activation adds one VOID_REVERSAL row. earned_month_key = true month, posting_period_key = booked period. |
+| `int_contract_versions` | Every contract version in raw (both systems) as SCD2 rows ordered by source version (valid_from = updated_at, valid_to = next version's updated_at). Rebuilt from raw on every run, so contract history does not depend on when dbt ran; snap_contract_status is the cross-check. |
 | `int_contracts_conformed` | Both contract systems on one vocabulary and the conformed key. No PII. |
 | `int_dealer_roster_drift` | Admin-API dealer roster vs dim_dealer, one row per dealer number. drift_type MISSING_IN_DIM, MISSING_IN_API and ATTRIBUTE_MISMATCH fail reconciliation gate test recon_dealer_roster_drift. |
-| `int_disbursements_earned` | Contract x disbursement type x month earned amounts. |
+| `int_dealer_survivorship` | Dealer master (docs/V3_DESIGN.md 8.4): every source dealer identity in both admin systems -> its surviving dealer number and dealer_key, with the match rule (self \| number_base \| name_state). Survivor = active, then unprefixed number, then Admin Core, then oldest id. |
+| `int_dealer_versions` | Every Admin Core dealer version in raw as SCD2 rows; snap_dealer is the cross-check. |
+| `int_disbursements_earned` | Contract x disbursement type x posting period x earned month earned amounts. A view; the grain test runs once, on core.fct_earned_disbursement (its only consumer, same grain). |
 | `int_disbursements_split` | Dealer-cost split per transaction x type x account holder; ties to the transaction. |
+| `int_intake_quarantine` | Every row an intake control rejected (feed, CRM, admin API, legacy), with its business key and resolution status. |
 | `int_posting_days` | Day -> first posting period still open on that day (used by macro posting_period_key). |
 | `int_posting_periods` | Months with close date (business day N of the next month) and is_closed. Owns the period-lock rule. |
 | `int_remittance_lifecycle` | Cash receipts with the remit batch lifecycle, age and late fee. |

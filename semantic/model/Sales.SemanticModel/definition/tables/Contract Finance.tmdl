@@ -88,6 +88,10 @@ table 'Contract Finance'
 		isHidden
 		sourceColumn: IS_AMOUNT_SIGN_FIXED
 
+	column 'Program Type'
+		dataType: string
+		sourceColumn: PROGRAM_TYPE
+
 	partition 'Contract Finance' = m
 		mode: import
 		source =

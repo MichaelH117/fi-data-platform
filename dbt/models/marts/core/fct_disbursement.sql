@@ -1,5 +1,9 @@
 -- Grain: transaction x disbursement type x account holder (the dealer-cost split).
 -- reserve_amount = the CLAIMS_RESERVE bucket, profit_share_reserve = the PROFIT_SHARE_RESERVE bucket.
+-- V6 edit 3: program_type (from the contract) and incentive_group route each bucket. The program fee is
+-- the INSURER_FEE bucket: on a FULL_INSURED program it is insurer premium; on AGENCY and PASS_THROUGH
+-- programs it is a program fee the administrator keeps, grouped as PROGRAM_FEE so incentive and
+-- settlement reports never count it as premium.
 select
     d.disbursement_key,
     d.txn_key,
@@ -11,6 +15,16 @@ select
     d.source_system,
     d.txn_type,
     d.disbursement_type,
+    coalesce(f.program_type, 'UNKNOWN') as program_type,
+    case
+        when d.disbursement_type = 'INSURER_FEE' and f.program_type in ('AGENCY', 'PASS_THROUGH') then 'PROGRAM_FEE'
+        when d.disbursement_type = 'INSURER_FEE' then 'INSURER_PREMIUM'
+        when d.disbursement_type = 'COMMISSION' then 'PRODUCER_INCENTIVE'
+        when d.disbursement_type = 'ADMIN_FEE' then 'ADMINISTRATION'
+        when d.disbursement_type in ('CLAIMS_RESERVE', 'PROFIT_SHARE_RESERVE') then 'RESERVE'
+        when d.disbursement_type = 'PREMIUM_TAX' then 'TAX'
+        else 'OTHER'
+    end as incentive_group,
     d.posted_at,
     {{ date_key('d.posted_at') }} as posted_date_key,
     d.posting_period_key,
@@ -23,3 +37,4 @@ select
     {{ audit_columns() }}
 from {{ ref('int_disbursements_split') }} as d
 inner join {{ ref('dim_contract') }} as k using (contract_key)
+left join {{ ref('dim_contract_finance') }} as f using (contract_key)

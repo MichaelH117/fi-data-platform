@@ -7,6 +7,9 @@ copied into the site, and checks the service levels in docs/operating-model/SLA.
 - **SLA**: reports for business day D are published by 07:00 local time on D. A day is met when a
   run whose ``reports`` step succeeded finished inside the window (07:00 on D-1, 07:00 on D].
 - Every diagnostics check links to its runbook entry in docs/operating-model/RUNBOOK.md.
+- **Database health** (V6 edit 20, ``audit.db_health`` from pipeline/db_health.py): empty serving tables,
+  Postgres statistics not refreshed, and the refresh login used for ad-hoc queries. Postgres rows say
+  ``skipped`` when the server was down.
 """
 
 from __future__ import annotations
@@ -168,6 +171,33 @@ def env_diff_section(path: Path | None = None) -> Section | None:
                    rows=rows, table_open=True, wide=True)
 
 
+HEALTH_LABELS = {"zero_row_table": "Empty serving table", "stale_statistics": "Statistics not refreshed",
+                 "refresh_login_adhoc": "Refresh login used ad hoc"}
+
+
+def db_health_section(con) -> Section | None:
+    """Latest run's database-health findings (audit.db_health), problems first; None before the first run."""
+    if not _has(con, "audit", "db_health"):
+        return None
+    df = con.execute("""
+        select * from audit.db_health where run_id = (select max(run_id) from audit.db_health)
+        order by case status when 'warn' then 0 when 'skipped' then 1 else 2 end, check_name, object_name
+    """).df()
+    if df.empty:
+        return None
+    warns = int((df["status"] == "warn").sum())
+    rows = [[HEALTH_LABELS.get(r.check_name, r.check_name), r.engine, r.object_name,
+             _status({"pass": True, "warn": False}.get(r.status), r.status),
+             "" if pd.isna(r.measured_value) else f"{r.measured_value:,.4g}", r.detail]
+            for r in df.itertuples()]
+    return Section("Database health",
+                   f"{warns} finding(s) in the latest run. Empty tables in the serving schemas, Postgres tables whose "
+                   "statistics are missing or stale, and sessions under the BI refresh login from a client that "
+                   "is not a scheduled refresh. Informational: these never block publishing.",
+                   cols=["Check", "Engine", "Object", "Status", "Measured", "Detail"],
+                   rows=rows, table_open=bool(warns), wide=True)
+
+
 def build(con, out_dir: Path, now: datetime | None = None) -> list[Page]:
     if not _has(con, "audit", "pipeline_run"):
         return []
@@ -246,6 +276,9 @@ def build(con, out_dir: Path, now: datetime | None = None) -> list[Page]:
             rows=[[p.parent.parent.name, p.parent.name,
                    {"text": "Open packet", "href": p.relative_to(out_dir).as_posix()}] for p in packets],
             table_open=True))
+    health = db_health_section(con)
+    if health is not None:
+        sections.append(health)
     env_diff = env_diff_section()
     if env_diff is not None:
         sections.append(env_diff)

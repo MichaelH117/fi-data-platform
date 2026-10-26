@@ -69,6 +69,35 @@ table Product
 		summarizeBy: none
 		sourceColumn: plan_year
 
+	column 'Model Year'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: model_year
+
+	column 'Program Suffix'
+		dataType: string
+		sourceColumn: program_suffix
+
+	column 'Is Do Not Use'
+		dataType: boolean
+		sourceColumn: is_do_not_use
+
+	column 'Product Base Name'
+		dataType: string
+		sourceColumn: product_base_name
+
+	column 'Program Type'
+		dataType: string
+		sourceColumn: program_type
+
+	column 'Compliance Family'
+		dataType: string
+		sourceColumn: compliance_family
+
+	column 'Short Code'
+		dataType: string
+		sourceColumn: short_code
+
 	column 'Is Cancellable'
 		dataType: boolean
 		sourceColumn: is_cancellable

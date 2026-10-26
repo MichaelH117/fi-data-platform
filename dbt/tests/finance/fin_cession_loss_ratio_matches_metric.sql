@@ -2,9 +2,9 @@
 -- posted_loss_ratio definition (incurred / earned reserve) recomputed straight from the core
 -- facts at the as-of period.
 with ec as (
-    select pe.participation_entity_key, k.contract_key
-    from {{ ref('dim_participation_entity') }} as pe
-    inner join {{ ref('dim_contract') }} as k using (dealer_key)
+    select participation_entity_key, contract_key
+    from {{ ref('mart_participation_contract') }}
+    where is_ceded
 ),
 
 earned as (
@@ -27,8 +27,8 @@ latest as (
     qualify posting_period_key = max(posting_period_key) over (partition by participation_entity_key)
 )
 
-select m.participation_entity_key, m.itd_loss_ratio, i.incurred / nullif(e.earned, 0) as expected
+select m.participation_entity_key, m.itd_loss_ratio, coalesce(i.incurred, 0) / nullif(e.earned, 0) as expected
 from latest as m
 left join earned as e using (participation_entity_key)
 left join incurred as i using (participation_entity_key)
-where abs(coalesce(m.itd_loss_ratio, -1) - coalesce(i.incurred / nullif(e.earned, 0), -1)) > 1e-9
+where abs(coalesce(m.itd_loss_ratio, -1) - coalesce(coalesce(i.incurred, 0) / nullif(e.earned, 0), -1)) > 1e-9

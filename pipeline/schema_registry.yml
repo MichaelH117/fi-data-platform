@@ -60,3 +60,4 @@ allow_empty:
   - dealer.mart_dealer_pending_contracts
   - dealer.mart_surcharge_audit
   - finance.mart_remittance_late_fees
+  - finance.mart_rate_card_exceptions

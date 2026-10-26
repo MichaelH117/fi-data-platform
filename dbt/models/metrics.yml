@@ -552,6 +552,18 @@ metrics:
     type: ratio
     type_params: {numerator: claims_incurred, denominator: earned_reserve}
     config: {meta: {owner: "Financial Analyst II", certified: true, definition_of_record: "docs/METRICS.md#loss-ratios", pbi: {name: Loss Ratio (on claims reserve), folder: Ratios}}}
+  - name: earned_pct
+    label: Earned %
+    description: Earned claims reserve / net claims reserve written (all postings). The Experience page gauge; finance.mart_experience.earned_pct on the same basis.
+    type: ratio
+    type_params: {numerator: earned_reserve, denominator: disbursed_claims_reserve}
+    config: {meta: {owner: "Financial Analyst II", certified: false, definition_of_record: "docs/METRICS.md#premium-and-earning", pbi: {folder: Ratios}}}
+  - name: cancel_pct
+    label: Cancel %
+    description: Effective cancellations / contracts written. The Experience page gauge; finance.mart_experience.cancel_pct counts the same contracts by entered-month cohort.
+    type: ratio
+    type_params: {numerator: effective_cancellations, denominator: contracts_written}
+    config: {meta: {owner: "Financial Analyst II", certified: false, definition_of_record: "docs/METRICS.md#premium-and-earning", pbi: {folder: Ratios}}}
 
   - {name: remitted_cash, label: Remitted cash, type: simple, type_params: {measure: remitted_cash}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Remittance}}}}
   - {name: remittances, label: Remittances, type: simple, type_params: {measure: remittances}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Remittance}}}}

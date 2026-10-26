@@ -561,6 +561,49 @@ def test_access_matrix_names_the_generated_roles():
         assert needle in text, needle
 
 
+def test_access_matrix_app_audience_table_matches_the_audit_list():
+    from semantic import access
+
+    text = (ROOT / "docs" / "ACCESS_MATRIX.md").read_text(encoding="utf-8")
+    assert "## 8. App audiences and what each one sees" in text
+    assert access.markdown() in text, "regenerate the section-8 table from semantic.access.markdown()"
+    assert "audiences sit on top of RLS" in text
+
+
+def test_access_audit_is_clean_and_never_shares_directly():
+    from semantic import access
+
+    assert access.audit() == []
+    rows = access.rows()
+    assert {r["shared_directly"] for r in rows} == {"never"}
+    # V6 edit 12: the commission hierarchy is internal and hidden from everyone but leadership and finance
+    ch = {r["audience"]: r["visibility"] for r in rows if r["report"] == "Commission hierarchy"}
+    assert ch == {"Executive": "visible", "Finance": "visible", "Claims operations": "hidden",
+                  "Field team": "hidden"}
+    for r in rows:
+        aud = access.AUDIENCE[r["audience"]]
+        if aud.external and r["visibility"] == "visible":
+            assert "Compliance" not in r["models"], r
+
+
+def test_access_audit_catches_an_external_audience_on_an_internal_only_report(monkeypatch):
+    from semantic import access
+
+    bad = access.Report("Dealer & Partner Reports", "Filing leak", ("Compliance",), ("Dealer",))
+    monkeypatch.setattr(access, "REPORTS", (*access.REPORTS, bad))
+    assert any("Filing leak" in p and "Compliance" in p for p in access.audit())
+    monkeypatch.setattr(access, "APPS", {**access.APPS, "VSC Internal": (*access.APPS["VSC Internal"], "Dealer")})
+    assert any("external audience in internal app" in p for p in access.audit())
+
+
+def test_access_audit_cli_writes_the_csv(tmp_path):
+    out = tmp_path / "access_audit.csv"
+    assert semantic_main(["access-audit", "--out", str(out)]) == 0
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "app,audience,report,models,rls_role,visibility,shared_directly"
+    assert any(",Experience," in x for x in lines) and any(",New Reserves," in x for x in lines)
+
+
 def test_report_plugin_page(tmp_path):
     from reports import semantic as page_mod
     from reports.build import Page

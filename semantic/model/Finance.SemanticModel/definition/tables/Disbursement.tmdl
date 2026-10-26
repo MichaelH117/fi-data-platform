@@ -49,6 +49,14 @@ table Disbursement
 		dataType: string
 		sourceColumn: DISBURSEMENT_TYPE
 
+	column 'Program Type'
+		dataType: string
+		sourceColumn: PROGRAM_TYPE
+
+	column 'Incentive Group'
+		dataType: string
+		sourceColumn: INCENTIVE_GROUP
+
 	column 'Posted At'
 		dataType: dateTime
 		formatString: yyyy-mm-dd

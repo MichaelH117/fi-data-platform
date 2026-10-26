@@ -125,6 +125,14 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
+	/// Effective cancellations / contracts written. The Experience page gauge; finance.mart_experience.cancel_pct counts the same contracts by entered-month cohort.
+	measure 'Cancel Pct' = DIVIDE([Effective Cancellations], [Contracts Written])
+		formatString: 0.0%
+		displayFolder: Ratios
+		annotation dbt_metric = cancel_pct
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
 	/// Remitted cash
 	measure 'Remitted Cash' = SUM('Cash Transaction'[Amount])
 		formatString: \$#,0;(\$#,0);\$#,0

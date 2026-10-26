@@ -149,6 +149,7 @@ def staging_sql() -> list[tuple[str, str]]:
             left join {core('dealer', 'dealer_id')} d
                    on d.dealer_number = l.dealer_code and d.tenant_id = {LEGACY_TENANT}
             left join s_product p on p.product_code = l.product_code and p.plan_year = l.plan_year
+                   and p.product_name not like '% - DNU'  -- the do-not-use twin shares code + year
             left join s_dup dd on dd.dealer_id = d.dealer_id"""),
         ("t_product", f"""
             select product_id as "ProductId", product_code as "ProductCode", product_name as "Product",

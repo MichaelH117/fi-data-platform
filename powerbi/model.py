@@ -1,6 +1,6 @@
 """The ``F&I Data Platform`` reporting semantic model: the four domain models in one, for one internal report.
 
-A Power BI report binds to exactly ONE semantic model, and the five report pages need measures from all
+A Power BI report binds to exactly ONE semantic model, and the seven report pages need measures from all
 four domain models (dealer scorecard: Sales; claims: Claims; funded reserve: Compliance; P&L: Finance).
 So this builds one combined reporting model from the same plan as ``python -m semantic``: the same
 measures (every one still maps to a ``metrics.yml`` metric), calculation group, relationships and RLS
@@ -64,6 +64,22 @@ IBNR_MEASURES: dict[str, tuple[str, str, str]] = {
 # never spreads to a shared dimension).
 INTERNAL_ONLY = ("Funded Reserve Filing", "Regulatory Line Value", IBNR)
 
+# The Experience page's "View by" switch (V6 edit 1b): a field parameter over conformed dimension columns.
+# Every Experience measure reads a fact keyed by contract, dealer, product and posting period, so each
+# pick slices all of them and every view adds up to the same total. Report-model only (the domain
+# models keep the shared Drill Level parameter).
+EXPERIENCE_VIEW = "Experience View By"
+EXPERIENCE_VIEW_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("Date", spec.PERIOD, "period_start"),
+    ("Product", "Product", "product"),
+    ("Dealer", "Dealer", "dealer_name"),
+    ("State", "Contract", "reportable_state"),
+    ("Plan", "Product", "plan"),
+    ("Make", "Contract Vehicle", "vehicle_make"),
+    ("Entered year", "Contract", "entered_year"),  # dim_contract has no effective_year column yet
+    ("Term (months)", "Contract Terms", "term_months"),
+)
+
 
 def portfolio_model(plan: sb.Plan, columns: sb.Columns) -> sb.DomainModel:
     metrics = sorted({m.metric for dm in plan.models.values() for m in dm.measures})
@@ -106,6 +122,15 @@ def render_ibnr() -> str:
     return join(out)
 
 
+def render_experience_view(dm: sb.DomainModel) -> str:
+    missing = [f"{t}[{c}]" for _, t, c in EXPERIENCE_VIEW_FIELDS
+               if t not in dm.dims or c not in dict(sb.load_lock().get(spec.DIMS[t].source, []))]
+    if missing:
+        raise sb.TranslationError(f"{EXPERIENCE_VIEW}: not in the model: {', '.join(missing)}")
+    return sb.render_field_parameter(EXPERIENCE_VIEW, list(EXPERIENCE_VIEW_FIELDS),
+                                     "Field parameter: the Experience page's View by switch (one pick at a time).")
+
+
 def write_portfolio(plan: sb.Plan, columns: sb.Columns, base: Path, put) -> sb.DomainModel:
     """Write ``<base>`` (a ``.SemanticModel`` folder) with ``put(path, text)``."""
     dm = portfolio_model(plan, columns)
@@ -117,8 +142,10 @@ def write_portfolio(plan: sb.Plan, columns: sb.Columns, base: Path, put) -> sb.D
         {"$schema": PBISM_SCHEMA, "version": "4.0", "settings": {}}, indent=2) + "\n"
     files[defn / "database.tmdl"] = join([f"database {name(MODEL_NAME)}", f"{TAB}compatibilityLevel: 1601"])
     model = files[defn / "model.tmdl"]
-    files[defn / "model.tmdl"] = model.replace("\n\nref role ", f"\nref table {name(IBNR)}\n\nref role ", 1)
+    files[defn / "model.tmdl"] = model.replace(
+        "\n\nref role ", f"\nref table {name(IBNR)}\nref table {name(EXPERIENCE_VIEW)}\n\nref role ", 1)
     files[defn / "tables" / f"{IBNR}.tmdl"] = render_ibnr()
+    files[defn / "tables" / f"{EXPERIENCE_VIEW}.tmdl"] = render_experience_view(dm)
     for p in sorted(files):
         put(p, files[p])
     return dm

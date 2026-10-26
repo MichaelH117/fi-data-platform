@@ -26,8 +26,9 @@ models:
 
   - name: mart_dealer_pending_contracts
     description: >
-      Contract-level list of PENDING contracts for the dealer to finish. Carries FAKE customer names
-      from the synthetic generator (the one documented PII exception past staging); VINs stay hashed.
+      Contract-level list of PENDING contracts for the dealer to finish. Carries FAKE customer and
+      co-buyer names from the synthetic generator (the one documented PII exception past staging);
+      VINs stay hashed. Names and addresses are Proper Case (V6 edit 10).
     meta: {grain: contract, contains_pii: true}
     columns:
       - name: contract_key
@@ -36,6 +37,27 @@ models:
         meta: {contains_pii: true}
       - name: customer_first_name
         meta: {contains_pii: true}
+      - name: customer_state
+      - name: cobuyer_name
+        description: Co-buyer from the e-contracting feed (joined on deal_id); Proper Case. FAKE.
+        meta: {contains_pii: true}
+      - name: cobuyer_address_line1
+        meta: {contains_pii: true}
+      - name: cobuyer_city
+        meta: {contains_pii: true}
+      - name: cobuyer_state
+      - name: cobuyer_zip
+        meta: {contains_pii: true}
+      - name: has_cobuyer
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "has_cobuyer = (cobuyer_name is not null)"}
+      - name: lienholder_name
+        description: Proper Case (macro proper_case, seed proper_case_exceptions); NULL = cash deal.
+      - name: provider_name
+        description: Obligor on the contract, Proper Case.
+      - name: administrator_name
+        data_tests: [not_null]
       - name: pending_age_band
         data_tests: [not_null]
       - name: days_pending

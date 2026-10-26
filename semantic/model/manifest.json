@@ -158,6 +158,7 @@
     "collected_deductibles",
     "denial_rate",
     "paid_claim_severity",
+    "cancel_pct",
     "calculated_reserve",
     "current_reserve",
     "reserve_shortfall",
@@ -256,6 +257,8 @@
     "denial_rate",
     "paid_claim_severity",
     "posted_loss_ratio",
+    "earned_pct",
+    "cancel_pct",
     "remitted_cash",
     "remittances",
     "late_remittances",
@@ -337,6 +340,7 @@
     "coverage_cost_refunds",
     "effective_cancel_rate",
     "net_coverage_cost",
+    "cancel_pct",
     "remitted_cash",
     "remittances",
     "late_remittances",
@@ -438,6 +442,18 @@
    "owner": "Financial Analyst II",
    "tables": [
     "Cancellation"
+   ]
+  },
+  "cancel_pct": {
+   "certified": false,
+   "dax": "DIVIDE([Effective Cancellations], [Contracts Written])",
+   "folder": "Ratios",
+   "format": "percent",
+   "measure": "Cancel Pct",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation",
+    "Gross Premium"
    ]
   },
   "cancellations": {
@@ -812,6 +828,18 @@
    "measure": "Earned Disbursement Amount",
    "owner": "Financial Analyst II",
    "tables": [
+    "Earned Disbursement"
+   ]
+  },
+  "earned_pct": {
+   "certified": false,
+   "dax": "DIVIDE([Earned Reserve], [Disbursed Claims Reserve])",
+   "folder": "Ratios",
+   "format": "percent",
+   "measure": "Earned Pct",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Disbursement",
     "Earned Disbursement"
    ]
   },
@@ -1259,7 +1287,7 @@
    ]
   }
  },
- "metrics_sha256": "7c929191b12d54c4c92c58481d0502e240bd391b7fd02112181fe62ff0b13c13",
+ "metrics_sha256": "ce23d38c098e9063237e95df0bc6c398359956d7b2f916f1468f774b713fe519",
  "not_exported": {
   "cancel_rate": "input contracts_cancelled: V1 semantic model contract_sale (not exported)",
   "claim_paid_amount": "V1 semantic model claim (not exported)",

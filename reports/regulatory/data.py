@@ -32,6 +32,19 @@ CANCEL_COLS = {
     "customer_refund": "Customer refund", "coverage_cost_refund": "Coverage cost refund", "cancel_fee": "Cancel fee",
 }
 
+# State in-force list (regulatory.mart_state_inforce_list), in workbook column order.
+INFORCE_COLS = {
+    "state": "State", "contract_date": "Contract date", "contract_number": "Contract no",
+    "product_name": "Product", "category": "Category", "subcategory": "Subcategory",
+    "program_type": "Program type", "dealer_number": "Dealer", "dealer_name": "Dealer name",
+    "lienholder_name": "Lienholder", "lienholder_address": "Lienholder address",
+    "lienholder_state": "Lienholder state", "current_form_code": "Form code",
+    "form_code_source": "Form code source", "form_document_name": "Form document",
+    "obligor_name": "Obligor", "obligor_kind": "Obligor kind", "status": "Status",
+    "effective_date": "Effective", "expiration_date": "Expiration", "contract_count": "Contract count",
+}
+INFORCE_TABLE = "mart_state_inforce_list"
+
 
 @dataclass
 class RegulatoryData:
@@ -54,6 +67,40 @@ def available(con: duckdb.DuckDBPyConnection) -> bool:
         "and table_name in ('mart_funded_reserve_summary', 'mart_market_survey')"
     ).fetchone()[0]
     return n == 2
+
+
+def inforce_available(con: duckdb.DuckDBPyConnection) -> bool:
+    """True when the state in-force list mart exists (older warehouses build without it)."""
+    return con.execute("select count(*) from information_schema.tables where table_schema = 'regulatory' "
+                       "and table_name = ?", [INFORCE_TABLE]).fetchone()[0] == 1
+
+
+def inforce_list(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """State in-force contract list (grain: contract in force on list_as_of_date), every state."""
+    cols = ", ".join([*INFORCE_COLS, "list_as_of_date"])
+    return _df(con, f"select {cols} from regulatory.{INFORCE_TABLE} "
+                    "order by state, contract_date, contract_number")
+
+
+def inforce_tabs(rows: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """One state's in-force workbook tabs: the contract list, a product count and form-code coverage."""
+    detail = rows[list(INFORCE_COLS)].rename(columns=INFORCE_COLS)
+    by_product = (rows.groupby(["category", "product_name"], dropna=False).contract_count.sum().reset_index()
+                  .rename(columns={"category": "Category", "product_name": "Product",
+                                   "contract_count": "Contract count"}))
+    return {"In Force Contracts": detail, "By Product": by_product, "Form Code Coverage": form_code_coverage(rows)}
+
+
+def form_code_coverage(rows: pd.DataFrame) -> pd.DataFrame:
+    """Contracts with a form code from the contract document vs missing, by contract year."""
+    y = pd.to_datetime(rows.contract_date).dt.year
+    g = rows.assign(year=y, has=rows.form_code_source.eq("document"))
+    out = g.groupby("year").agg(contracts=("contract_count", "sum"), with_form=("has", "sum")).reset_index()
+    out["missing"] = out.contracts - out.with_form
+    out["share"] = (out.with_form / out.contracts).round(4)
+    return out.rename(columns={"year": "Contract year", "contracts": "Contract count",
+                               "with_form": "With form code count", "missing": "Missing form code count",
+                               "share": "Form code share"})
 
 
 def load(con: duckdb.DuckDBPyConnection) -> RegulatoryData:

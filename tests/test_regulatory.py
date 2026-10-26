@@ -76,7 +76,9 @@ def status_sets() -> dict[str, set[str]]:
 
 def test_status_sets_encode_the_counting_rules():
     s = status_sets()
-    assert s["WRITTEN"] == {"PENDING", "INFORCE", "CANCELLED", "EXPIRED"}
+    holds = {"SUSPENDED", "REINSTATEMENT_PENDING", "REINSTATEMENT_SUSPENDED"}  # V6: written and still in force
+    assert s["WRITTEN"] == {"PENDING", "INFORCE", "CANCELLED", "EXPIRED"} | holds
+    assert holds <= s["IN_FORCE"]
     assert s["CLAIM_PAID"] == {"CLOSED_FULLY_PAID", "CLOSED_PARTIALLY_PAID"}
     assert s["CLAIM_DENIED"] == {"DENIED"}
     for name in ("WRITTEN", "IN_FORCE"):  # voided and denied contracts never count
@@ -463,3 +465,103 @@ def test_warehouse_retail_basis_shortfall_is_explained_on_its_pages(tmp_path: Pa
         page = pages[f"regulatory/funded-reserve-{r.state.lower()}.html"]
         why = next(x for x in page.sections if x.title == "Why this filing shows a shortfall")
         assert "Basis effect" in why.caption and "top-up deposit" in why.caption
+
+
+# --------------------------------------------------------------------------- V6 edit 5: state in-force list
+def _inforce_rows() -> pd.DataFrame:
+    base = {c: None for c in data.INFORCE_COLS}
+    out = []
+    for i, (state, year, form) in enumerate((("TX", 2022, None), ("TX", 2024, "VSC-24-TX"),
+                                             ("TX", 2025, "VSC-25-TX"), ("CA", 2025, "VSC-25-CA"))):
+        out.append(dict(base, state=state, contract_date=dt.date(year, 3, 1), contract_number=f"VSC{i:05d}",
+                        product_name="Powertrain 2024 - FI", category="Vsc", subcategory="Powertrain",
+                        program_type="FULL_INSURED", dealer_number="D1", dealer_name="Summit Motors",
+                        lienholder_name="Harbor Bank", current_form_code=form,
+                        form_code_source="document" if form else "missing", obligor_name="Obligor",
+                        obligor_kind="internal_provider", status="INFORCE", effective_date=dt.date(year, 3, 1),
+                        expiration_date=dt.date(2030, 1, 1), contract_count=1, list_as_of_date=dt.date(2026, 10, 23)))
+    return pd.DataFrame(out)
+
+
+@pytest.fixture
+def inforce_warehouse(tiny_warehouse: Path) -> Path:
+    with duckdb.connect(str(tiny_warehouse)) as con:
+        con.register("frame", _inforce_rows())
+        con.execute("create table regulatory.mart_state_inforce_list as select *, current_timestamp as _built_at "
+                    "from frame")
+    return tiny_warehouse
+
+
+def test_inforce_list_columns_cover_the_compliance_ask():
+    # contract date, number, product, dealer, lienholder name / address / state, form code, obligor
+    need = {"contract_date", "contract_number", "product_name", "dealer_name", "lienholder_name",
+            "lienholder_address", "lienholder_state", "current_form_code", "obligor_name", "obligor_kind"}
+    assert need <= set(data.INFORCE_COLS)
+    sql = (ROOT / "dbt/models/marts/regulatory/mart_state_inforce_list.sql").read_text(encoding="utf-8")
+    assert "status_set_id = 'IN_FORCE'" in sql and "is_filing_product_scope" in sql  # rules from seeds/filing
+    assert "'inferred'" not in sql  # the form code is never guessed from product x state
+
+
+def test_form_code_coverage_counts_missing_by_contract_year():
+    cov = data.form_code_coverage(_inforce_rows())
+    by_year = cov.set_index("Contract year")
+    assert by_year.loc[2022, "Missing form code count"] == 1 and by_year.loc[2022, "Form code share"] == 0
+    assert by_year.loc[2025, "With form code count"] == 2 and by_year.loc[2025, "Form code share"] == 1
+
+
+def test_build_writes_inforce_workbook_and_page_per_state(inforce_warehouse: Path, tmp_path: Path):
+    out = tmp_path / "site"
+    with duckdb.connect(str(inforce_warehouse), read_only=True) as con:
+        pages = {p.path: p for p in build(con, out)}
+    assert {"regulatory/inforce-list-tx.html", "regulatory/inforce-list-ca.html"} <= set(pages)
+    wb = openpyxl.load_workbook(out / "downloads/regulatory/inforce_service_contracts_tx_20261023.xlsx",
+                                read_only=True)
+    assert wb.sheetnames == ["In Force Contracts", "By Product", "Form Code Coverage"]
+    rows_ = list(wb["In Force Contracts"].iter_rows(values_only=True))
+    assert list(rows_[0]) == list(data.INFORCE_COLS.values())
+    assert len(rows_) == 1 + 3 + 1  # header, 3 TX contracts, totals row
+    cov = list(wb["Form Code Coverage"].iter_rows(values_only=True))
+    assert (list(cov[-1]) + [None] * 5)[4] is None  # the share column has no (meaningless) total
+    tx = pages["regulatory/inforce-list-tx.html"]
+    kpis = {k.label: k for k in tx.kpis}
+    assert kpis["Contracts in force"].value == "3" and kpis["Missing form code"].status == "warning"
+    index = pages["regulatory/index.html"]
+    section = next(s for s in index.sections if s.title == "State in-force contract lists")
+    assert [r[1] for r in section.rows] == ["1", "3"]  # CA, TX
+
+
+def test_inforce_pages_have_no_broken_links(inforce_warehouse: Path, tmp_path: Path):
+    out = tmp_path / "site"
+    written = reg_cli.run(inforce_warehouse, out)
+    assert len(written) == 6
+    assert broken_links(out) == []
+
+
+def test_plugin_without_inforce_mart_keeps_the_filings_only(tiny_warehouse: Path, tmp_path: Path):
+    with duckdb.connect(str(tiny_warehouse), read_only=True) as con:
+        assert not data.inforce_available(con)
+        paths = [p.path for p in build(con, tmp_path / "site")]
+    assert not any("inforce-list" in p for p in paths)
+
+
+def _has_inforce() -> bool:
+    if not _has_marts():
+        return False
+    with duckdb.connect(str(WAREHOUSE), read_only=True) as con:
+        return data.inforce_available(con)
+
+
+@pytest.mark.skipif(not _has_inforce(), reason="mart_state_inforce_list not built in WAREHOUSE_PATH")
+def test_warehouse_inforce_list_follows_the_filing_rules():
+    with duckdb.connect(str(WAREHOUSE), read_only=True) as con:
+        bad = con.execute("""
+            select count(*) from regulatory.mart_state_inforce_list as l
+            left join regulatory.mart_funded_reserve_contracts as c using (contract_key)
+            where not c.is_filing_product_scope
+               or l.status not in (select status from seeds.report_status_sets where status_set_id = 'IN_FORCE')
+               or l.effective_date > l.list_as_of_date
+               or coalesce(c.cancel_date, date '9999-12-31') <= l.list_as_of_date
+               or (l.form_code_source = 'missing') <> (l.current_form_code is null)
+        """).fetchone()[0]
+        n = con.execute("select count(*) from regulatory.mart_state_inforce_list").fetchone()[0]
+    assert n > 0 and bad == 0

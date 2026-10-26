@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-24T02:03:27Z",
+  "generated_at": "2026-10-26T00:43:53Z",
   "legacy_database": "vsc_legacy",
   "legacy_admin_database": "vsc_legacy_admin",
   "modern_database": "vsc_analytics",
@@ -16,7 +16,7 @@
         "error": null,
         "expected_error": null,
         "rows": 1,
-        "answer": 233.0,
+        "answer": 231.0,
         "columns": [
           "in_force_contracts",
           "coverage_cost",
@@ -24,27 +24,27 @@
           "dealer_ids_for_one_dealer"
         ],
         "first_row": [
-          233,
-          265993.98,
-          474,
+          231,
+          263826.95,
+          471,
           3
         ],
         "plan_top": [
-          "Aggregate (rows=1, 44 ms)",
-          "Sort (rows=474, 44 ms)",
-          "Hash Join (rows=474, 44 ms)",
-          "Hash Join (rows=474, 44 ms)",
+          "Aggregate (rows=1, 49 ms)",
+          "Sort (rows=471, 49 ms)",
+          "Hash Join (rows=471, 49 ms)",
+          "Hash Join (rows=471, 49 ms)",
           "Hash (rows=5, 0 ms)",
-          "Hash Join (rows=474, 44 ms)"
+          "Hash Join (rows=471, 48 ms)"
         ],
-        "plan_cost": 6487.02,
+        "plan_cost": 6580.7,
         "plan_scans": {
           "Seq Scan": 5,
           "Index Only Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 43.3,
-        "plan_exec_ms": 45.1,
+        "ms": 50.2,
+        "plan_exec_ms": 50.6,
         "file": "sql/playbook/benchmark/q01_legacy.sql",
         "text": {
           "question": "In-force contracts and coverage cost for one dealer (dealer id 37).",
@@ -58,24 +58,24 @@
         "error": null,
         "expected_error": null,
         "rows": 1,
-        "answer": 476.0,
+        "answer": 473.0,
         "columns": [
           "in_force_contracts",
           "coverage_cost"
         ],
         "first_row": [
-          476,
-          563304.84
+          473,
+          560628.67
         ],
         "plan_top": [
-          "Aggregate (rows=1, 1 ms)",
-          "Nested Loop (rows=476, 1 ms)",
-          "Nested Loop (rows=476, 1 ms)",
-          "Index Scan on dim_contract_finance using dim_contract_finance_pkey (rows=476, 0 ms)",
+          "Aggregate (rows=1, 2 ms)",
+          "Nested Loop (rows=473, 2 ms)",
+          "Nested Loop (rows=473, 1 ms)",
+          "Index Scan on dim_contract_finance using dim_contract_finance_pkey (rows=473, 0 ms)",
           "Seq Scan on dim_dealer (rows=1, 0 ms)",
-          "Bitmap Heap Scan on dim_contract (rows=476, 1 ms)"
+          "Bitmap Heap Scan on dim_contract (rows=473, 1 ms)"
         ],
-        "plan_cost": 1355.2,
+        "plan_cost": 1354.61,
         "plan_scans": {
           "Index Scan": 1,
           "Bitmap Heap Scan": 1,
@@ -83,15 +83,15 @@
           "Seq Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 2.6,
-        "plan_exec_ms": 1.5,
+        "ms": 2.8,
+        "plan_exec_ms": 2.4,
         "file": "sql/playbook/benchmark/q01_modern.sql",
         "text": {
           "question": "In-force contracts and coverage cost for dealer id 37 on the modern star schema."
         }
       },
-      "diff": -243.0,
-      "diff_pct": -51.05,
+      "diff": -242.0,
+      "diff_pct": -51.16,
       "observed_failure": "lost"
     },
     {
@@ -119,20 +119,20 @@
           59985
         ],
         "plan_top": [
-          "Aggregate (rows=1, 43 ms)",
-          "Aggregate (rows=1, 15 ms)",
-          "Sort (rows=50,371, 25 ms)",
-          "Hash Join (rows=59,985, 13 ms)",
-          "Hash Join (rows=50,371, 19 ms)",
-          "Hash Join (rows=59,985, 9 ms)"
+          "Aggregate (rows=1, 47 ms)",
+          "Aggregate (rows=1, 17 ms)",
+          "Sort (rows=50,371, 28 ms)",
+          "Hash Join (rows=59,985, 15 ms)",
+          "Hash Join (rows=50,371, 21 ms)",
+          "Hash Join (rows=59,985, 11 ms)"
         ],
-        "plan_cost": 15096.88,
+        "plan_cost": 15098.51,
         "plan_scans": {
           "Seq Scan": 7
         },
         "plan_kind": "analyze",
-        "ms": 30.8,
-        "plan_exec_ms": 43.1,
+        "ms": 35.6,
+        "plan_exec_ms": 47.5,
         "file": "sql/playbook/benchmark/q02_legacy.sql",
         "text": {
           "question": "Contracts by product type, and the latest plan year on the book.",
@@ -158,21 +158,21 @@
           7
         ],
         "plan_top": [
-          "Aggregate (rows=1, 19 ms)",
-          "Sort (rows=59,749, 16 ms)",
-          "Hash Join (rows=59,749, 9 ms)",
+          "Aggregate (rows=1, 20 ms)",
+          "Sort (rows=59,749, 17 ms)",
+          "Hash Join (rows=59,749, 10 ms)",
           "Index Only Scan on dim_contract using ix_dim_contract__product_key (rows=59,749, 2 ms)",
           "Hash (rows=369, 0 ms)",
           "Seq Scan on dim_product (rows=369, 0 ms)"
         ],
-        "plan_cost": 6752.92,
+        "plan_cost": 6649.05,
         "plan_scans": {
           "Seq Scan": 1,
           "Index Only Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 15.0,
-        "plan_exec_ms": 19.1,
+        "ms": 17.0,
+        "plan_exec_ms": 20.4,
         "file": "sql/playbook/benchmark/q02_modern.sql",
         "text": {
           "question": "Contracts by product type and the latest plan year, on the modern star schema."
@@ -207,21 +207,21 @@
           24
         ],
         "plan_top": [
-          "Aggregate (rows=1, 9 ms)",
-          "Sort (rows=48, 9 ms)",
-          "Append (rows=48, 9 ms)",
+          "Aggregate (rows=1, 10 ms)",
+          "Sort (rows=48, 10 ms)",
+          "Append (rows=48, 10 ms)",
           "Subquery Scan (rows=24, 3 ms)",
-          "Subquery Scan (rows=24, 6 ms)",
+          "Subquery Scan (rows=24, 7 ms)",
           "Aggregate (rows=24, 3 ms)"
         ],
-        "plan_cost": 1544.84,
+        "plan_cost": 1630.84,
         "plan_scans": {
           "Subquery Scan": 2,
           "Seq Scan": 3
         },
         "plan_kind": "analyze",
-        "ms": 9.0,
-        "plan_exec_ms": 9.1,
+        "ms": 10.5,
+        "plan_exec_ms": 10.0,
         "file": "sql/playbook/benchmark/q03_legacy.sql",
         "text": {
           "question": "Paid claims by month (total over the last 24 months shown as the answer).",
@@ -249,13 +249,13 @@
           "Sort (rows=6,509, 4 ms)",
           "Seq Scan on fct_claim (rows=6,509, 3 ms)"
         ],
-        "plan_cost": 1318.79,
+        "plan_cost": 1312.79,
         "plan_scans": {
           "Seq Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 4.6,
-        "plan_exec_ms": 4.2,
+        "ms": 5.3,
+        "plan_exec_ms": 4.0,
         "file": "sql/playbook/benchmark/q03_modern.sql",
         "text": {
           "question": "Paid claims over the last 24 months on the modern claim fact."
@@ -286,20 +286,20 @@
           6135
         ],
         "plan_top": [
-          "Aggregate (rows=1, 7 ms)",
-          "Aggregate (rows=1, 7 ms)",
+          "Aggregate (rows=1, 8 ms)",
+          "Aggregate (rows=1, 8 ms)",
           "Nested Loop (rows=0, 0 ms)",
-          "Hash Join (rows=6,135, 7 ms)",
+          "Hash Join (rows=6,135, 8 ms)",
           "Hash Join (rows=0, 0 ms)",
           "Materialize (rows=0, 0 ms)"
         ],
-        "plan_cost": 6443.74,
+        "plan_cost": 6443.96,
         "plan_scans": {
           "Seq Scan": 5
         },
         "plan_kind": "analyze",
-        "ms": 7.1,
-        "plan_exec_ms": 7.3,
+        "ms": 7.0,
+        "plan_exec_ms": 8.1,
         "file": "sql/playbook/benchmark/q04_legacy.sql",
         "text": {
           "question": "The book (contract count) for one provider entity, \"Obligor 1\".",
@@ -326,13 +326,13 @@
           "Seq Scan on dim_producer (rows=1, 0 ms)",
           "Index Only Scan on dim_contract using ix_dim_contract__provider_entity_key (rows=9,936, 0 ms)"
         ],
-        "plan_cost": 484.5,
+        "plan_cost": 320.51,
         "plan_scans": {
           "Index Only Scan": 1,
           "Seq Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 1.1,
+        "ms": 1.2,
         "plan_exec_ms": 1.1,
         "file": "sql/playbook/benchmark/q04_modern.sql",
         "text": {
@@ -370,21 +370,21 @@
           1589126.34
         ],
         "plan_top": [
-          "Aggregate (rows=1, 113 ms)",
-          "Sort (rows=4,431, 112 ms)",
-          "Nested Loop (rows=4,431, 112 ms)",
-          "Nested Loop (rows=1, 46 ms)",
-          "Aggregate (rows=4,431, 66 ms)",
-          "Aggregate (rows=1, 35 ms)"
+          "Aggregate (rows=1, 129 ms)",
+          "Sort (rows=4,431, 129 ms)",
+          "Nested Loop (rows=4,431, 128 ms)",
+          "Nested Loop (rows=1, 57 ms)",
+          "Aggregate (rows=4,431, 71 ms)",
+          "Aggregate (rows=1, 44 ms)"
         ],
-        "plan_cost": 47721.62,
+        "plan_cost": 47086.57,
         "plan_scans": {
           "Index Scan": 2,
           "Seq Scan": 4
         },
         "plan_kind": "analyze",
-        "ms": 107.3,
-        "plan_exec_ms": 113.3,
+        "ms": 116.8,
+        "plan_exec_ms": 129.7,
         "file": "sql/playbook/benchmark/q05_legacy.sql",
         "text": {
           "question": "Loss ratio for the oldest entered year (2019) from the earnings series: paid claims over earned claims reserve.",
@@ -410,21 +410,21 @@
           1577558.55
         ],
         "plan_top": [
-          "Nested Loop (rows=1, 408 ms)",
-          "Aggregate (rows=1, 378 ms)",
-          "Aggregate (rows=1, 30 ms)",
-          "Gather (rows=3, 378 ms)",
-          "Hash Join (rows=1,311, 30 ms)",
-          "Aggregate (rows=3, 351 ms)"
+          "Nested Loop (rows=1, 846 ms)",
+          "Aggregate (rows=1, 723 ms)",
+          "Aggregate (rows=1, 123 ms)",
+          "Gather (rows=3, 723 ms)",
+          "Hash Join (rows=1,311, 122 ms)",
+          "Aggregate (rows=3, 642 ms)"
         ],
-        "plan_cost": 221676.18,
+        "plan_cost": 219476.75,
         "plan_scans": {
           "Seq Scan": 3,
           "Index Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 429.6,
-        "plan_exec_ms": 407.8,
+        "ms": 5958.3,
+        "plan_exec_ms": 846.0,
         "file": "sql/playbook/benchmark/q05_modern.sql",
         "text": {
           "question": "Loss ratio for entered year 2019 from the modern earned-disbursement fact (claims reserve) and the claim fact."
@@ -445,7 +445,7 @@
         "error": null,
         "expected_error": null,
         "rows": 1,
-        "answer": 36501.0,
+        "answer": 36349.0,
         "columns": [
           "filing_rows",
           "distinct_contracts",
@@ -454,27 +454,27 @@
           "demo_dealer_contracts"
         ],
         "first_row": [
-          36501,
-          35323,
-          1178,
+          36349,
+          35175,
+          1174,
           32,
-          127
+          126
         ],
         "plan_top": [
-          "Aggregate (rows=1, 30 ms)",
-          "Sort (rows=36,501, 28 ms)",
-          "Hash Join (rows=36,501, 21 ms)",
-          "Hash Join (rows=36,501, 19 ms)",
+          "Aggregate (rows=1, 32 ms)",
+          "Sort (rows=36,349, 30 ms)",
+          "Hash Join (rows=36,349, 24 ms)",
+          "Hash Join (rows=36,349, 22 ms)",
           "Hash (rows=3, 0 ms)",
-          "Hash Join (rows=36,501, 16 ms)"
+          "Hash Join (rows=36,349, 19 ms)"
         ],
-        "plan_cost": 7749.98,
+        "plan_cost": 7727.11,
         "plan_scans": {
           "Seq Scan": 7
         },
         "plan_kind": "analyze",
-        "ms": 23.9,
-        "plan_exec_ms": 29.9,
+        "ms": 30.5,
+        "plan_exec_ms": 32.7,
         "file": "sql/playbook/benchmark/q06_legacy.sql",
         "text": {
           "question": "The reportable in-force population for a compliance filing, with each contract's rep.",
@@ -488,33 +488,33 @@
         "error": null,
         "expected_error": null,
         "rows": 1,
-        "answer": 35283.0,
+        "answer": 35136.0,
         "columns": [
           "filing_rows",
           "distinct_contracts"
         ],
         "first_row": [
-          35283,
-          35283
+          35136,
+          35136
         ],
         "plan_top": [
-          "Aggregate (rows=1, 17 ms)",
-          "Sort (rows=35,283, 14 ms)",
-          "Seq Scan on dim_contract (rows=35,283, 8 ms)"
+          "Aggregate (rows=1, 18 ms)",
+          "Sort (rows=35,136, 16 ms)",
+          "Seq Scan on dim_contract (rows=35,136, 8 ms)"
         ],
-        "plan_cost": 7961.2,
+        "plan_cost": 7924.19,
         "plan_scans": {
           "Seq Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 15.8,
-        "plan_exec_ms": 16.8,
+        "ms": 17.3,
+        "plan_exec_ms": 18.5,
         "file": "sql/playbook/benchmark/q06_modern.sql",
         "text": {
           "question": "The reportable in-force population for a compliance filing, with each contract's agent (rep)."
         }
       },
-      "diff": 1218.0,
+      "diff": 1213.0,
       "diff_pct": 3.45,
       "observed_failure": "doubled"
     },
@@ -538,25 +538,24 @@
         "first_row": [
           6135,
           7044465.19,
-          4774
+          4746
         ],
         "plan_top": [
-          "Aggregate (rows=1, 1,236 ms)",
-          "Hash Join (rows=6,135, 1,234 ms)",
-          "Append (rows=3,380,884, 312 ms)",
-          "Aggregate (rows=59,991, 882 ms)",
-          "Aggregate (rows=103,329, 41 ms)",
-          "Aggregate (rows=59,066, 251 ms)"
+          "Aggregate",
+          "Hash Join",
+          "Append",
+          "Aggregate",
+          "Aggregate",
+          "Aggregate"
         ],
-        "plan_cost": 179102.44,
+        "plan_cost": 179204.87,
         "plan_scans": {
           "Index Scan": 1,
           "CTE Scan": 4,
           "Seq Scan": 6
         },
-        "plan_kind": "analyze",
-        "ms": 892.6,
-        "plan_exec_ms": 1305.3,
+        "plan_kind": "estimated",
+        "ms": 1115.3,
         "file": "sql/playbook/benchmark/q07_legacy.sql",
         "text": {
           "question": "Contract attributes (status, state, product type, coverage cost) for one provider entity's population, the lookup a report visual or a scoped export fires on every click.",
@@ -579,25 +578,24 @@
         "first_row": [
           9936,
           11800430.25,
-          5565
+          5538
         ],
         "plan_top": [
-          "Aggregate (rows=1, 15 ms)",
-          "Hash Join (rows=9,936, 14 ms)",
-          "Seq Scan on dim_contract_finance (rows=59,748, 3 ms)",
-          "Hash (rows=9,936, 6 ms)",
-          "Nested Loop (rows=9,936, 5 ms)",
-          "Seq Scan on dim_obligor (rows=1, 0 ms)"
+          "Aggregate (rows=1, 47 ms)",
+          "Gather (rows=3, 47 ms)",
+          "Aggregate (rows=3, 18 ms)",
+          "Nested Loop (rows=9,936, 17 ms)",
+          "Hash Join (rows=9,936, 8 ms)",
+          "Index Scan on dim_contract_finance using dim_contract_finance_pkey (rows=9,936, 0 ms)"
         ],
-        "plan_cost": 7332.04,
+        "plan_cost": 6693.97,
         "plan_scans": {
-          "Bitmap Heap Scan": 1,
-          "Bitmap Index Scan": 1,
+          "Index Scan": 1,
           "Seq Scan": 2
         },
         "plan_kind": "analyze",
-        "ms": 12.7,
-        "plan_exec_ms": 15.1,
+        "ms": 50.2,
+        "plan_exec_ms": 47.5,
         "file": "sql/playbook/benchmark/q07_modern.sql",
         "text": {
           "question": "Contract attributes and coverage cost for provider entity \"Obligor 1\" on the modern star schema."
@@ -624,7 +622,7 @@
           "first_row": null,
           "plan_top": [],
           "plan_kind": null,
-          "ms": 0.9,
+          "ms": 1.4,
           "error_expected": true,
           "error_text": "column \"CurrentContractStatus\" does not exist",
           "file": "sql/playbook/benchmark/q08_legacy.sql",
@@ -640,29 +638,29 @@
           "error": null,
           "expected_error": null,
           "rows": 1,
-          "answer": 7384.0,
+          "answer": 7352.0,
           "columns": [
             "in_force_contracts",
             "newest_contract_in_mirror"
           ],
           "first_row": [
-            7384,
+            7352,
             "2026-09-21"
           ],
           "plan_top": [
             "Aggregate (rows=1, 2 ms)",
-            "Hash Join (rows=7,384, 2 ms)",
-            "Seq Scan on tbl_contract (rows=7,384, 1 ms)",
+            "Hash Join (rows=7,352, 2 ms)",
+            "Seq Scan on tbl_contract (rows=7,352, 2 ms)",
             "Hash (rows=35, 0 ms)",
             "Seq Scan on tbl_dealer (rows=35, 0 ms)"
           ],
-          "plan_cost": 641.49,
+          "plan_cost": 640.89,
           "plan_scans": {
             "Seq Scan": 2
           },
           "plan_kind": "analyze",
-          "ms": 3.4,
-          "plan_exec_ms": 2.2,
+          "ms": 5.2,
+          "plan_exec_ms": 2.5,
           "file": "sql/playbook/benchmark/q08_legacy_2.sql",
           "text": {
             "question": "In-force contract count for Tenant B, second try: the query rewritten for the mirror's columns.",
@@ -677,29 +675,29 @@
         "error": null,
         "expected_error": null,
         "rows": 1,
-        "answer": 7384.0,
+        "answer": 7352.0,
         "columns": [
           "in_force_contracts",
           "newest_contract_in_mirror"
         ],
         "first_row": [
-          7384,
+          7352,
           "2026-09-21"
         ],
         "plan_top": [
           "Aggregate (rows=1, 2 ms)",
-          "Hash Join (rows=7,384, 2 ms)",
-          "Seq Scan on tbl_contract (rows=7,384, 1 ms)",
+          "Hash Join (rows=7,352, 2 ms)",
+          "Seq Scan on tbl_contract (rows=7,352, 2 ms)",
           "Hash (rows=35, 0 ms)",
           "Seq Scan on tbl_dealer (rows=35, 0 ms)"
         ],
-        "plan_cost": 641.49,
+        "plan_cost": 640.89,
         "plan_scans": {
           "Seq Scan": 2
         },
         "plan_kind": "analyze",
-        "ms": 4.3,
-        "plan_exec_ms": 2.2,
+        "ms": 6.6,
+        "plan_exec_ms": 2.5,
         "file": "sql/playbook/benchmark/q08_legacy_2.sql",
         "text": {
           "question": "In-force contract count for Tenant B, first try: the main-schema query pointed at the mirror.",
@@ -713,28 +711,28 @@
         "error": null,
         "expected_error": null,
         "rows": 1,
-        "answer": 7453.0,
+        "answer": 7421.0,
         "columns": [
           "in_force_contracts",
           "newest_contract"
         ],
         "first_row": [
-          7453,
+          7421,
           "2026-10-16"
         ],
         "plan_top": [
           "Aggregate (rows=1, 3 ms)",
-          "Bitmap Heap Scan on dim_contract (rows=7,453, 3 ms)",
+          "Bitmap Heap Scan on dim_contract (rows=7,421, 3 ms)",
           "Bitmap Index Scan using ix_dim_contract__tenant_key (rows=9,554, 0 ms)"
         ],
-        "plan_cost": 4572.77,
+        "plan_cost": 4542.39,
         "plan_scans": {
           "Bitmap Heap Scan": 1,
           "Bitmap Index Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 4.4,
-        "plan_exec_ms": 3.4,
+        "ms": 4.6,
+        "plan_exec_ms": 3.5,
         "file": "sql/playbook/benchmark/q08_modern.sql",
         "text": {
           "question": "In-force contract count for Tenant B on the modern star schema."
@@ -789,9 +787,9 @@
             31
           ],
           "plan_top": [
-            "Aggregate (rows=1, 2 ms)",
-            "Aggregate (rows=782, 2 ms)",
-            "Sort (rows=3,879, 1 ms)",
+            "Aggregate (rows=1, 3 ms)",
+            "Aggregate (rows=782, 3 ms)",
+            "Sort (rows=3,879, 2 ms)",
             "Hash Join (rows=3,879, 1 ms)",
             "Seq Scan on contract_field (rows=3,879, 0 ms)",
             "Hash (rows=5, 0 ms)"
@@ -801,8 +799,8 @@
             "Seq Scan": 2
           },
           "plan_kind": "analyze",
-          "ms": 2.5,
-          "plan_exec_ms": 1.9,
+          "ms": 2.6,
+          "plan_exec_ms": 2.7,
           "file": "sql/playbook/benchmark/q09_legacy_2.sql",
           "text": {
             "question": "Step two: pivot the key-value store in the admin database on its own (text values, missing rows for blank fields), then hand the id list to the warehouse side by export and re-import."
@@ -828,9 +826,9 @@
           31
         ],
         "plan_top": [
-          "Aggregate (rows=1, 2 ms)",
-          "Aggregate (rows=782, 2 ms)",
-          "Sort (rows=3,879, 1 ms)",
+          "Aggregate (rows=1, 3 ms)",
+          "Aggregate (rows=782, 3 ms)",
+          "Sort (rows=3,879, 2 ms)",
           "Hash Join (rows=3,879, 1 ms)",
           "Seq Scan on contract_field (rows=3,879, 0 ms)",
           "Hash (rows=5, 0 ms)"
@@ -840,8 +838,8 @@
           "Seq Scan": 2
         },
         "plan_kind": "analyze",
-        "ms": 3.5,
-        "plan_exec_ms": 1.9,
+        "ms": 3.6,
+        "plan_exec_ms": 2.7,
         "file": "sql/playbook/benchmark/q09_legacy_2.sql",
         "text": {
           "question": "RV chassis make and model per contract, next to the contract's dealer and state.",
@@ -865,21 +863,21 @@
           51
         ],
         "plan_top": [
-          "Aggregate (rows=1, 26 ms)",
-          "Gather Merge (rows=779, 26 ms)",
-          "Sort (rows=780, 5 ms)",
-          "Nested Loop (rows=780, 5 ms)",
-          "Seq Scan on dim_contract_vehicle (rows=780, 4 ms)",
+          "Aggregate (rows=1, 38 ms)",
+          "Gather Merge (rows=779, 38 ms)",
+          "Sort (rows=780, 9 ms)",
+          "Nested Loop (rows=780, 8 ms)",
+          "Seq Scan on dim_contract_vehicle (rows=780, 7 ms)",
           "Index Scan on dim_contract using dim_contract_pkey (rows=779, 0 ms)"
         ],
-        "plan_cost": 5945.12,
+        "plan_cost": 6008.25,
         "plan_scans": {
           "Index Scan": 1,
           "Seq Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 24.8,
-        "plan_exec_ms": 26.0,
+        "ms": 43.2,
+        "plan_exec_ms": 38.4,
         "file": "sql/playbook/benchmark/q09_modern.sql",
         "text": {
           "question": "RV chassis make per contract, next to the contract's state, in one query."
@@ -918,7 +916,7 @@
           },
           "plan_kind": "estimated (no ANALYZE: the query hit its timeout)",
           "note": "timed out at 60 s",
-          "ms": 60006.7,
+          "ms": 60006.1,
           "file": "sql/playbook/benchmark/q10_legacy.sql",
           "text": {
             "question": "Stock-number match rate: share of the dealer stock list that finds its contract by VIN, first the way the old lookup view did it (a correlated, text-normalized lookup per stock row).",
@@ -944,20 +942,20 @@
             8900
           ],
           "plan_top": [
-            "Aggregate (rows=1, 51 ms)",
-            "Sort (rows=41,546, 47 ms)",
-            "Hash Join (rows=41,546, 34 ms)",
+            "Aggregate (rows=1, 71 ms)",
+            "Sort (rows=41,546, 66 ms)",
+            "Hash Join (rows=41,546, 51 ms)",
             "Seq Scan on tbl_stock_number (rows=41,546, 2 ms)",
-            "Hash (rows=59,929, 24 ms)",
-            "Aggregate (rows=59,929, 20 ms)"
+            "Hash (rows=59,929, 38 ms)",
+            "Aggregate (rows=59,929, 31 ms)"
           ],
-          "plan_cost": 8952.0,
+          "plan_cost": 8951.91,
           "plan_scans": {
             "Seq Scan": 2
           },
           "plan_kind": "analyze",
-          "ms": 45.3,
-          "plan_exec_ms": 53.0,
+          "ms": 71.8,
+          "plan_exec_ms": 72.8,
           "file": "sql/playbook/benchmark/q10_legacy_2.sql",
           "text": {
             "question": "Stock-number match rate, second try: the fast exact-text join everyone falls back to.",
@@ -984,20 +982,20 @@
           8900
         ],
         "plan_top": [
-          "Aggregate (rows=1, 51 ms)",
-          "Sort (rows=41,546, 47 ms)",
-          "Hash Join (rows=41,546, 34 ms)",
+          "Aggregate (rows=1, 71 ms)",
+          "Sort (rows=41,546, 66 ms)",
+          "Hash Join (rows=41,546, 51 ms)",
           "Seq Scan on tbl_stock_number (rows=41,546, 2 ms)",
-          "Hash (rows=59,929, 24 ms)",
-          "Aggregate (rows=59,929, 20 ms)"
+          "Hash (rows=59,929, 38 ms)",
+          "Aggregate (rows=59,929, 31 ms)"
         ],
-        "plan_cost": 8952.0,
+        "plan_cost": 8951.91,
         "plan_scans": {
           "Seq Scan": 2
         },
         "plan_kind": "analyze",
-        "ms": 60052.0,
-        "plan_exec_ms": 53.0,
+        "ms": 60077.9,
+        "plan_exec_ms": 72.8,
         "file": "sql/playbook/benchmark/q10_legacy_2.sql",
         "text": {
           "question": "Stock-number match rate: share of the dealer stock list that finds its contract by VIN, first the way the old lookup view did it (a correlated, text-normalized lookup per stock row).",
@@ -1021,10 +1019,10 @@
           59749
         ],
         "plan_top": [
-          "Aggregate (rows=1, 35 ms)",
-          "Gather (rows=2, 35 ms)",
-          "Aggregate (rows=2, 18 ms)",
-          "Hash Join (rows=59,748, 17 ms)",
+          "Aggregate (rows=1, 47 ms)",
+          "Gather (rows=2, 47 ms)",
+          "Aggregate (rows=2, 24 ms)",
+          "Hash Join (rows=59,748, 22 ms)",
           "Seq Scan on dim_contract_vehicle (rows=59,748, 2 ms)",
           "Hash (rows=59,748, 5 ms)"
         ],
@@ -1034,8 +1032,8 @@
           "Seq Scan": 1
         },
         "plan_kind": "analyze",
-        "ms": 32.7,
-        "plan_exec_ms": 34.8,
+        "ms": 42.3,
+        "plan_exec_ms": 46.6,
         "file": "sql/playbook/benchmark/q10_modern.sql",
         "text": {
           "question": "Share of contracts whose vehicle attributes are found, joined on the surrogate key."

@@ -13,6 +13,9 @@ models:
       profit share earned ITD (itd_profit_share_due, gross), distributions paid and closing profit
       share due (earned - paid, the same figure as the profit-share statement). Terms from seed
       participation_structure_terms; payouts from seed profit_share_payout_schedule.
+      V6 edit 13: entity_status (ACTIVE | RUNOFF), runoff_date, cession_type, gl_class_code; contracts
+      entered after a run-off date are not ceded (mart_participation_contract) and show only in the
+      transfer columns (contracts_transferred, reserve_transferred and their ITD).
     data_tests:
       - unique_combination:
           arguments: {columns: [participation_entity_key, posting_period_key]}
@@ -32,6 +35,10 @@ models:
         data_tests:
           - expression_is_true:
               arguments: {expression: "claims_reserve_released >= 0"}
+      - name: entity_status
+        data_tests:
+          - accepted_values:
+              arguments: {values: [ACTIVE, RUNOFF]}
 
   - name: mart_profit_share_statement
     description: >
@@ -157,3 +164,120 @@ models:
     data_tests:
       - unique_combination:
           arguments: {columns: [tenant_key, posting_period_key]}
+
+  # ---- V6 structure-review marts (docs/V3_DESIGN.md section 9)
+  - name: mart_participation_contract
+    description: >
+      Contract -> participation entity with the run-off rule (V6 edit 13): a contract entered after
+      its entity's run-off date is not ceded (is_ceded = false, is_transferred = true); its reserve
+      stays with the obligor. Every finance mart that attributes contracts to entities reads this.
+    data_tests:
+      - expression_is_true:
+          arguments: {expression: "is_ceded <> is_transferred"}
+    columns:
+      - name: contract_key
+        data_tests: [unique, not_null]
+      - name: entity_status
+        data_tests:
+          - accepted_values:
+              arguments: {values: [ACTIVE, RUNOFF]}
+
+  - name: mart_experience
+    description: >
+      Experience report (V6 edit 1), inception to date at the latest closed period, reserve basis:
+      net written, unearned, earned, claims paid, contracts (written, cancelled, net), claims count,
+      earned %, cancel %, loss ratio. One grain serves every "View by" (date, product, dealer, state,
+      plan, make, effective year, term).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, entered_month, effective_year, product_key, dealer_key,
+                                reportable_state, vehicle_make, term_months, participation_entity_key]}
+      - expression_is_true:
+          arguments: {expression: "abs(net_written - earned - unearned) < 0.005"}
+      - expression_is_true:
+          arguments: {expression: "contracts_net = contracts_written - contracts_cancelled and contracts_net >= 0"}
+
+  - name: mart_new_reserves_by_term
+    description: >
+      New reserves (gross claims reserve at sale) per tenant x entered month x product category x
+      term-year bucket (seed term_year_buckets): reserve, contracts, average reserve, average term,
+      row % within the category (V6 edit 11).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, entered_month, category_code, term_bucket]}
+      - expression_is_true:
+          arguments: {expression: "contracts > 0"}
+
+  - name: mart_reserve_bridge
+    description: >
+      Reserve bridge per tenant x month (V6 edit 2): gross new reserve (New Reserves) -> cancelled
+      contracts' reserve -> partial-refund remainder -> other adjustments -> net written by entered
+      month (Experience) -> entered-vs-effective timing -> net written by effective month. residual
+      must be 0.00 (singular test assert_reserve_bridge_closes).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, month_start]}
+
+  - name: mart_commission_hierarchy
+    description: >
+      Commission District > Regional > National (V6 edit 12) per product type x posting period:
+      contracts entered vs the monthly volume target (seed commission_volume_targets), over/under,
+      and commission posted. Each level's commission sums to the commission ledger.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [level, node, product_type, posting_period_key]}
+    columns:
+      - name: level
+        data_tests:
+          - accepted_values:
+              arguments: {values: [DISTRICT, REGIONAL, NATIONAL]}
+
+  - name: mart_rate_card
+    description: >
+      Rate card (V6 edit 15) from the source rate + rate_component tables: rate (dealer cost), fee
+      stack (admin fee, insurer-program fee, premium tax, dealer pack) and reserve = rate - fees,
+      per plan x coverage level x term x odometer band x class. Sort by term first, then band.
+    data_tests:
+      - expression_is_true:
+          arguments: {expression: "abs(reserve - (claims_reserve + profit_share_reserve)) < 0.005"}
+    columns:
+      - name: rate_id
+        data_tests: [unique, not_null]
+
+  - name: mart_rate_card_exceptions
+    description: >
+      Diagnostic (V6 edit 15): Admin Core contracts whose booked coverage cost less surcharges and
+      options differs from the card rate, or whose rate is not on the card. Empty when every
+      contract was priced from the card.
+    columns:
+      - name: contract_key
+        data_tests: [unique]
+      - name: exception_type
+        data_tests:
+          - accepted_values:
+              arguments: {values: [COST_DIFFERS, RATE_NOT_ON_CARD]}
+
+  - name: mart_partner_settlement
+    description: >
+      Partner settlement statement (V6 edit 17) per tenant x dealer x posting period: admin / premium
+      due, insurer-program fee adjustment, cancel fees, transient claims, obligor claims deducted,
+      net due (signed sum).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, dealer_key, posting_period_key]}
+      - expression_is_true:
+          arguments:
+            expression: "abs(admin_premium_due + program_fee_adjustment + cancel_fees + transient_claims - obligor_claims_deducted - net_due) < 0.005"
+    columns:
+      - name: statement_status
+        data_tests:
+          - accepted_values:
+              arguments: {values: [FINAL, PRELIMINARY]}
+
+  - name: mart_remit_register
+    description: >
+      Remit register (V6 edit 18): one row per cash receipt with batch, dealer, contract, entered /
+      sent / received dates, amount, age and late fee. Ties to fct_cash_transaction.
+    columns:
+      - name: cash_txn_key
+        data_tests: [unique, not_null]

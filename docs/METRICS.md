@@ -48,6 +48,9 @@ BI Specialist signs it off.
 | Earned reserve | Claims reserve x earned % for the period | `fct_earned_disbursement.earned_reserve` |
 | Unearned premium (month end) | A balance: sum across contracts, never across months | `fct_contract_monthly.unearned_premium_eom` |
 | Dealer markup | Retail price - coverage cost | `dealer_markup_written` |
+| Earned % (Experience page, metric `earned_pct`) | Earned claims reserve / net claims reserve written, inception to date | `finance.mart_experience.earned_pct` |
+| Cancel % (Experience page, metric `cancel_pct`) | Contracts effectively cancelled / contracts written (entered-month cohort on the page) | `finance.mart_experience.cancel_pct` |
+| New reserves | Gross claims reserve booked at sale, by entered month, before cancels; the reserve bridge walks it to net written | `finance.mart_new_reserves_by_term`, `mart_reserve_bridge` |
 
 Caveat: pro-rata earns a VSC too fast early in the term, because most claims come late. Young books
 therefore read low on any loss ratio over earned premium. The actuarial module (`docs/ACTUARIAL.md`)
@@ -79,6 +82,32 @@ good on a growing book.
 | `claim_frequency` | non-denied claims / earned contract-years | accident month |
 | Early claims | claims with a loss 30, 60, 90, 120, 150 or 180 days after the effective date | flags in `dim_contract_claim_summary`; KPI cube `claims.mart_claims_kpi` |
 | Open aged 30+ | open claims reported more than 30 days ago | `dim_claim.aging_30_plus` |
+
+## Contract statuses and which reports count them
+
+Eleven statuses (`generator/lifecycle.py` `CONTRACT_STATUSES`, transitions in `TRANSITIONS`). Report
+membership comes from the seeds `report_status_sets.csv` (regulatory: IN_FORCE, WRITTEN, CONTRACT_ANY)
+and `dealer_report_status_sets.csv` (dealer reports); a status a seed does not list is not counted.
+The three hold statuses never move money, so a contract on hold keeps counting where it counted before.
+
+| Status | Reached from | IN_FORCE | WRITTEN | CONTRACT_ANY | Dealer production | Dealer pending | Specialty line, surcharge audit |
+|---|---|---|---|---|---|---|---|
+| `PENDING` | booking | - | yes | yes | yes | yes | yes |
+| `INFORCE` | PENDING (remitted), CANCELLED (reinstated) | yes | yes | yes | yes | - | yes |
+| `CANCELLED` | INFORCE | yes | yes | yes | yes | - | yes |
+| `EXPIRED` | INFORCE | yes | yes | yes | yes | - | yes |
+| `VOIDED` | PENDING (voided, or never remitted) | - | - | yes | - | - | - |
+| `DENIED` | PENDING | - | - | yes | - | - | - |
+| `SUSPENDED` | INFORCE (account hold) | yes | yes | yes | yes | - | yes |
+| `REINSTATEMENT_PENDING` | CANCELLED (reinstatement requested) | yes | yes | yes | yes | - | yes |
+| `REINSTATEMENT_SUSPENDED` | REINSTATEMENT_PENDING (documents missing) | yes | yes | yes | yes | - | yes |
+| `REINSTATEMENT_VOIDED` | CANCELLED | - | - | yes | - | - | - |
+| `REINSTATEMENT_DENIED` | CANCELLED | - | - | yes | - | - | - |
+
+Dealer production also splits its written contracts into pending, in force and cancelled with the
+seed rules `DEALER_PROD_PENDING`, `DEALER_PROD_IN_FORCE` and `DEALER_PROD_CANCELLED`: a hold counts
+with the status it came from (`SUSPENDED` in force; `REINSTATEMENT_PENDING` and
+`REINSTATEMENT_SUSPENDED` cancelled until the reinstatement is approved).
 
 ## Cancellations and reinstatements
 
@@ -178,6 +207,8 @@ Section 3 computation is: reserve = state method rate x net consideration, from
 | `denial_rate` | Denial rate (denied / reported, loss month) | ratio | `claims_denied / claims_reported_loss_month` |  | Ratios | Senior Data Analyst (dealer & claims) | yes |
 | `paid_claim_severity` | Paid severity (paid on paid claims / paid claims, loss month) | ratio | `paid_on_paid_claims / claims_closed_paid` |  | Ratios | Senior Data Analyst (dealer & claims) | yes |
 | `posted_loss_ratio` | Loss ratio (on claims reserve), posted | ratio | `claims_incurred / earned_reserve` |  | Ratios | Financial Analyst II | yes |
+| `earned_pct` | Earned % | ratio | `earned_reserve / disbursed_claims_reserve` |  | Ratios | Financial Analyst II |  |
+| `cancel_pct` | Cancel % | ratio | `effective_cancellations / contracts_written` |  | Ratios | Financial Analyst II |  |
 | `remitted_cash` | Remitted cash | simple | `sum(amount)` | `fct_cash_transaction` | Remittance | Financial Analyst II |  |
 | `remittances` | Remittances | simple | `count(cash_txn_key)` | `fct_cash_transaction` | Remittance | Financial Analyst II |  |
 | `late_remittances` | Late remittances | simple | `sum_boolean(is_late)` | `fct_cash_transaction` | Remittance | Financial Analyst II |  |

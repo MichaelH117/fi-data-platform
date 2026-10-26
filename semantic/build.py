@@ -535,9 +535,14 @@ def render_calc_group() -> str:
 
 
 def render_drill(dm: DomainModel) -> str:
-    rows = ",\n".join(f'    ("{label}", NAMEOF({col(t, c)}), {i})' for i, (label, t, c) in enumerate(dm.drill))
-    n = spec.DRILL
-    out = ["/// Field parameter: pick the drill level (use it twice for a 1st / 2nd level matrix).",
+    return render_field_parameter(
+        spec.DRILL, dm.drill, "Field parameter: pick the drill level (use it twice for a 1st / 2nd level matrix).")
+
+
+def render_field_parameter(n: str, fields: list[tuple[str, str, str]], doc: str) -> str:
+    """A field parameter table ``n``: one row per (label, table, column), in order."""
+    rows = ",\n".join(f'    ("{label}", NAMEOF({col(t, c)}), {i})' for i, (label, t, c) in enumerate(fields))
+    out = [f"/// {doc}",
            f"table {name(n)}",
            "", f"{TAB}column {name(n)}", f"{TAB * 2}dataType: string", f"{TAB * 2}summarizeBy: none",
            f"{TAB * 2}sourceColumn: [Value1]", f"{TAB * 2}sortByColumn: {name(n + ' Order')}",

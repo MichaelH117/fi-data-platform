@@ -14,10 +14,14 @@ The checks:
   diag_no_demo_rows                 no demo-dealer or test-range row in any mart
   diag_freshness                    raw loaded within 48 h; bad landing files all quarantined
   diag_posting_period_integrity     every financial fact row has a valid posting_period_key
+  diag_form_code_coverage           form code from a document >= 99% per entered year from 2024 (V6 edit 4)
+  diag_cobuyer_feed_gap             feed co-buyers reach the conformed contract; value = contracts whose
+                                    co-buyer exists only in the e-contracting feed (V6 edit 9)
 
 It also records the row count of every raw source, staging, intermediate, snapshot and mart relation
 in the dbt manifest to ``audit.layer_row_count`` (informational, never fails the gate), so the data
-quality page shows the layers without any report querying raw or staging tables.
+quality page shows the layers without any report querying raw or staging tables. Then it records the
+database health findings (pipeline/db_health.py, audit.db_health) for the Operations page.
 """
 
 from __future__ import annotations
@@ -34,6 +38,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
+
+from pipeline import db_health
 
 ROOT = Path(__file__).resolve().parents[1]
 DBT_DIR = ROOT / "dbt"
@@ -78,6 +84,16 @@ MEASURES: dict[str, tuple[str, float | None]] = {
         "select count(*) from core.fct_transaction where posting_period_key not in "
         "(select posting_period_key from core.dim_posting_period)",
         0.0,
+    ),
+    "diag_form_code_coverage": (
+        "select min(m) from (select count(*) filter (where t.form_code_source = 'document') / count(*) as m "
+        "from core.dim_contract_terms as t join intermediate.int_contracts_conformed as k using (contract_key) "
+        "where k.source_system = 'admin_core' and k.entered_year >= 2024 group by k.entered_year)",
+        0.99,
+    ),
+    "diag_cobuyer_feed_gap": (
+        "select count(*) from intermediate.int_contracts_conformed where has_feed_cobuyer",
+        None,
     ),
 }
 
@@ -252,6 +268,10 @@ def run(warehouse: Path = WAREHOUSE_PATH, runner: Runner = subprocess_runner) ->
         measure(con, results)
         write_results(con, run_id(), results)
         log.info("layer row counts recorded for %d relations", record_layer_counts(con, run_id()))
+        try:  # database health (V6 edit 20): informational, never fails the gate
+            log.info("database health: %d findings", db_health.record(con, run_id()))
+        except duckdb.Error as exc:
+            log.warning("database health not recorded: %s", exc)
     return results
 
 

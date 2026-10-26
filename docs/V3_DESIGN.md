@@ -83,7 +83,7 @@ the run summary to `data/runs/<run_id>.json` and appends one row per run to `aud
 ### 2.2 Sources
 
 **Landing feed** (`data/landing/YYYY-MM-DD/`), one folder per business day:
-- `deals.csv`: deal_id, dealer_number, contract_number, vin, sale_date, product_code, plan_code, term_months, term_miles, odometer, purchase_price, coverage_cost, retail_price, lienholder_code, customer fields (fake)
+- `deals.csv`: deal_id, dealer_number, contract_number, vin, sale_date, product_code, plan_code, term_months, term_miles, odometer, purchase_price, coverage_cost, retail_price, lienholder_code, customer fields (fake), co-buyer fields `cobuyer_name`, `cobuyer_address_line1`, `cobuyer_city`, `cobuyer_state`, `cobuyer_zip` (fake; about a quarter of deals)
 - `remittance.csv`: remit_batch_id, dealer_number, contract_number, remit_amount, remit_date
 - `econtract_events.jsonl`: event_id, contract_number, event_type (RATED, CONTRACTED, VOIDED), event_at, payload
 - `_manifest.json`: per file the row_count and sha256; plus feed_date and sequence number
@@ -100,9 +100,9 @@ Contracts live in `contracts/feed_<file>.yml` (Data Engineer). Rejected rows go 
 |---|---|
 | Tenancy / white-label | `administrator` (tenant_id, administrator_code, reportable_name, logo_path, primary_color, secondary_color) |
 | Parties | `dealer_group`, `dealer` (dealer_id, dealer_number, dealer_group_id, agent_id, state, is_demo, remit_rule, weekly_remit_flag), `agent`, `lienholder`, `account_holder` (account_holder_id, holder_type: ADMIN, INSURER, OBLIGOR, DEALER_RESERVE, AGENT, REPAIR_FACILITY) |
-| Risk entities | `obligor` (obligor_id, state, obligor_name), `insurer`, `reinsurer`, `participation_entity` (entity_id, dealer_id, structure_type: DEALER_OWNED_OBLIGOR, CFC, NCFC, PORC, RETRO, PROFIT_SHARE) |
-| Products / rating | `product_category` > `product_subcategory` > `product` (product_code, contract_prefix, plan_year, is_cancellable) > `plan` > `program`; `rate` (rate_id, plan_id, term_months, term_miles, odometer_band, class_code, deductible_amount, coverage_cost, suggested_retail); `rate_component` (rate_id, disbursement_type, account_holder_id, amount, is_refundable, is_renewable) |
-| Contracts | `contract` (contract_id, contract_number, dealer_id, agent_id, plan_id, rate_id, status, entered_date, effective_date, expiration_date, expiration_mileage, purchase_price, coverage_cost, retail_price, msrp, finance_type, finance_amount, apr, new_used, odometer, vin, chassis_vin, vehicle_year/make/model, fuel_type, cylinders, class_code, reportable_state, original_obligor_id, current_obligor_id, insurer_id, lienholder_id, customer PII), `contract_surcharge`, `contract_option`, `contract_status_history` |
+| Risk entities | `obligor` (obligor_id, state, obligor_name), `insurer` (program_type), `reinsurer` (status: ACTIVE, RUNOFF, runoff_date, cession_type, gl_class_code), `participation_entity` (entity_id, dealer_id, structure_type: DEALER_OWNED_OBLIGOR, CFC, NCFC, PORC, RETRO, PROFIT_SHARE; status, runoff_date, cession_type, gl_class_code) |
+| Products / rating | `product_category` > `product_subcategory` > `product` (product_code, product_name `<name> <year> - <SUFFIX>`, contract_prefix, plan_year, is_cancellable, program_type) > `plan` > `program`; `rate` (rate_id, plan_id, coverage_level, term_months, term_miles, odometer_band, class_code, deductible_amount, coverage_cost, suggested_retail); `rate_component` (rate_id, disbursement_type, account_holder_id, amount, is_refundable, is_renewable) |
+| Contracts | `contract` (contract_id, contract_number, dealer_id, agent_id, plan_id, rate_id, status, entered_date, effective_date, expiration_date, expiration_mileage, purchase_price, coverage_cost, retail_price, msrp, finance_type, finance_amount, apr, new_used, odometer, vin, chassis_vin, vehicle_year/make/model, fuel_type, cylinders, class_code, reportable_state, original_obligor_id, current_obligor_id, insurer_id, lienholder_id, program_type, claim_grace_days, is_esigned, finalized_at, in_service_date, customer PII), `contract_surcharge`, `contract_option`, `contract_status_history`, `contract_document` (document_id, contract_id, related_document_id, document_type: CONTRACT, CANCEL, OTHER, generated_at, form_code, document_name, is_deleted) |
 | Amendments / renewals | `contract_amendment` (amendment_id, contract_id, amendment_type: AMEND, RENEWAL, TRANSFER, effective_date, delta_coverage_cost) |
 | Remittance / cash | `remit_batch` (remit_batch_id, dealer_id, entered_at, sent_at, received_at, status: ENTERED, SENT, RECEIVED), `cash_transaction` (cash_txn_id, remit_batch_id, contract_id, amount, posted_at) |
 | Accounting | `transaction` (txn_id, contract_id, txn_type: SALE, CANCEL, REINSTATE, AMEND, CASH, posted_at, amount), `disbursement` (disbursement_id, txn_id, contract_id, disbursement_type: ADMIN_FEE, INSURER_FEE, PREMIUM_TAX, COMMISSION, CLAIMS_RESERVE, PROFIT_SHARE_RESERVE, account_holder_id, amount) |
@@ -116,6 +116,25 @@ Every Admin Core business table has these columns: `created_at`, `updated_at`, `
 (the global change-tracking version at the last write) and `removed_from_source` (0/1, a soft delete).
 Contract numbers use the product prefix plus a sequence (`VSC-`, `GAP-`, `BNDL-`, `TECH-`, `RV-`,
 `PSP-`, ...). A test contract range (`*-9999xxxx`) and demo dealers (`is_demo = 1`) exist by design.
+
+**Admin screen -> raw columns (V6 edit A).** Where each group or tab of the admin contract screen
+lands in `raw_admin_core`. Only the header fields that were missing were added (`claim_grace_days`,
+`is_esigned`, `finalized_at`, `in_service_date`); `claim_wait_days` and `finance_type` already existed.
+
+| Screen group / tab | Raw table.column |
+|---|---|
+| Header: number, status, dates | `contract.contract_number`, `status`, `entered_date`, `effective_date`, `expiration_date`, `finalized_at`, `is_esigned` |
+| Header: coverage terms | `contract.term_months`, `term_miles`, `expiration_mileage`, `deductible_amount`, `deductible_name`, `claim_wait_days`, `claim_wait_miles`, `claim_grace_days`, `coverage_limit` |
+| Header: program | `contract.program_type`, `program_id` -> `program`, `plan_id` -> `plan` -> `product` (`product_name`, `program_type`) |
+| Vehicle | `contract.vin`, `chassis_vin`, `vehicle_year`, `vehicle_make`, `vehicle_model`, `new_used`, `odometer`, `in_service_date`, `fuel_type`, `cylinders`, `drive_type`, `class_code`, `title_brand`, `is_commercial` |
+| Customer | `contract.customer_*` (fake); co-buyer only in the network feed `deals.cobuyer_*` |
+| Finance / lienholder | `contract.finance_type`, `finance_amount`, `apr`, `lienholder_id` -> `lienholder` |
+| Pricing | `contract.purchase_price`, `coverage_cost`, `retail_price`, `msrp`, `rate_id` -> `rate` / `rate_component`; `contract_surcharge`, `contract_option` |
+| Risk | `contract.original_obligor_id`, `current_obligor_id`, `insurer_id`, `reportable_state`; dealer -> `participation_entity` |
+| Documents tab | `contract_document` (form code, document name, generated_at, is_deleted) |
+| History tab | `contract_status_history`, `contract_amendment`, `cancellation`, `reinstatement` |
+| Accounting tab | `transaction`, `disbursement`, `commission`, `cash_transaction` -> `remit_batch` |
+| Claims tab | `claim` and its child tables |
 
 **Legacy admin system** (SQLite). This is the V1 schema, extended. It holds the historical book
 (contracts entered before the cutover date of **2023-01-01**) in a different keyspace: integer
@@ -414,6 +433,7 @@ test that needs a server skips when `warehouse.postgres.sync.available()` report
 | 9 | Second tenant as mirror schema | `tenant_b` | `tenant_id` column + RLS | Q8 |
 | 10 | Clutter, frozen schema, personal schema, no owners | `report`, `zz_sandbox_analyst`, `*_bak_*` | schema registry + CI clutter check | registry report |
 | 11 | Admin EAV custom fields, not cross-joinable | `admin_eav.contract_field` | pivoted in staging to typed columns | Q9 |
+| 12 | BI-service workspace sprawl (generation and test copies in prod, workspace per client, model per report, person-owned items) | none: the BI service is not rebuilt (a `report.model_registry` stand-in is optional, V6 edit 8) | one certified model, pipeline-only promotion, group-owned items | structure review (no query) |
 
 ### 8.3 Source changes (generator, Data Engineer; additive, deterministic seed)
 - Admin Core `contract_custom_field` (contract_id, field_id, value_text) + `custom_field_def` (field_id,
@@ -509,3 +529,95 @@ the full suite (~36 min) runs once at the end. `python tools/brand_scrub.py` sta
 **Decision records:** (a) legacy lives in a separate Postgres database, not DuckDB, so plans,
 timeouts and missing indexes are real; (b) legacy is derived from the same raw rows, so every diff is
 explained by structure, not data; (c) the admin EAV is a second database so the join barrier is real.
+
+## 9. V6: structure-review edits
+
+Source: an internal structure review (20 ranked edits plus a gap list). Structure only: no values,
+names or counts carry over; every name below is generic. Rules from section 8 still hold (additive,
+deterministic seed, synthetic data, `python tools/brand_scrub.py` = 0 hits, targeted tests only).
+Each edit has ONE accountable owner; "Hands off" names the file owner who does a dependent piece.
+
+### 9.1 Edit -> owner -> files
+| # | Edit | Owner | Files / models / columns | Hands off |
+|---|---|---|---|---|
+| 1 | Experience report with a "View by" switch | Financial Analysts | new `marts/finance/mart_experience.sql` (grain: entered month x product x dealer x state x plan x make x term x participation entity; `net_written`, `unearned`, `earned`, `claims_paid`, `contracts_net`, `claims_count`); `metrics.yml` `earned_pct`, `cancel_pct`; `reports/finance/__init__.py` page `finance/experience.html` | PBI: "Experience" page (1b) |
+| 2 | Reserve bridge between two reports | Financial Analysts | new `mart_reserve_bridge.sql` (gross new reserve -> cancelled reserve -> partial-refund remainder -> entered-vs-effective timing -> net written); section on `finance/controls.html`; singular test `assert_reserve_bridge_closes.sql` (residual = 0) | - |
+| 3 | Insurer program type end to end | Data Engineer | `generator/reference.py` (`program_type` in {`FULL_INSURED`, `AGENCY`, `PASS_THROUGH`}) on insurer, product, contract; raw `insurer.program_type`, `contract.program_type` | DE Manager: `dim_insurer.sql`, `dim_contract_finance.sql`, `fct_disbursement.sql` (program fee -> incentive group); SDA-reg: `report_definitions.csv` scope column |
+| 4 | Contract documents and form code | Data Engineer | `generator/admin_core.py` new raw `contract_document`; new `stg_admin_core__contract_document.sql` | DE Manager: `dim_contract_terms.sql` (`current_form_code`, `form_code_source` in {document, inferred, missing}) + diagnostic "form-code coverage by entered year" |
+| 5 | State in-force contract list | SDA regulatory | new `marts/regulatory/mart_state_inforce_list.sql` (contract_date, contract_number, product_name, dealer_name, lienholder_name/address/state, current_form_code, obligor_name, obligor_kind); `reports/regulatory/excel.py`; page `regulatory/inforce-list-<st>.html` | - |
+| 6 | Obligor split + compliance product family | DE Manager | `dim_obligor.sql` (`obligor_kind` in {internal_provider, dealer_owned}); new seed `seeds/regulatory/compliance_product_family.csv` (subcategory -> family; Limited Warranty -> `ANCILLARY_OTHER`, never VSC); note in `docs/REPORTS.md` | SDA-reg: filings use `program_type` + family |
+| 7 | Per-audience visibility map | Senior PBI Specialist | `docs/ACCESS_MATRIX.md` new section "App audiences and what each one sees" (app x audience x report: visible/hidden; shared directly: never) + legacy note "audience was the only boundary; here audiences sit on top of RLS"; optional `python -m semantic access-audit` CSV | - |
+| 8 | Legacy pain point #12 workspace sprawl | Reporting Manager | `docs/LEGACY_BENCHMARK.md` item 12 (generation copies, test copies inside prod, workspace per client, model per report, person-owned items, no endorsement/sensitivity, manual refresh; fix = one certified model, pipeline-only promotion, group-owned items); one `README.md` "How it was" row; 8.1 spec line for a cheap legacy stand-in (a `report.model_registry` table listing one model per report) only if under 30 min | - |
+| 9 | Co-buyer field gap | Data Engineer | `generator/deals.py` e-contract feed gets `cobuyer_name`, `cobuyer_address_line1`, `cobuyer_city`, `cobuyer_state`, `cobuyer_zip`; admin feed never carries them; `stg_network_feed__deals.sql` keeps them | DE Manager: `int_contracts_conformed.sql` join + diagnostic "co-buyer in feed, missing in admin"; SDA-dealer: packet columns |
+| 10 | Pending packet formatting | SDA dealer & claims | `mart_dealer_pending_contracts.sql` (Proper Case via `initcap` + exceptions seed `seeds/dealer/proper_case_exceptions.csv`; `provider_name`, `administrator_name`, co-buyer columns); `reports/dealer/excel.py`, `publish/packets.py` (autofilter every column, frozen header) | - |
+| 11 | New Reserves page | Financial Analysts | new `mart_new_reserves_by_term.sql` (product_category x term_year_bucket: `new_reserve`, `contracts`, `avg_reserve`, `row_pct`); seed `seeds/finance/term_year_buckets.csv`; page `finance/new-reserves.html` | PBI: "New Reserves" page (11b) |
+| 12 | Commission District > Regional > National | Financial Analysts | seed `commission_volume_targets.csv`; new `mart_commission_hierarchy.sql` (level, district/region, product_type, over_under_contracts, commission); page `finance/commission-hierarchy.html`; `ACCESS_MATRIX` row via PBI | DE Manager: `dim_agent.sql` (`sub_agent`, `agent_category`, `district`, `region`) |
+| 13 | Reinsurance run-off and transfer | Financial Analysts | `mart_cession_experience.sql` (`cession_type`); "Run-off details" + "Transfer summary" sections on `finance/cession.html` | DE: raw `reinsurer.status` {ACTIVE, RUNOFF}, `cession_type`, `gl_class_code`; DE Manager: `dim_participation_entity.sql` one row per entity x program type |
+| 14 | Full contract status set | Data Engineer | `generator/lifecycle.py` adds `SUSPENDED`, `REINSTATEMENT_PENDING`, `REINSTATEMENT_SUSPENDED` (11 total); `report_status_sets.csv`, `dealer_report_status_sets.csv` rule per status; `docs/METRICS.md` table "every status and which reports count it" | - |
+| 15 | Rate card | Financial Analysts | build on existing raw `rate` + `rate_component`: new `mart_rate_card.sql` (program, coverage_level, term_months, term_miles, odometer_band, class_code, rate, fee stack admin/program_fee/dealer_pack, `reserve = rate - fees`); Excel export sorted term first, then odometer band; diagnostic "booked coverage cost differs from the rate card" | DE: add any missing rate columns; `generator/booking.py` prices from the card |
+| 16 | Product-name cleanup | DE Manager | `stg_admin_core__product.sql` parses `model_year`, `program_suffix`, `is_do_not_use`; test "no do-not-use product on a sales page"; `legacy/` short-code taxonomy + crosswalk seed `seeds/core/product_taxonomy_crosswalk.csv` | DE: names in `generator/reference.py` carry year + program suffix, some do-not-use, one code reused across names |
+| 17 | Partner settlement statement | Financial Analysts | new `mart_partner_settlement.sql` (per dealer per month: admin_premium_due, cancel_fees, transient_claims, program_fee_adjustment, obligor_claims_deducted, net_due); Excel tab under `site/downloads/finance/` | - |
+| 18 | Row-level claims export | SDA dealer & claims | `reports/claims/__init__.py` Excel downloads: claims header, detail, components, payees (fixed column lists) | FA: remit register in `reports/finance/__init__.py` |
+| 19 | Intake form fields | Reporting Manager | `docs/operating-model/INTAKE_FORM.md`: requesting department, original request date, change reason, acceptance criteria (verbatim), regulator form attached, story points; rule "the request email is attached; the ticket is the only source" | - |
+| 20 | Database health on Operations | DE Manager | `reports/ops.py` + pipeline diagnostics: tables with zero rows in serving schemas, statistics not refreshed, refresh login used for ad-hoc queries (Postgres rows skip when down) | - |
+| A | Admin-screen intake fields (gap 24) | Data Engineer | doc table in 2.2 style "admin screen group/tab -> raw table.column"; add only absent header fields (`claim_wait_days`, `claim_grace_days`, `finance_type`, `is_esigned`, `finalized_at`, `in_service_date`) to raw `contract` | - |
+
+### 9.2 Column contracts the Data Engineer delivers first (wave 1)
+Additive columns, nullable unless stated, deterministic under the existing seed. Downstream roles
+code against these names; any rename goes through the Director.
+| Raw table | New columns (type) | Rule |
+|---|---|---|
+| `contract` | `status` domain widened to 11 values; `program_type` (text, not null) | new statuses each reachable from the lifecycle with a documented transition |
+| `insurer` / `product` | `program_type` (text, not null) | contract value = its product's value |
+| `contract_document` (new) | `document_id` (bigint PK), `contract_id`, `related_document_id`, `document_type` {CONTRACT, CANCEL, OTHER}, `generated_at` (timestamp), `form_code` (text, NULL before a cutover year), `document_name` (`<FORM>_STD - <ver> - <provider>`), `is_deleted`, `removed_from_source` (bool) + audit columns (2.6) | 1..n per contract; latest non-deleted CONTRACT document wins |
+| network-feed `deals` | `cobuyer_name`, `cobuyer_address_line1`, `cobuyer_city`, `cobuyer_state`, `cobuyer_zip` | ~20-30% of deals; never in admin `contract` |
+| `product` | `product_name` carries `<name> <year> - <SUFFIX>`; `is_do_not_use` NOT emitted (staging derives it from a `- DNU` suffix) | one product code reused by >= 2 names |
+| `reinsurer` / `participation_entity` | `status` {ACTIVE, RUNOFF}, `cession_type` (1-char code), `gl_class_code` | run-off entities get no new contracts after a run-off date |
+| `rate` / `rate_component` | `odometer_band`, `class_code`, `coverage_level`, fee-stack components (only if absent) | `rate - sum(fees) = reserve` to the cent |
+Gate before wave 2: `test_generator.py` (targeted) green; dbt `build -s staging.admin_core staging.network_feed`
+on a dev warehouse copy (`WAREHOUSE_PATH`) green.
+
+### 9.3 Order of work
+0. **Docs, in parallel, no dependencies:** 7 (PBI), 8 (Reporting Mgr), 19 (Reporting Mgr), 14 doc part.
+1. **Sources (Data Engineer):** 14, 3, 4, 9, 16-source, 13-source, 15-source, A, in that order.
+2. **Core (DE Manager):** 6, 16, 3-dims, 4-diagnostic, 9-join, 12-dim, 20.
+3. **Marts and pages:** SDA dealer 10, 18; Financial Analysts 1, 2, 11, 13, 17, 12, 15; SDA regulatory 5, then filings on `program_type` + compliance family.
+4. **Power BI pages (PBI):** 1b Experience (field parameter "View by": Date, Product, Dealer, State, Plan, Make, Effective year, Term), 11b New Reserves; `ACCESS_MATRIX` audience rows for 12.
+5. **Integration (Director):** README row, `brand_scrub` 0, one full test run at the end.
+
+### 9.4 File ownership (V6 round; additive to sections 3 and 8.8)
+| Role | Owns |
+|---|---|
+| **Data Engineer** | `generator/` (reference, admin_core, deals, lifecycle, booking), new staging for `contract_document`, `stg_network_feed__deals.sql`, admin-screen map; tests `test_generator.py` |
+| **DE Manager** | `marts/core` dims/facts, `int_contracts_conformed.sql`, `stg_admin_core__product.sql`, `compliance_product_family.csv`, crosswalk seed, diagnostics, `reports/ops.py` |
+| **Financial Analysts** | `marts/finance` new marts, finance seeds, `reports/finance/`, bridge test, settlement, rate card |
+| **SDA regulatory** | `marts/regulatory/mart_state_inforce_list.sql`, `reports/regulatory/`, `report_definitions.csv` scope |
+| **SDA dealer & claims** | `mart_dealer_pending_contracts.sql`, `reports/dealer/excel.py`, `publish/packets.py`, `reports/claims/` |
+| **Senior PBI Specialist** | `powerbi/report.py` pages, `docs/ACCESS_MATRIX.md`, `semantic/` access audit |
+| **Reporting Manager** | `docs/LEGACY_BENCHMARK.md`, legacy spec lines, `README.md` row, `INTAKE_FORM.md` |
+| **Director** | this section, column-contract changes, merge conflicts |
+
+**Decision records:** (a) program type lives on the source rows, not derived in marts, so filings,
+disbursement routing and pages share one value; (b) form code is never inferred silently:
+`form_code_source` says where it came from; (c) the reserve bridge is a tested model, so a reinsurer
+question is answered by a page, not an email; (d) the rate card reuses `rate` / `rate_component`
+instead of a second price table.
+
+### 9.5 Integration record (wave 5)
+Decisions taken while merging the waves; each one is additive to 9.1-9.4.
+| Topic | Decision |
+|---|---|
+| `runoff_date` on `reinsurer` / `participation_entity` | Accepted as an addition to the 9.2 contract (nullable date; NULL = never ran off). The rule "no new contracts after run-off" lives in two places that must agree: the source money routing and `mart_participation_contract`; the ledger-attribution finance test checks they do. |
+| `dim_participation_entity` grain | Stays one row per entity, because `dim_dealer` and the finance marts join on its key. The entity x program-type grain asked for in edit 13 is the separate `dim_participation_entity_program`. |
+| Hold statuses | `SUSPENDED` counts with in force; `REINSTATEMENT_PENDING` and `REINSTATEMENT_SUSPENDED` count with cancelled on dealer production and as written + in force on the regulatory sets. The rule comes from the two status-set seeds, never from a hard-coded list. |
+| Form code | `dim_contract_terms.current_form_code` is the one shared value; `form_code_source` in {document, inferred, missing}. The state in-force list keeps its own never-infer copy until it switches to `dim_contract_terms` filtered on `form_code_source = 'document'`. |
+| Program fee | On AGENCY and PASS_THROUGH programs the INSURER_FEE bucket is the program fee; on FULL_INSURED it stays insurer premium. |
+| Settlement sign rule | net due = admin/premium + program fee + cancel fees + transient claims - obligor claims ("transient" = paid before the first cash receipt). Documented in `mart_partner_settlement`. |
+| Postgres statistics | The sync re-runs `ANALYZE` on every synced table after commit, so `audit.db_health` stale-statistics rows reflect real drift, not the load itself. |
+| Interim staging reads | `mart_rate_card` and `mart_rate_card_exceptions` read staging until core has a rate dimension and a contract `rate_id`; they are the only entries in `INTERIM_STAGING` (`test_finance.py`). |
+
+**Still open after V6:** lienholder and customer street addresses (no source; needs a 9.2 addition),
+filings scoped by `program_type` + compliance family (SDA regulatory), `effective_year` on
+`dim_contract` and a `term_year_bucket` on `dim_contract_terms` (so the Power BI pages match the site
+pages exactly), an `avg_new_reserve` metric, a non-zero entered-to-effective lag in the generator, and
+the daily append creating and resolving the hold statuses.
