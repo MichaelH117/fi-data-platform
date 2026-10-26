@@ -1,0 +1,7 @@
+band_id,band_label,min_miles_remaining,max_miles_remaining,sort_order,is_near_limit,notes
+OVER,Over the mileage limit,-99999999,-1,1,true,Odometer at cancel is past the contract's mileage limit.
+LT1K,Under 1000 miles left,0,999,2,true,Cancelled very close to the limit.
+LT3K,1000 to 2999 miles left,1000,2999,3,true,Near the limit.
+LT6K,3000 to 5999 miles left,3000,5999,4,false,
+LT15K,6000 to 14999 miles left,6000,14999,5,false,
+REST,15000 or more miles left,15000,99999999,6,false,

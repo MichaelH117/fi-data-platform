@@ -103,7 +103,10 @@ select
     b.tenant_key,
     b.state,
     b.provider_key,
-    coalesce(o.obligor_name, 'Unknown obligor') as provider_name,
+    coalesce(fm.legal_entity_name, o.obligor_name, 'Unknown obligor') as provider_name,
+    fm.provider_code,
+    fm.filing_provider_code,
+    fm.financial_security,
     b.provider_basis,
     b.original_obligor_key,
     b.dealer_key,
@@ -154,6 +157,11 @@ cross join scope_rule as sr
 left join {{ ref('state_reserve_method') }} as s on s.state = b.state
 left join periods as w on w.state = b.state
 left join {{ ref('dim_obligor') }} as o on o.obligor_key = b.provider_key
+-- V7 edit 29: the state form uses the legal name from seed filing_entity_map (internal providers by
+-- obligor_id, dealer-owned obligors by participation_entity_id); the obligor dim name is the fallback.
+left join {{ ref('filing_entity_map') }} as fm
+    on fm.obligor_kind = o.obligor_kind
+    and fm.source_id = case o.obligor_kind when 'dealer_owned' then o.participation_entity_id else o.obligor_id end
 left join {{ ref('dim_dealer') }} as d on d.dealer_key = b.dealer_key
 left join {{ ref('dim_insurer') }} as i on i.insurer_key = b.insurer_key
 left join {{ ref('dim_product') }} as p on p.product_key = b.product_key

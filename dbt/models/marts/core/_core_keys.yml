@@ -78,6 +78,14 @@ models:
   - {name: logo_path, data_type: varchar}
   - {name: primary_color, data_type: varchar}
   - {name: secondary_color, data_type: varchar}
+  - name: admin_company_id
+    data_type: bigint
+    description: >
+      V7 edit 45. The company id inside each tenant's own admin instance. Every instance numbers
+      itself 1, so the id repeats across tenants: it is unique only with tenant_key, and no model joins on it alone.
+    data_tests:
+    - unique_per_tenant:
+        arguments: {tenant_col: tenant_key}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_dealer
   description: 'Current dealer rows (history in snapshots.snap_dealer); demo dealers excluded; ''-1'' = unknown.
@@ -94,7 +102,12 @@ models:
   - name: dealer_key
     data_type: varchar
     data_tests: [unique, not_null]
-  - {name: dealer_id, data_type: bigint}
+  - name: dealer_id
+    data_type: bigint
+    description: Source dealer id; unique within a tenant only (V7 edit 45). Join on (tenant_key, dealer_id), never dealer_id alone.
+    data_tests:
+    - unique_per_tenant:
+        arguments: {tenant_col: tenant_key}
   - name: dealer_number
     data_type: varchar
     data_tests: [unique, not_null]
@@ -177,7 +190,13 @@ models:
     data_type: varchar
     data_tests: [unique, not_null]
   - {name: agent_id, data_type: bigint}
-  - {name: agent_code, data_type: varchar}
+  - name: agent_code
+    data_type: varchar
+    description: Agent code; unique within a tenant only (V7 edit 45, every id carries its tenant).
+    data_tests:
+    - unique_per_tenant:
+        arguments: {tenant_col: tenant_key}
+        config: {where: "agent_key <> '-1'"}
   - {name: agent_name, data_type: varchar}
   - {name: territory, data_type: varchar}
   - name: tenant_key
@@ -194,6 +213,9 @@ models:
         arguments: {values: [ADVANCE, STANDARD]}
   - {name: district, data_type: varchar, data_tests: [not_null]}
   - {name: region, data_type: varchar, data_tests: [not_null]}
+  - {name: agency_name, data_type: varchar, description: "V7 edit 24. Agency the agent belongs to (the agent itself until the source sends one).", data_tests: [not_null]}
+  - {name: principal_name, data_type: varchar, description: "V7 edit 24. Agency principal, when the source sends one."}
+  - {name: is_house_agent, data_type: boolean, description: "V7 edit 24. True for the administrator's own (house) agent."}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_product
   description: Product hierarchy at plan x program grain, from the complete Admin Core catalog.
@@ -242,6 +264,13 @@ models:
   - {name: deductible_amount, data_type: double}
   - {name: deductible_name, data_type: varchar}
   - {name: tier_rank, data_type: integer}
+  - {name: is_bundle, data_type: boolean, description: "V7 edit 50. A bundle of add-ons (crosswalk flag or a product named as a bundle)."}
+  - name: external_product_line
+    data_type: varchar
+    description: V7 edit 50. External reporting line from product_taxonomy_crosswalk (limited warranty is ANCILLARY_OTHER, never VSC).
+    data_tests:
+    - accepted_values:
+        arguments: {values: [VSC, GAP, TIRE_WHEEL, PREPAID_MAINTENANCE, ANCILLARY_OTHER, UNMAPPED]}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: dim_account_holder
   config:
@@ -435,6 +464,14 @@ models:
         arguments: {to: ref('dim_insurer'), field: insurer_key}
   - {name: customer_key, data_type: varchar}
   - {name: deal_id, data_type: varchar}
+  - name: parent_contract_key
+    data_type: varchar
+    description: >
+      V7 edit 26. The service contract an add-on was sold with (from the 'Parent Contract Id'
+      custom field); NULL when the field is empty, not a number, or names no reportable contract.
+    data_tests:
+    - relationships:
+        arguments: {to: ref('dim_contract'), field: contract_key}
   - {name: cancel_date, data_type: date}
   - {name: cancel_date_key, data_type: integer}
   - {name: is_cancelled, data_type: boolean}
@@ -553,6 +590,7 @@ models:
   - {name: coach_model, data_type: varchar}
   - {name: chassis_make, data_type: varchar}
   - {name: custom_chassis_vin_hash, data_type: varchar}
+  - {name: custom_chassis_vin_shape, data_type: varchar}
   - {name: custom_model_year, data_type: integer}
   - {name: has_custom_fields, data_type: boolean}
   - {name: custom_field_invalid_count, data_type: bigint}
@@ -715,6 +753,16 @@ models:
   description: Transaction x disbursement type x account holder.
   config:
     contract: {enforced: true}
+  data_tests:
+  # V7 edits 21 + 32: the fee groups of each posting period add back to that period's transactions.
+  - split_matches_total_model:
+      arguments:
+        measure: amount
+        total_model: ref('fct_transaction')
+        total_measure: amount
+        total_where: "txn_type <> 'CASH'"
+        join_by: [posting_period_key]
+        tolerance: 1.0
   constraints:
   - type: primary_key
     columns: [disbursement_key]
@@ -757,6 +805,19 @@ models:
     data_tests:
     - accepted_values:
         arguments: {values: [PROGRAM_FEE, INSURER_PREMIUM, PRODUCER_INCENTIVE, ADMINISTRATION, RESERVE, TAX, OTHER]}
+  - name: disbursement_group
+    data_type: varchar
+    description: >
+      V7 edit 21. The fee bucket stored on the line by the program setup (raw disbursement_group);
+      when the source has none (legacy, older builds), the non-participating default for the type. A fee's bucket depends on the program,
+      so reports group by this column, never by a fixed type -> group lookup.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments: {values: [PREMIUM, ADMIN, PRODUCER, TAX_AND_FEES, DEALER_PARTICIPATION, OTHER]}
+  - name: is_group_from_line
+    data_type: boolean
+    description: True when disbursement_group came from the line itself, false when it was derived.
   - {name: posted_at, data_type: timestamp}
   - {name: posted_date_key, data_type: integer}
   - name: posting_period_key
@@ -911,6 +972,13 @@ models:
   - {name: posting_period_start_date, data_type: date}
   - {name: initiated_by, data_type: varchar}
   - {name: reason, data_type: varchar}
+  - name: reason_group
+    data_type: varchar
+    description: Reason group from seeds/core/cancel_reason_crosswalk.csv (V7 edit 41); NOT_GIVEN when the source sent no reason.
+    data_tests: [not_null]
+  - name: is_admin_correction
+    data_type: boolean
+    description: True when the cancel fixes a data-entry mistake (not a customer cancel); excluded by cancel_rate_excl_admin.
   - {name: method, data_type: varchar}
   - {name: odometer, data_type: bigint}
   - {name: contract_age_days, data_type: bigint}
@@ -924,6 +992,15 @@ models:
   - {name: admin_withheld_claims, data_type: double}
   - {name: is_reinstated, data_type: boolean}
   - {name: is_effective_cancel, data_type: boolean}
+  - name: is_effective_cancel_excl_admin
+    data_type: boolean
+    description: The effective cancel, unless it is an administrative correction (numerator of cancel_rate_excl_admin).
+  - name: is_reversed
+    data_type: boolean
+    description: True when a later cancel row on the same contract nets this cancel to zero (V7 edit 23).
+  - name: is_reversal_row
+    data_type: boolean
+    description: True for the offsetting row that undoes an earlier cancel (V7 edit 23).
   - {name: is_amount_sign_fixed, data_type: boolean}
   - {name: _built_at, data_type: timestamp with time zone}
 - name: fct_reinstatement
@@ -974,6 +1051,11 @@ models:
   description: THE claims fact (payment-line grain). Every claim roll-up is derived from it.
   config:
     contract: {enforced: true}
+  data_tests:
+  # V7 edit 39: the same payment (claim, payee, amount) twice within a week is flagged.
+  - no_repeat_within_days:
+      arguments: {match_on: [claim_key, payee_account_holder_key, paid_amount], date_col: posted_at, days: 7, key_col: line_key}
+      config: {where: "paid_amount > 0"}
   constraints:
   - type: primary_key
     columns: [line_key]
@@ -1092,6 +1174,11 @@ models:
 - name: fct_cash_transaction
   config:
     contract: {enforced: true}
+  data_tests:
+  # V7 edit 39: the same remittance (contract, amount) received twice within a week is flagged.
+  - no_repeat_within_days:
+      arguments: {match_on: [contract_key, amount], date_col: posted_at, days: 7, key_col: cash_txn_key}
+      config: {where: "amount is not null"}
   constraints:
   - type: primary_key
     columns: [cash_txn_key]

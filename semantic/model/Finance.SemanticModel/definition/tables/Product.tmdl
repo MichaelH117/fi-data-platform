@@ -120,6 +120,14 @@ table Product
 		summarizeBy: none
 		sourceColumn: TIER_RANK
 
+	column 'Is Bundle'
+		dataType: boolean
+		sourceColumn: IS_BUNDLE
+
+	column 'External Product Line'
+		dataType: string
+		sourceColumn: EXTERNAL_PRODUCT_LINE
+
 	hierarchy 'Product Hierarchy'
 
 		level Category

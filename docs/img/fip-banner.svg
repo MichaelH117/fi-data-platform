@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 240" width="1200" height="240" role="img" aria-labelledby="fipb-t">
+  <title id="fipb-t">F&amp;IP, F&amp;I Data Platform</title>
+  <defs>
+    <clipPath id="fipb-slice"><rect x="56" y="122" width="300" height="8"/></clipPath>
+    <pattern id="fipb-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#8ACE00" stroke-opacity=".07" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="240" fill="#0B0D0C"/>
+  <rect width="1200" height="240" fill="url(#fipb-grid)"/>
+  <path d="M56 48H316L356 88V192H56Z" fill="#8ACE00"/>
+  <g font-family="'Barlow Condensed','Bahnschrift','Arial Narrow',Impact,sans-serif" font-weight="800"
+     font-size="118" letter-spacing="-2" text-anchor="middle">
+    <text x="202" y="164" fill="#2EC4D6" clip-path="url(#fipb-slice)">F&amp;IP</text>
+    <text x="206" y="164" fill="#000">F&amp;IP</text>
+  </g>
+  <g fill="#000" fill-opacity=".12"><rect x="56" y="80" width="300" height="2"/><rect x="56" y="104" width="300" height="2"/><rect x="56" y="176" width="300" height="2"/></g>
+  <text x="400" y="122" fill="#E8ECE4" font-family="'Barlow Condensed','Bahnschrift','Arial Narrow',sans-serif"
+        font-weight="700" font-size="46">F&amp;I Data Platform</text>
+  <text x="402" y="160" fill="#9AA394" font-family="'Space Mono',Consolas,monospace" font-size="18">dealer sale &#8594; admin system &#8594; warehouse &#8594; checks &#8594; reports</text>
+  <rect x="402" y="178" width="120" height="2" fill="#8ACE00"/>
+</svg>

@@ -148,7 +148,7 @@ Each line is one control added in the latest iteration; the test or gate that ho
 - Every headline tile on the site maps to a semantic-model measure. [`test_semantic.py`]
 - Row-level security filters are run as SQL for a sample dealer and partner user and checked against the packet filter. [`test_semantic.py`]
 - Earning curves are checked every run against actual claim emergence, with a warning gate on the Actuarial page. [`test_actuarial.py`]
-- The README pitch names all eight diagnostics gates and every intake source, and its dbt counts track the manifest. [`test_docs.py`]
+- The README pitch names every diagnostics gate and every intake source, and its dbt counts track the manifest. [`test_docs.py`]
 
 ## Round 3 improvements
 
@@ -239,3 +239,14 @@ One line per improvement; the test or gate that holds it is named in brackets.
 - The Operations page has a database health section (empty serving tables, stale Postgres statistics, refresh login used for ad-hoc queries), and the Postgres sync re-analyzes every table after commit. [`pipeline/db_health.py`, `warehouse/postgres/sync.py`]
 - The legacy benchmark lists workspace sprawl as pain point 12, and the intake form asks for the requesting department, acceptance criteria and story points. [`docs/LEGACY_BENCHMARK.md`, `docs/operating-model/INTAKE_FORM.md`]
 - Runtime: a full run from empty took 638 s this round with more models (dbt 271 s with 837 nodes, reports 110 s for 98 pages, publish 42 s), 17% faster than the previous comparable run; the opt-in Postgres sync of 127 tables took about 22 minutes on this laptop. [`python -m pipeline.runtime_check`]
+
+## Round 8 improvements
+- The platform has a name and a look: F&IP, a dark theme with one green accent, black text on every green fill, and a header wordmark shared by the site, the raw-data portal and the Power BI report. [`reports/static/`, `portal/static/`, `powerbi/`]
+- Every tile and chart explains itself in three plain-English lines (what it means, why it is shown this way, why your boss asks), read from one seed that the site, the semantic model and Power BI all use; a tile with no explanation fails the build. A glossary, four role start pages, a "how the data flows" page and a "definitions decided" page are new. [`metric_explanations.csv`, `glossary_terms.csv`, `test_explanations.py`]
+- Disbursement lines carry the fee bucket chosen by the program setup, and control totals split by that bucket must add back to the cost split. The legacy build keeps one fixed type-to-bucket lookup, so it books overridden setups to the wrong bucket. [`fct_disbursement.disbursement_group`, `mart_disbursement_control_totals`]
+- A cancel that the source later undid is flagged on both rows and never stops earning; the reserve bridge shows those pairs net to zero. [`diag_cancel_reversals`, `mart_reserve_bridge`]
+- Six new diagnostics gates (sixteen in all): cancel reversals, parent-contract links, agent of record, custom-field values lost between layers, unassigned commission, and filing entities whose zero in-force must be a true zero. [`pipeline/diagnostics.py`, `RUNBOOK.md`]
+- Cancel reasons map through one crosswalk per source and tenant, with admin corrections flagged, so the cancel rate is shown with and without them. [`cancel_reason_crosswalk.csv`, `cancel_rate_excl_admin`]
+- New finance, dealer and regulatory pages: portfolio facts with a six-way dealer-count reconciliation, mileage-near-limit cancels, agents and agency roll-up, dealer incentive statements tied to the ledger, ancillary pricing subtotals, current-month activations, and an in-force profile. Filings take the legal name from a filing-entity map and label each line with its form question number. [`reports/finance/v7.py`, `reports/dealer/v7.py`, `filing_entity_map.csv`]
+- The legacy benchmark gains two structure findings: type drift between layers (money vs numeric, padded text ids, one dealer number under two names) and the same company id meaning two tenants. [`legacy/ddl/45_type_drift.sql`, `docs/LEGACY_BENCHMARK.md`]
+- Runtime: a full run from empty took 595 s this round (dbt 243 s with 929 nodes, reports 107 s for 111 pages, publish 44 s), 7% faster than Round 7 with more models; the opt-in Postgres sync of 140 tables (13.2M rows) took 902 s. [`python -m pipeline.runtime_check`]

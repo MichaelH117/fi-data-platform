@@ -1,6 +1,20 @@
 -- Specialty-line contracts (RV with a separate chassis VIN, powersports). Contract grain.
 -- Lines and the chassis-VIN rule: seed dealer_specialty_lines. Statuses: seed (SPECIALTY_LINE).
 -- VINs stay hashed; *_vin_token is the first 12 hex characters of the hash, enough to match rows.
+-- V7 edit 27: chassis_vin_status checks what the admin user typed in the Chassis VIN custom field
+-- (shape from staging macro chassis_vin_shape, before hashing): valid | missing | placeholder |
+-- bad_length | lowercase_fixed | duplicate_across_contracts (a usable VIN typed on more than one
+-- contract). Only lines that require a chassis VIN get a status; other lines are NULL.
+with typed_vin as (
+    select
+        contract_key,
+        custom_chassis_vin_hash,
+        custom_chassis_vin_shape,
+        count(*) over (partition by custom_chassis_vin_hash) as contracts_with_vin
+    from {{ ref('dim_contract_vehicle') }}
+    where custom_chassis_vin_shape in ('valid', 'lowercase_fixed')
+)
+
 select
     c.contract_key,
     c.tenant_key,
@@ -20,6 +34,11 @@ select
     coalesce(v.has_chassis_vin, false) as has_chassis_vin,
     l.requires_chassis_vin,
     l.requires_chassis_vin and not coalesce(v.has_chassis_vin, false) as is_chassis_vin_missing,
+    case
+        when not l.requires_chassis_vin then null
+        when tv.contracts_with_vin > 1 then 'duplicate_across_contracts'
+        else coalesce(v.custom_chassis_vin_shape, 'missing')
+    end as chassis_vin_status,
     v.vehicle_make,
     v.vehicle_model,
     v.vehicle_year,
@@ -39,4 +58,5 @@ left join {{ ref('dim_product') }} as pr on pr.product_key = c.product_key
 left join {{ ref('dim_contract_vehicle') }} as v on v.contract_key = c.contract_key
 left join {{ ref('dim_contract_finance') }} as f on f.contract_key = c.contract_key
 left join {{ ref('dim_contract_claim_summary') }} as cs on cs.contract_key = c.contract_key
+left join typed_vin as tv on tv.contract_key = c.contract_key
 where c.contract_key <> '-1'

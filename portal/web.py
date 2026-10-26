@@ -35,7 +35,17 @@ COOKIE = "portal_session"
 IDLE_SECONDS = 30 * 60
 PREVIEW_ROWS = 100
 STATIC = Path(__file__).with_name("static")
-STATIC_FILES = {"portal.css": "text/css; charset=utf-8", "portal.js": "text/javascript; charset=utf-8"}
+STATIC_FILES = {"portal.css": "text/css; charset=utf-8", "portal.js": "text/javascript; charset=utf-8",
+                "favicon.svg": "image/svg+xml"}
+# The favicon has one source, the report site's brand folder; the portal serves that same file.
+# Inline copy of reports/static/fip-wordmark.svg (inline so it picks up the page fonts; colors via portal.css).
+WORDMARK = ('<svg class="wordmark" viewBox="0 0 240 96" aria-hidden="true" focusable="false">'
+            '<defs><clipPath id="wm-slice"><rect x="0" y="50" width="240" height="5"/></clipPath></defs>'
+            '<path d="M0 0H224L240 16V96H0Z" class="wm-block"/>'
+            '<text x="117" y="74" class="wm-glitch" clip-path="url(#wm-slice)">F&amp;IP</text>'
+            '<text x="120" y="74" class="wm-text">F&amp;IP</text>'
+            '<path d="M0 22h240M0 42h240M0 82h240" class="wm-scan"/></svg>')
+STATIC_SOURCES = {"favicon.svg": Path(__file__).resolve().parents[1] / "reports" / "static" / "favicon.svg"}
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; "
                                "form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
@@ -210,7 +220,7 @@ class WebUI:
     def _static(self, h, name: str) -> None:
         if name not in STATIC_FILES:
             return self._respond(h, HTTPStatus.NOT_FOUND, b"not found", "text/plain")
-        body = (STATIC / name).read_bytes()
+        body = STATIC_SOURCES.get(name, STATIC / name).read_bytes()
         self._respond(h, HTTPStatus.OK, body, STATIC_FILES[name], {"Cache-Control": "max-age=300"})
 
     # ---------------------------------------------------------------- sign-in
@@ -423,16 +433,17 @@ class WebUI:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{_e(title)} | F&amp;I Data Platform raw-data portal</title>
+<title>{_e(title)} | F&amp;IP raw-data portal</title>
+<link rel="icon" href="/ui/static/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/ui/static/portal.css">
 <script src="/ui/static/portal.js" defer></script>
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
-  <a class="brand" href="/ui"><span class="brand-mark" aria-hidden="true"></span>F&amp;I Data Platform
-    <span class="brand-sub">raw-data portal</span></a>
+  <a class="brand" href="/ui" aria-label="F&amp;IP raw-data portal: home">{WORDMARK}
+    <span class="brand-sub">F&amp;I Data Platform &middot; raw-data portal</span></a>
   <span class="spacer"></span>
-  <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">&#9680;</button>
+  <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch light or dark theme">&#9680;</button>
   {out}
 </div></header>
 <main>

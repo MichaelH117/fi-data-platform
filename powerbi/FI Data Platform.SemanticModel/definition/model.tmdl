@@ -1,4 +1,4 @@
-/// Portfolio reporting model: Internal portfolio report model: Sales, Claims, Finance and Compliance measures in one model for the F&I Data Platform report (powerbi/). External audiences use the domain models.
+/// Portfolio reporting model: Internal portfolio report model: Sales, Claims, Finance and Compliance measures in one model for the F&IP report (powerbi/). External audiences use the domain models.
 model Model
 	culture: en-US
 	defaultPowerBIDataSourceVersion: powerBI_V3

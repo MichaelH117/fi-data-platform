@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
   "name": "079ed4f205c94b524a5a",
   "position": {
-    "x": 24,
+    "x": 232,
     "y": 8,
-    "width": 1232,
-    "height": 60,
-    "z": 0,
-    "tabOrder": 0
+    "width": 1024,
+    "height": 52,
+    "z": 1000,
+    "tabOrder": 1000
   },
   "visual": {
     "visualType": "textbox",
@@ -22,7 +22,7 @@
                     "value": "Finance",
                     "textStyle": {
                       "fontSize": "18pt",
-                      "color": "#0b0b0b",
+                      "color": "#E8ECE4",
                       "fontWeight": "bold"
                     }
                   }
@@ -31,10 +31,10 @@
               {
                 "textRuns": [
                   {
-                    "value": "P&L by product on the posted ledger and the dealer cession (claims reserve and profit share). Trailing 12 closed months (Time Intelligence = T12M) unless the title says otherwise.",
+                    "value": "F&IP · F&I Data Platform",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#52514e"
+                      "fontSize": "9pt",
+                      "color": "#9AA394"
                     }
                   }
                 ]
@@ -60,7 +60,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#fcfcfb'"
+                      "Value": "'#16191A'"
                     }
                   }
                 }
@@ -84,7 +84,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#d9d8d0'"
+                      "Value": "'#3F5811'"
                     }
                   }
                 }
@@ -93,7 +93,7 @@
             "radius": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "0D"
                 }
               }
             }

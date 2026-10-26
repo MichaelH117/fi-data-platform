@@ -5,6 +5,9 @@
 -- cent per split line (seed control_tolerances). That residual is shown, never hidden:
 -- rounding_txns / rounding_residual. is_balanced = every transaction has a split and ties within
 -- its tolerance.
+-- V7 edit 21: the same split by disbursement_group, the bucket the program setup put each line in
+-- (fct_disbursement.disbursement_group, so one fee type can land in different groups). The group
+-- columns add back to split_amount (tested), and group_unassigned shows any line with no group.
 with tol as (
     select tolerance from {{ ref('control_tolerances') }} where control_id = 'split_rounding_per_line'
 ),
@@ -19,7 +22,15 @@ split_txn as (
         sum(amount) filter (where disbursement_type = 'PREMIUM_TAX') as premium_tax,
         sum(amount) filter (where disbursement_type = 'COMMISSION') as commission,
         sum(amount) filter (where disbursement_type = 'CLAIMS_RESERVE') as claims_reserve,
-        sum(amount) filter (where disbursement_type = 'PROFIT_SHARE_RESERVE') as profit_share_reserve
+        sum(amount) filter (where disbursement_type = 'PROFIT_SHARE_RESERVE') as profit_share_reserve,
+        sum(amount) filter (where disbursement_group = 'ADMIN') as group_admin,
+        sum(amount) filter (where disbursement_group = 'PREMIUM') as group_premium,
+        sum(amount) filter (where disbursement_group = 'DEALER_PARTICIPATION') as group_dealer_participation,
+        sum(amount) filter (where disbursement_group = 'PRODUCER') as group_producer,
+        sum(amount) filter (where disbursement_group = 'TAX_AND_FEES') as group_tax_and_fees,
+        sum(amount) filter (where disbursement_group is null
+            or disbursement_group not in ('ADMIN', 'PREMIUM', 'DEALER_PARTICIPATION', 'PRODUCER', 'TAX_AND_FEES'))
+            as group_unassigned
     from {{ ref('fct_disbursement') }}
     group by 1
 ),
@@ -56,6 +67,12 @@ select
     round(coalesce(sum(commission), 0), 2) as commission,
     round(coalesce(sum(claims_reserve), 0), 2) as claims_reserve,
     round(coalesce(sum(profit_share_reserve), 0), 2) as profit_share_reserve,
+    round(coalesce(sum(group_admin), 0), 2) as group_admin,
+    round(coalesce(sum(group_premium), 0), 2) as group_premium,
+    round(coalesce(sum(group_dealer_participation), 0), 2) as group_dealer_participation,
+    round(coalesce(sum(group_producer), 0), 2) as group_producer,
+    round(coalesce(sum(group_tax_and_fees), 0), 2) as group_tax_and_fees,
+    round(coalesce(sum(group_unassigned), 0), 2) as group_unassigned,
     round(sum(txn_difference), 2) as difference,
     count(*) filter (where abs(txn_difference) >= 0.005) as rounding_txns,
     round(sum(txn_difference) filter (where abs(txn_difference) >= 0.005), 2) as rounding_residual,

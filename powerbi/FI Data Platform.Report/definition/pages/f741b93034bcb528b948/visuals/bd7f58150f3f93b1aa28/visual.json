@@ -1,0 +1,128 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
+  "name": "bd7f58150f3f93b1aa28",
+  "position": {
+    "x": 24,
+    "y": 68,
+    "width": 1232,
+    "height": 84,
+    "z": 2000,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "What this page shows: Everything to date on one basis. Pick View by to split the same total by date, product, dealer, state, plan, make, year or term.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#E8ECE4"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Why your boss asks: It answers 'which slice is driving the loss ratio?' without anyone building a new report.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#E8ECE4"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Details: Everything to date on the claims-reserve basis, closed periods only. View by switches the rows and bars: Date, Product, Dealer, State, Plan, Make, Entered year, Term. Every view adds up to the same total. Site twin: finance/experience.html (finance.mart_experience).",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#9AA394"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#16191A'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#3F5811'"
+                    }
+                  }
+                }
+              }
+            },
+            "radius": {
+              "expr": {
+                "Literal": {
+                  "Value": "0D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

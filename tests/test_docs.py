@@ -153,12 +153,14 @@ def test_readme_names_every_diagnostics_gate_and_intake_source():
     from pipeline import diagnostics
     src = Path(diagnostics.__file__).read_text(encoding="utf-8")
     gates = sorted(set(re.findall(r'"(diag_[a-z_]+)": \(', src)))
-    assert len(gates) == 10, gates
+    assert len(gates) == 16, gates
     pitch = README.split("## Legacy vs better")[0]
-    assert "Ten\n  diagnostics gates" in pitch
+    assert "Sixteen\n  diagnostics gates" in pitch
     for words in ("product-dimension match rate", "contract key-bridge", "claim-to-contract coverage",
                   "fan-out guard", "claim sign", "no demo rows", "freshness", "posting-period",
-                  "form-code coverage", "co-buyer feed join"):
+                  "form-code coverage", "co-buyer feed join", "cancel reversals", "parent-contract links",
+                  "agent of\n  record", "custom-field layer gap", "unassigned commission",
+                  "filing-entity true zeros"):
         assert words in pitch, words
     arch = README.split("## Architecture")[1].split("## What it builds")[0]
     for source in ("CRM / call-center export", "Admin API extract"):
@@ -250,7 +252,8 @@ def test_architecture_lists_every_source_step_and_recovery_command():
 
 
 # --------------------------------------------------------------------------- 9. visible output + roadmap
-README_IMAGES = ("executive-overview.png", "ops-gates-reconciliation.png", "funded-reserve-filing.png",
+README_IMAGES = ("start-here.png", "how-data-flows.png", "executive-overview.png",
+                 "ops-gates-reconciliation.png", "funded-reserve-filing.png",
                  "dealer-packet.png")
 
 

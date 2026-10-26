@@ -1,18 +1,25 @@
-"""The ``F&I Data Platform`` report in PBIR format (one JSON file per page and per visual), generated.
+"""The ``F&IP`` (F&I Data Platform) report in PBIR format (one JSON file per page and per visual), generated.
 
 Pages and visuals are declared here, on one layout grid, and written as PBIR JSON. PBIR is the format
 Power BI Desktop saves a Power BI project (PBIP) in by default; it needs no preview feature in the
 release this was built with (2.159). Every field a visual uses is checked against the semantic model
 by ``powerbi.validate``.
 
-Grid: 1280 x 720 page, 24 px margin, 12 columns of 88 px with 16 px gutters. Rows: header (title +
-subtitle), filters, KPI cards, then two chart rows.
+Grid: 1280 x 848 page, 24 px margin, 12 columns of 88 px with 16 px gutters. Rows: header (wordmark image +
+title), a plain-English "what this page shows / why your boss asks" card, filters, KPI cards (each with its
+meaning in words, visible without hovering), then two chart rows.
+
+Look (docs/V3_DESIGN.md 10.1): the F&IP dark tokens from ``reports/static/site.css``. Brand green is used for
+borders and accents only; nothing puts light text on a green fill (a green fill always carries black text).
 """
 
 from __future__ import annotations
 
+import csv
+import functools
 import hashlib
 import json
+from pathlib import Path
 
 from powerbi import model
 
@@ -26,17 +33,27 @@ S_PBIR = SCHEMA + "item/report/definitionProperties/2.0.0/schema.json"
 S_PBIP = SCHEMA + "pbip/pbipProperties/1.0.0/schema.json"
 S_PBISM = SCHEMA + "item/semanticModel/definitionProperties/1.0.0/schema.json"
 
-W, H, M, G, COLS = 1280, 720, 24, 16, 12
+W, H, M, G, COLS = 1280, 848, 24, 16, 12
 COL_W = (W - 2 * M - (COLS - 1) * G) // COLS  # 88
-ROW_HEADER, ROW_FILTERS, ROW_KPI, ROW_A, ROW_B = (8, 60), (76, 60), (144, 88), (244, 226), (482, 226)
+ROW_HEADER, ROW_EXPLAIN, ROW_FILTERS = (8, 52), (68, 84), (160, 56)
+ROW_KPI, ROW_A, ROW_B = (224, 132), (364, 226), (598, 226)
 
-# Site palette (reports/static/site.css, light).
-INK, INK_2, INK_3 = "#0b0b0b", "#52514e", "#6f6d68"
-PAGE_BG, SURFACE, BORDER, GRID = "#f6f6f3", "#fcfcfb", "#d9d8d0", "#e1e0d9"
-ACCENT = "#1c5cab"
-SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
-GOOD, WARNING, CRITICAL = "#0ca30c", "#fab219", "#d03b3b"
-CRITICAL_SOFT, WARNING_SOFT, GOOD_SOFT = "#f8dede", "#fdf0d2", "#dff2df"
+# F&IP dark tokens (reports/static/site.css :root). Power BI themes take solid hex only, so the site's
+# translucent tokens are pre-blended over the panel: --line (35% brand), --grid (7% text), status tints (18%).
+INK, INK_2, INK_3 = "#E8ECE4", "#C5CCBF", "#9AA394"  # --text, --text-2, --muted
+PAGE_BG, SURFACE, SURFACE_2 = "#0B0D0C", "#16191A", "#1D2122"  # --bg, --panel, --panel-2
+BORDER, GRID = "#3F5811", "#252828"
+BRAND, INK_ON_BRAND = "#8ACE00", "#000000"  # a green fill always carries black text
+ACCENT = BRAND
+# Chart slots 1-8 (site.css --s1..--s8, dark), validated by the Front-end Developer with the dataviz palette
+# validator: slot 1 is the brand hue one step darker; slot 5 is violet (red is kept for "Needs action").
+SERIES = ["#70A600", "#C72481", "#00A7AE", "#D57700", "#7F57D1", "#8C9488", "#5F665C", "#B6BDB0"]
+GOOD, WARNING, CRITICAL = "#8ACE00", "#F2A93B", "#FF6B6B"  # --good, --watch, --alert
+CRITICAL_SOFT, WARNING_SOFT, GOOD_SOFT = "#402829", "#3E3320", "#2F4214"
+FONT_HEAD, FONT_BODY, FONT_NUM = "Bahnschrift SemiBold", "Segoe UI", "Bahnschrift"  # system fallbacks (10.1)
+WORDMARK = "fip-wordmark.svg"  # reports/static/fip-wordmark.svg, shipped as a registered image
+WORDMARK_SRC = Path(__file__).resolve().parents[1] / "reports" / "static" / WORDMARK
+EXPLANATIONS = Path(__file__).resolve().parents[1] / "dbt" / "seeds" / "core" / "metric_explanations.csv"
 
 MEASURES = "Key Measures"
 TI = ("Time Intelligence", "Time Calculation")
@@ -139,6 +156,74 @@ def box(col: int, span: int, row: tuple[int, int], *, dy: int = 0, h: int | None
     return {"x": M + col * (COL_W + G), "y": y + dy, "width": span * (COL_W + G) - G, "height": h or rh}
 
 
+# ---------------------------------------------------------------------- plain-English copy (V3_DESIGN 10.2)
+@functools.lru_cache(maxsize=1)
+def _explanations() -> dict[str, dict[str, str]]:
+    with EXPLANATIONS.open(encoding="utf-8", newline="") as fh:
+        return {r["metric_id"]: r for r in csv.DictReader(fh)}
+
+
+@functools.lru_cache(maxsize=1)
+def _measure_metrics() -> dict[str, tuple[str, str]]:
+    """Measure name -> (metric_id in metric_explanations.csv, format key)."""
+    plan, _ = model.load_plan()
+    out = {m.name: (m.metric, m.format) for m in plan.measures.values()}
+    out.update({n: (model.IBNR_EXPLAINED[n], fmt) for n, (_, fmt, _) in model.IBNR_MEASURES.items()})
+    return out
+
+
+DIRECTION_WORDS = {"up": "Higher is better.", "down": "Lower is better.", "band": "Best inside its normal range."}
+
+
+def _threshold(v: str, fmt: str) -> str:
+    x = float(v)
+    if fmt == "percent":
+        return f"{x * 100:g}%"
+    return f"${x:,.0f}" if fmt == "currency" else f"{x:,g}"
+
+
+def meaning(measure_name: str) -> str:
+    """A card's subtitle: what the number means, which way is good, and the watch / act levels in words."""
+    metric, fmt = _measure_metrics()[measure_name]
+    row = _explanations().get(metric)
+    if row is None:
+        raise KeyError(f"measure {measure_name!r} ({metric}): no row in {EXPLANATIONS.name}")
+    words = [row["what_it_means"].strip(), DIRECTION_WORDS.get(row.get("good_direction", ""), "")]
+    watch, alert = (row.get("watch_threshold") or "").strip(), (row.get("alert_threshold") or "").strip()
+    if watch and alert:
+        words.append(f"Watch at {_threshold(watch, fmt)}, act at {_threshold(alert, fmt)}.")
+    elif alert:
+        words.append(f"Act above {_threshold(alert, fmt)}." if float(alert) == 0
+                     else f"Act at {_threshold(alert, fmt)}.")
+    return " ".join(w for w in words if w)
+
+
+# Each page: (what this page shows, why your boss asks). Plain words, no acronyms, at most 160 characters each.
+PAGE_COPY: dict[str, tuple[str, str]] = {
+    "executive": ("The whole book on one page: money taken in, money earned, what went to claims and how many "
+                  "contracts are active.",
+                  "Leaders use it to decide whether the business is growing at a profit and where to look next."),
+    "dealer": ("Each dealer's sales, cancels, claims and payment habits over the last 12 closed months. "
+               "Shaded rows need a look.",
+               "It decides which dealers get a visit, a pricing review or a hold on new business."),
+    "claims": ("How often claims come in, what they cost, how many are still open, and money set aside for "
+               "claims nobody has reported yet.",
+               "It shows whether claim costs are rising and whether enough is set aside to pay what is coming."),
+    "regulatory": ("Each state's required claims reserve next to the reserve actually held, plus the lines filed "
+                   "with the state.",
+                   "A shortfall must be fixed before the state filing is due, so compliance checks this page first."),
+    "finance": ("Profit and loss by product, the money shared with dealer-owned companies, and earned premium "
+                "month, quarter and year to date.",
+                "Finance uses it to close the month and to decide whether a dealer company can take a "
+                "profit-share payout."),
+    "experience": ("Everything to date on one basis. Pick View by to split the same total by date, product, "
+                   "dealer, state, plan, make, year or term.",
+                   "It answers 'which slice is driving the loss ratio?' without anyone building a new report."),
+    "new_reserves": ("Claims reserve set aside on new sales, split by product and by contract length.",
+                     "Finance and reinsurers read it to see how much new reserve each kind of contract brings in."),
+}
+
+
 class Page:
     def __init__(self, key: str, title: str, subtitle: str):
         self.name = _id("page", key)
@@ -161,10 +246,11 @@ class Page:
         return vc
 
     @staticmethod
-    def chrome(title: str | None, tip: str | None, *, border: bool = True, pad: int = 8) -> dict:
+    def chrome(title: str | None, tip: str | None, *, border: bool = True, pad: int = 8,
+               subtitle: str | None = None) -> dict:
         o: dict = {
             "background": [{"properties": {"show": lit(True), "color": color(SURFACE), "transparency": lit(0)}}],
-            "border": [{"properties": {"show": lit(border), "color": color(BORDER), "radius": lit(10)}}],
+            "border": [{"properties": {"show": lit(border), "color": color(BORDER), "radius": lit(0)}}],
             "dropShadow": [{"properties": {"show": lit(False)}}],
             "padding": [{"properties": {"top": lit(pad), "bottom": lit(pad), "left": lit(12), "right": lit(12)}}],
         }
@@ -173,6 +259,9 @@ class Page:
                                           "fontSize": lit(11), "bold": lit(True)}}]
         else:
             o["title"] = [{"properties": {"show": lit(False)}}]
+        if subtitle:  # the plain-English line, visible without hovering
+            o["subTitle"] = [{"properties": {"show": lit(True), "text": lit(subtitle), "titleWrap": lit(True),
+                                             "fontColor": color(INK_2), "fontSize": lit(8)}}]
         if tip:
             o["visualHeader"] = [{"properties": {"show": lit(True), "showTooltipButton": lit(True)}}]
             o["visualHeaderTooltip"] = [{"properties": {"text": lit(tip)}}]
@@ -186,22 +275,39 @@ class Page:
         v = {"visualType": "textbox", "objects": {"general": [{"properties": {"paragraphs": paras}}]},
              "visualContainerObjects": {
                  "background": [{"properties": {"show": lit(card), "color": color(SURFACE)}}],
-                 "border": [{"properties": {"show": lit(card), "color": color(BORDER), "radius": lit(10)}}],
+                 "border": [{"properties": {"show": lit(card), "color": color(BORDER), "radius": lit(0)}}],
                  "title": [{"properties": {"show": lit(False)}}]}}
         return self.add(key, pos, v)
 
     def header(self) -> None:
-        self.text("header", box(0, 12, ROW_HEADER),
-                  [(self.title, "18pt", INK, True), (self.subtitle, "10pt", INK_2, False)])
+        """Wordmark image, page title, then the plain-English card (what it shows, why your boss asks, details)."""
+        logo = {"visualType": "image",
+                "objects": {"general": [{"properties": {"imageUrl": {"expr": {"ResourcePackageItem": {
+                    "PackageName": "RegisteredResources", "PackageType": 1, "ItemName": WORDMARK}}}}}],
+                    "imageScaling": [{"properties": {"imageScalingType": lit("Fit")}}]},
+                "visualContainerObjects": {
+                    "background": [{"properties": {"show": lit(False)}}],
+                    "border": [{"properties": {"show": lit(False)}}],
+                    "title": [{"properties": {"show": lit(False)}}]}}
+        self.add("logo", box(0, 2, ROW_HEADER), logo)
+        self.text("header", box(2, 10, ROW_HEADER),
+                  [(self.title, "18pt", INK, True), (f"{model.MODEL_NAME} · {model.SUBTITLE}", "9pt", INK_3, False)])
+        shows, boss = PAGE_COPY[self.key]
+        self.text("explain", box(0, 12, ROW_EXPLAIN), [
+            ("What this page shows: " + shows, "10pt", INK, False),
+            ("Why your boss asks: " + boss, "10pt", INK, False),
+            ("Details: " + self.subtitle, "8pt", INK_3, False),
+        ], card=True)
 
     # ---- visuals
     def card(self, key: str, pos: dict, f: dict, title: str, tip: str, *, item: str | None = "T12M",
              filters: list[dict] | None = None):
         v = {"visualType": "card",
              "query": {"queryState": {"Values": {"projections": [proj(f, title)]}}},
-             "objects": {"labels": [{"properties": {"color": color(INK), "fontSize": lit(22)}}],
+             "objects": {"labels": [{"properties": {"color": color(INK), "fontSize": lit(20)}}],
                          "categoryLabels": [{"properties": {"show": lit(False)}}]},
-             "visualContainerObjects": self.chrome(f"{title} · {item}" if item else title, tip),
+             "visualContainerObjects": self.chrome(f"{title} · {item}" if item else title, tip,
+                                                   subtitle=meaning(field_ref(f)[2])),
              "drillFilterOtherVisuals": True}
         flt = ([time_item(item, key)] if item else []) + (filters or [])
         return self.add(key, pos, v, filters=flt or None)
@@ -241,7 +347,7 @@ class Page:
             obj["dataPoint"] = sels
         if vtype not in ("tableEx", "pivotTable"):
             obj.setdefault("legend", [{"properties": {"show": lit(True), "position": lit("Top")}}])
-        v = {"visualType": vtype, "query": query, "visualContainerObjects": self.chrome(title, tip),
+        v = {"visualType": vtype, "query": query, "visualContainerObjects": self.chrome(title, tip, subtitle=tip),
              "drillFilterOtherVisuals": True}
         if obj:
             v["objects"] = obj
@@ -505,7 +611,7 @@ def finance() -> Page:
             "P&L by product · T12M",
             "Expand a category to see its products. Combined ratio = claims + admin fee + acquisition over earned.",
             filters=[time_item("T12M", "pl")],
-            objects={"values": [{"properties": {"fontColor": rule_color(cr, [(2, 1.0, "#b02a2a")])},
+            objects={"values": [{"properties": {"fontColor": rule_color(cr, [(2, 1.0, CRITICAL)])},
                                  "selector": {"data": [{"dataViewWildcard": {"matchingOption": 1}}],
                                               "metadata": f"{MEASURES}.Combined Ratio"}}],
                      "columnHeaders": [{"properties": {"fontColor": color(INK_2), "bold": lit(True)}}]})
@@ -643,42 +749,76 @@ PAGES = (executive, dealer, claims, regulatory, finance, experience, new_reserve
 
 
 # ---------------------------------------------------------------------- theme + report files
-AXIS = {"gridlineColor": {"solid": {"color": GRID}}, "labelColor": {"solid": {"color": INK_2}}}
+AXIS = {"gridlineColor": {"solid": {"color": GRID}}, "labelColor": {"solid": {"color": INK_2}},
+        "titleColor": {"solid": {"color": INK_2}}}
+
+
+def _solid(c: str) -> dict:
+    return {"solid": {"color": c}}
 
 
 def theme() -> dict:
+    """F&IP dark theme. Green is an accent and a border; any green fill gets black text (INK_ON_BRAND)."""
     return {
         "name": model.MODEL_NAME,
         "dataColors": SERIES,
         "foreground": INK, "foregroundNeutralSecondary": INK_2, "foregroundNeutralTertiary": INK_3,
-        "background": SURFACE, "backgroundLight": PAGE_BG, "backgroundNeutral": BORDER,
-        "tableAccent": ACCENT, "accent": ACCENT,
+        "foregroundDark": INK_ON_BRAND, "foregroundLight": INK, "foregroundSelected": INK_ON_BRAND,
+        "foregroundButton": INK_ON_BRAND,
+        "background": SURFACE, "backgroundLight": SURFACE_2, "backgroundDark": PAGE_BG, "backgroundNeutral": BORDER,
+        "secondaryBackground": SURFACE_2,
+        "tableAccent": BRAND, "accent": BRAND, "hyperlink": BRAND, "visitedHyperlink": BRAND,
+        "disabledText": INK_3,
         "good": GOOD, "neutral": WARNING, "bad": CRITICAL,
-        "maximum": CRITICAL, "center": WARNING, "minimum": SURFACE, "null": GRID,
+        "maximum": CRITICAL, "center": WARNING, "minimum": SURFACE_2, "null": GRID,
         "textClasses": {
-            "title": {"fontFace": "Segoe UI Semibold", "fontSize": 11, "color": INK},
-            "header": {"fontFace": "Segoe UI Semibold", "fontSize": 11, "color": INK},
-            "label": {"fontFace": "Segoe UI", "fontSize": 9, "color": INK_2},
-            "callout": {"fontFace": "Segoe UI Semibold", "fontSize": 22, "color": INK},
+            "title": {"fontFace": FONT_HEAD, "fontSize": 12, "color": INK},
+            "header": {"fontFace": FONT_HEAD, "fontSize": 11, "color": INK},
+            "label": {"fontFace": FONT_BODY, "fontSize": 9, "color": INK_2},
+            "callout": {"fontFace": FONT_NUM, "fontSize": 20, "color": INK},
         },
         "visualStyles": {
             "*": {"*": {
-                "background": [{"show": True, "color": {"solid": {"color": SURFACE}}, "transparency": 0}],
-                "border": [{"show": True, "color": {"solid": {"color": BORDER}}, "radius": 10}],
+                "background": [{"show": True, "color": _solid(SURFACE), "transparency": 0}],
+                "border": [{"show": True, "color": _solid(BORDER), "radius": 0}],
                 "dropShadow": [{"show": False}],
-                "title": [{"fontColor": {"solid": {"color": INK}}, "fontSize": 11, "bold": True}],
+                "title": [{"fontColor": _solid(INK), "fontSize": 12, "bold": True, "fontFamily": FONT_HEAD}],
+                "subTitle": [{"fontColor": _solid(INK_2), "fontSize": 8}],
                 "categoryAxis": [AXIS],
                 "valueAxis": [AXIS],
+                "legend": [{"labelColor": _solid(INK_2)}],
+                "visualHeader": [{"foreground": _solid(INK_2), "background": _solid(SURFACE)}],
+                "visualTooltip": [{"titleFontColor": _solid(INK), "valueFontColor": _solid(INK),
+                                   "background": _solid(SURFACE_2)}],
             }},
             "page": {"*": {
-                "background": [{"color": {"solid": {"color": PAGE_BG}}, "transparency": 0}],
-                "outspace": [{"color": {"solid": {"color": PAGE_BG}}}],
+                "background": [{"color": _solid(PAGE_BG), "transparency": 0}],
+                "outspace": [{"color": _solid(PAGE_BG)}],
+            }},
+            "slicer": {"*": {
+                "items": [{"fontColor": _solid(INK), "background": _solid(SURFACE_2)}],
+                "header": [{"fontColor": _solid(INK_2)}],
+            }},
+            "tableEx": {"*": {
+                "columnHeaders": [{"fontColor": _solid(INK), "backColor": _solid(SURFACE_2)}],
+                "values": [{"fontColorPrimary": _solid(INK), "backColorPrimary": _solid(SURFACE),
+                            "fontColorSecondary": _solid(INK), "backColorSecondary": _solid(SURFACE_2)}],
+                "total": [{"fontColor": _solid(INK), "backColor": _solid(SURFACE_2)}],
+                "grid": [{"gridHorizontalColor": _solid(GRID), "gridVerticalColor": _solid(GRID)}],
+            }},
+            "pivotTable": {"*": {
+                "columnHeaders": [{"fontColor": _solid(INK), "backColor": _solid(SURFACE_2)}],
+                "rowHeaders": [{"fontColor": _solid(INK), "backColor": _solid(SURFACE)}],
+                "values": [{"fontColorPrimary": _solid(INK), "backColorPrimary": _solid(SURFACE),
+                            "fontColorSecondary": _solid(INK), "backColorSecondary": _solid(SURFACE_2)}],
+                "subTotals": [{"fontColor": _solid(INK), "backColor": _solid(SURFACE_2)}],
+                "grid": [{"gridHorizontalColor": _solid(GRID), "gridVerticalColor": _solid(GRID)}],
             }},
         },
     }
 
 
-THEME_FILE = "FI_Data_Platform_Theme.json"
+THEME_FILE = "FIP_Theme.json"
 
 
 def report_files(model_dir_name: str) -> dict[str, dict]:
@@ -694,7 +834,8 @@ def report_files(model_dir_name: str) -> dict[str, dict]:
                 "name": THEME_FILE, "type": "RegisteredResources",
                 "reportVersionAtImport": {"visual": "2.13.0", "report": "3.3.0", "page": "2.1.0"}}},
             "resourcePackages": [{"name": "RegisteredResources", "type": "RegisteredResources",
-                                  "items": [{"name": THEME_FILE, "path": THEME_FILE, "type": "CustomTheme"}]}],
+                                  "items": [{"name": THEME_FILE, "path": THEME_FILE, "type": "CustomTheme"},
+                                            {"name": WORDMARK, "path": WORDMARK, "type": "Image"}]}],
             "settings": {"useStylableVisualContainerHeader": True, "exportDataMode": "AllowSummarized",
                          "defaultDrillFilterOtherVisuals": True, "useEnhancedTooltips": True},
         },
@@ -707,6 +848,11 @@ def report_files(model_dir_name: str) -> dict[str, dict]:
         for v in p.visuals:
             files[f"definition/pages/{p.name}/visuals/{v['name']}/visual.json"] = v
     return files
+
+
+def static_files() -> dict[str, str]:
+    """Non-JSON registered resources (relative path inside ``<name>.Report/``) -> text: the wordmark SVG."""
+    return {f"StaticResources/RegisteredResources/{WORDMARK}": WORDMARK_SRC.read_text(encoding="utf-8")}
 
 
 def pbip(report_dir_name: str) -> dict:

@@ -141,6 +141,7 @@
     "cancel_fees",
     "dealer_chargebacks",
     "coverage_cost_refunds",
+    "effective_cancellations_excl_admin",
     "net_coverage_cost",
     "claims_paid",
     "claims_incurred",
@@ -238,6 +239,8 @@
     "dealer_chargebacks",
     "coverage_cost_refunds",
     "effective_cancel_rate",
+    "effective_cancellations_excl_admin",
+    "cancel_rate_excl_admin",
     "net_coverage_cost",
     "reinstatements",
     "reinstatement_reversals",
@@ -339,6 +342,8 @@
     "dealer_chargebacks",
     "coverage_cost_refunds",
     "effective_cancel_rate",
+    "effective_cancellations_excl_admin",
+    "cancel_rate_excl_admin",
     "net_coverage_cost",
     "cancel_pct",
     "remitted_cash",
@@ -450,6 +455,18 @@
    "folder": "Ratios",
    "format": "percent",
    "measure": "Cancel Pct",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation",
+    "Gross Premium"
+   ]
+  },
+  "cancel_rate_excl_admin": {
+   "certified": false,
+   "dax": "DIVIDE([Effective Cancellations Excl Admin], [Contracts Written])",
+   "folder": "Cancellations",
+   "format": "percent",
+   "measure": "Cancel Rate Excl Admin",
    "owner": "Financial Analyst II",
    "tables": [
     "Cancellation",
@@ -888,6 +905,17 @@
     "Cancellation"
    ]
   },
+  "effective_cancellations_excl_admin": {
+   "certified": false,
+   "dax": "CALCULATE(COUNTROWS('Cancellation'), 'Cancellation'[Is Effective Cancel Excl Admin] = TRUE())",
+   "folder": "Cancellations",
+   "format": "integer",
+   "measure": "Effective Cancellations Excl Admin",
+   "owner": "Financial Analyst II",
+   "tables": [
+    "Cancellation"
+   ]
+  },
   "exposure_years_metric": {
    "certified": false,
    "dax": "SUM('Contract Month'[Exposure Years])",
@@ -1287,7 +1315,7 @@
    ]
   }
  },
- "metrics_sha256": "ce23d38c098e9063237e95df0bc6c398359956d7b2f916f1468f774b713fe519",
+ "metrics_sha256": "5f212f8757cb0c1e7a9071d40c71aa548e7f9814bc7dc088eaff81f6f0d60ac0",
  "not_exported": {
   "cancel_rate": "input contracts_cancelled: V1 semantic model contract_sale (not exported)",
   "claim_paid_amount": "V1 semantic model claim (not exported)",

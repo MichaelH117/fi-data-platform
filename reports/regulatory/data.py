@@ -75,6 +75,14 @@ def inforce_available(con: duckdb.DuckDBPyConnection) -> bool:
                        "and table_name = ?", [INFORCE_TABLE]).fetchone()[0] == 1
 
 
+def inforce_profile(con: duckdb.DuckDBPyConnection) -> pd.DataFrame | None:
+    """V7 edit 30: status x entered year x counted, or None when the mart is not built yet."""
+    if con.execute("select count(*) from information_schema.tables where table_schema = 'regulatory' "
+                   "and table_name = 'mart_inforce_profile'").fetchone()[0] != 1:
+        return None
+    return _df(con, "select * exclude (_built_at) from regulatory.mart_inforce_profile")
+
+
 def inforce_list(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """State in-force contract list (grain: contract in force on list_as_of_date), every state."""
     cols = ", ".join([*INFORCE_COLS, "list_as_of_date"])
@@ -168,11 +176,20 @@ SUMMARY_COLUMN = {
 COUNT_LINES = {"IN_FORCE", "NEW_WRITTEN", "COMPLAINTS", "CLAIMS_PAID_COUNT", "CLAIMS_DENIED"}
 
 
-def filing_lines(definitions: pd.DataFrame, section: int) -> list[tuple[int, str, str]]:
-    """(line_no, line_item, label) of one FUNDED_RESERVE section, in filing order."""
+def filing_lines(definitions: pd.DataFrame, section: int) -> list[tuple[str, str, str]]:
+    """(form question, line_item, label) of one FUNDED_RESERVE section, in filing order.
+
+    V7 edit 52: the first value is the state-form question the line answers (seed column
+    ``form_question_no``, e.g. "Q2.1"), so every answer is labelled with the question it fills."""
     d = definitions[(definitions.report_id == "FUNDED_RESERVE") & (definitions.section == section)]
     d = d.drop_duplicates("line_item").sort_values("line_no")
-    return [(int(r.line_no), r.line_item, r.label) for r in d.itertuples()]
+    return [(question_no(r), r.line_item, r.label) for r in d.itertuples()]
+
+
+def question_no(r) -> str:
+    """The form question number of a definitions row; ``Q<section>.<line>`` when the seed leaves it blank."""
+    q = getattr(r, "form_question_no", None)
+    return str(q) if isinstance(q, str) and q.strip() else f"Q{int(r.section)}.{int(r.line_no)}"
 
 
 def line_notes(definitions: pd.DataFrame) -> dict[str, str]:

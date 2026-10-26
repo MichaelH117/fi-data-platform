@@ -621,3 +621,174 @@ filings scoped by `program_type` + compliance family (SDA regulatory), `effectiv
 `dim_contract` and a `term_year_bucket` on `dim_contract_terms` (so the Power BI pages match the site
 pages exactly), an `avg_new_reserve` metric, a non-zero entered-to-effective lag in the generator, and
 the daily append creating and resolving the hold statuses.
+
+## 10. V7: F&IP rebrand, plain-English explanations, structure edits 21-53
+
+Source: the V7 brief plus the second structure review (edits 21-53). Structure only, generic names,
+synthetic data, `python tools/brand_scrub.py` = 0 hits, targeted tests on a dev DuckDB copy
+(`WAREHOUSE_PATH`). Sections 8 and 9 still hold. One accountable owner per item; "Hands off" names
+the owner of a dependent piece.
+
+### 10.1 Brand system
+**Name:** `F&IP` (wordmark), subtitle "F&I Data Platform" (page titles, README H1, Power BI report name).
+**Wordmark** (`reports/static/fip-wordmark.svg`, original artwork, no traced or borrowed shapes):
+- `viewBox="0 0 240 96"`; one solid `--brand` rectangle with the top-right corner cut at 45 degrees (16 units).
+- Text "F&IP" in `--ink-on-brand` (black), heavy condensed sans, tight tracking, optically centred.
+- Cyberpunk twist: a 2-unit cyan copy of the letters offset 2 units left, clipped to a thin band (glitch
+  slice), plus three 1-unit horizontal scanlines at 12% black over the block. No glow inside the block.
+- Variants: `fip-mark.svg` (square block + "F&IP", for favicon and the Power BI header image), `favicon.svg`
+  + `favicon.ico` (32/16 px, scanlines dropped below 32 px), README banner `docs/img/fip-banner.svg`.
+
+**Tokens** (`:root` in `site.css`; the portal and the Power BI theme copy the same values):
+| Token | Dark (default) | Light | Use |
+|---|---|---|---|
+| `--bg` | `#0B0D0C` | `#F5F6F2` | page |
+| `--panel` | `#16191A` | `#FFFFFF` | tiles, chart frames |
+| `--line` | `rgba(138,206,0,.35)` | `rgba(60,90,0,.30)` | 1px borders |
+| `--text` / `--muted` | `#E8ECE4` / `#9AA394` | `#111410` / `#4A5245` | body / captions |
+| `--brand` | `#8ACE00` | `#8ACE00` (fills only) | wordmark, primary accent |
+| `--brand-ink` | `#8ACE00` | `#3F6200` | green text and lines on the page background |
+| `--ink-on-brand` | `#000000` | `#000000` | any text on a green fill (never white) |
+| chart series | green `#8ACE00`, magenta `#E0529C`, cyan `#2EC4D6`, amber `#F2A93B`, violet (slot 5; red is kept for the alert status) | same hues, darkened for lines | max 5 per chart |
+| `--good` / `--watch` / `--alert` | brand-ink / amber / red | same, darkened | status, always with a word and a shape |
+| `--glow` | `0 0 8px rgba(138,206,0,.18)` | none | hover/focus only, never on text |
+- Fonts (Google Fonts, system fallbacks): headings `Barlow Condensed` 800; numbers and labels `JetBrains Mono`;
+  body `Inter`. The Power BI theme falls back to the system sans and mono.
+- Corners: panels clip one corner (`clip-path`, 10px); no rounded pills. Spacing scale 4/8/16/24/40.
+- The Front-end Developer runs the dataviz palette validator on the five series colors (dark and light)
+  and records the result; if a pair fails colorblind separation, change the shade, not the hue family.
+- Text contrast >= 4.5:1 on both themes; status is never color alone (word + shape: tick, dash, warning).
+
+**Components** (Jinja macros in `reports/templates/_components.html.j2`):
+- `kpi_tile(metric_id, value, status, compare)`: big value (`JetBrains Mono`, 32px), short label, status word
+  (`On track` / `Watch` / `Needs action`), one "compared to" line ("vs last year: up 2.1 pts"), then the
+  explain block. A blank value reads "Not enough data yet", never 0.
+- `chart_frame(metric_id, chart)`: title, the chart, a one-line takeaway, the explain block, and
+  "show more" for the data table.
+- `explain_block(metric_id)`: three always-visible lines (What this means / Why it is shown this way /
+  Why your boss asks for this), 14px, muted labels; no tooltip-only text anywhere.
+- `glossary_link(term)`: the first use of a glossary term on a page becomes a dotted-underline link to
+  `glossary.html#<term>`; a build-time filter does this, authors never hand-link.
+- Light mode: `prefers-color-scheme` guarded by `:root:not([data-theme="dark"])`, plus a header toggle kept
+  per viewer; green text switches to `--brand-ink`; green fills keep black text; glow off.
+
+### 10.2 Explanation system (one source, three consumers)
+- **Seed** `dbt/seeds/core/metric_explanations.csv` (+ `_seeds.yml` with not_null/unique tests). Columns:
+  `metric_id` (matches `semantic/metrics.py` and `metrics.yml`), `plain_name`, `what_it_means`,
+  `why_shown_this_way`, `why_your_boss_asks`, `good_direction` {up, down, band}, `compare_to`
+  {prior_year, target, peer_avg, prior_month}, `audience_roles` (pipe list: dealer|finance|compliance|executive),
+  `decision_it_drives`, `watch_threshold`, `alert_threshold` (nullable; the status word comes from these).
+- **Seed** `dbt/seeds/core/glossary_terms.csv`: `term_id`, `term`, `plain_definition`, `example`, `see_also`.
+  Minimum set: VSC, GAP, ancillary, earned vs written, loss ratio, cession, funded reserve, CLIP, IBNR,
+  Rule of 78, remit, chargeback.
+- **Consumers:** (1) `reports/explain.py` loads both seeds once and every `kpi_tile` / `chart_frame` must
+  find its `metric_id`; (2) `semantic/` writes `what_it_means` as the measure description in TMDL/PBIP and
+  the semantic export; (3) Power BI pages show the three lines in a subtitle text box.
+- **Gates:** `tests/test_explanations.py` (targeted): every metric in `metrics.yml` has a row; every rendered
+  tile/chart carries a `metric_id`; no line over 160 characters; no acronym that is not in the glossary.
+  A missing row fails the build instead of showing an empty box.
+
+### 10.3 New pages
+| Page | Content | UI / copy |
+|---|---|---|
+| `start.html` (new landing) | four big role buttons, then the existing guided tour | FE / RM |
+| `roles/dealer.html` | production, pending and activations, incentive statement, claims | FE / RM |
+| `roles/finance.html` | P&L, reserve bridge, partner settlement, remit register | FE / RM |
+| `roles/compliance.html` | funded-reserve filings, in-force profile, state in-force list, definitions log | FE / RM |
+| `roles/executive.html` | executive overview, experience, portfolio facts, legacy vs better | FE / RM |
+| `glossary.html` | `glossary_terms.csv`, one anchor per term | FE / RM |
+| `how-data-flows.html` | five annotated steps: dealer sells -> admin system -> warehouse -> checks -> reports; per step "what can go wrong" and "how we stop it" (gate names link to Operations); CSS step animation that respects `prefers-reduced-motion` | FE / RM |
+| `definitions.html` | rendered from the `docs/METRICS.md` "Definitions decided" log (35 + 51): term, decision, owner role, date, what it replaced | FE / RM |
+Role pages pick 3-4 tiles by `audience_roles`; they compute no new numbers.
+
+### 10.4 Edits 21-53 -> owner -> files
+| # | Edit | Owner | Files | Hands off |
+|---|---|---|---|---|
+| 21 | Disbursement group per line | DE Manager | `stg_admin_core__disbursement*.sql`, `fct_disbursement.sql` (`disbursement_group`), test: group totals = dealer-cost split | DE: generator line field + wrong fixed lookup in `legacy/`; FA: control totals by group |
+| 22 | Page display rules | DE Manager | `dbt/macros/display_rules.sql` (ratio with no denominator = NULL, in-progress month, young-book flag, claims sign); `docs/REPORTS.md` rules | FE: `reports/` helpers and tile blanks; PBI: same format strings |
+| 23 | Cancel reversals, residual reserve | DE Manager | `fct_cancellation.sql` `is_reversed`, two diagnostics | DE: generator reversal rows; FA: reserve-bridge rows |
+| 24 | Agency roll-up, rep reassignment | Financial Analysts | `mart_agent_dealer_production.sql`, `dealer/agents.html` (as-of start date) | DE Mgr: `dim_agent.sql` columns + agent-of-record diagnostic |
+| 25 | Current-month activations | Financial Analysts | `mart_dealer_activations.sql`, packet tab, `dealer/production.html` section | - |
+| 26 | Parent-contract link | DE Manager | `stg_admin_core__contract_custom_field.sql`, `dim_contract.parent_contract_key`, orphan diagnostic | DE: generator custom field incl. junk values |
+| 27+44 | Chassis-VIN rules; pending custom-field gap | Data Engineer | generator cases; `legacy/` drop of pending values + make-into-VIN bug | DE Mgr: per-layer "in source, missing in warehouse" diagnostic + dbt test; FA: `mart_specialty_line.chassis_vin_status`, quality row |
+| 28 | Commission as-of stamp, Unassigned row | Financial Analysts | `mart_commission_hierarchy.sql`, `finance/commission-hierarchy.html` | DE Mgr: unassigned diagnostic |
+| 29 | Filing entity map | Financial Analysts | `seeds/regulatory/filing_entity_map.csv`; filings take the legal name from it | DE Mgr: true-zero diagnostic |
+| 30 | In-force profile page | Financial Analysts | `regulatory/inforce-profile.html` from `report_status_sets` | - |
+| 31 | Legacy type drift | Data Engineer | `legacy/ddl` types and column-name drift | RM: `LEGACY_BENCHMARK.md` item 13 |
+| 32 | Split-sums-to-total test | DE Manager | `dbt/macros/assert_split_sums_to_total.sql`, applied to page marts | - |
+| 33 | Model-vs-warehouse counts | Senior PBI Specialist | **Landed (fix round):** `semantic/counts.py` (`python -m semantic count-check`): six headline numbers from the model's own measures over the tables it loads vs the certified marts, plus model-files and warehouse build times; tests in `test_semantic.py` | DE Mgr: "Power BI model vs warehouse" section on `ops.html` |
+| 34+42+43 | Portfolio facts pack + dealer-count reconciliation | Financial Analysts | `mart_portfolio_facts.sql` (windows x tenant + combined), `mart_dealer_count_reconciliation.sql`, Excel Volume/Cancel/Methodology tabs | needs 41 and 50 first |
+| 35+51 | Definitions decided log | Reporting Manager | `docs/METRICS.md` section (feeds `definitions.html`) | FE: page |
+| 36 | Mileage-near-limit cancels | Financial Analysts | `mart_cancel_mileage.sql`, claims/cancel page section | - |
+| 37 | Refresh operations | DE Manager | `docs/operating-model/RUNBOOK.md` refresh section | - |
+| 38 | Intake additions | Reporting Manager | `INTAKE_FORM.md` (requestor vs reporter, required dates, lead-time targets, definitions-confirmed box, ticket as the only path; no tool names) | - |
+| 39 | Window duplicate check | DE Manager | `dbt/macros/no_repeat_within_days.sql` on claim payments and cash | FE: quality row |
+| 40 | Deliverable register | Reporting Manager | `docs/operating-model/DELIVERABLE_REGISTER.md` | - |
+| 41 | Cancel-reason crosswalk | DE Manager | `seeds/core/cancel_reason_crosswalk.csv`, `int_cancellations_conformed.sql`, unmapped-reason test, metric `cancel_rate_excl_admin` | DE: per-source reason vocabularies |
+| 45 | Tenant-safe ids | DE Manager | uniqueness test on `(tenant_key, admin_company_id)` | DE: legacy id reuse; RM: benchmark item |
+| 46 | Dealer incentive statement | Financial Analysts | `mart_dealer_incentive_statement.sql`, packet sections, test: total = sum of sections | - |
+| 47 | Report-spec export | Senior PBI Specialist | **Deferred to V8**: it reads the measure descriptions that 10.2 adds this round, so it follows them | - |
+| 48 | Ancillary pricing and markup | Financial Analysts | `mart_ancillary_pricing.sql` (GROUPING SETS subtotals), dealer page | - |
+| 49 | Legacy source architecture | Reporting Manager | `LEGACY_BENCHMARK.md` + `legacy/README.md`, each item paired with the fix | - |
+| 50 | Bundle / external product line | DE Manager | `product_taxonomy_crosswalk.csv` `is_bundle`, `external_product_line` | DE: bundle names in generator |
+| 52 | Form question numbers | Financial Analysts | `report_definitions.csv` `form_question_no`, `mart_regulatory_line_values.sql` | - |
+| 53 | External-list reconciliation | Data Engineer | **Deferred to V8**: it accepts user-uploaded files and needs an input-validation and PII review first | - |
+Order: Data Engineer sources (21, 23, 26, 27+44, 31, 41, 45, 50) -> DE Manager core (22, 32, 39, 41, 21, 23, 26,
+45, 50) -> marts and pages -> PBI. Docs (35+51, 37, 38, 40, 49) and the brand/explanation work run in parallel.
+
+### 10.5 README fixes
+- Drop the opening "one person plus AI agents" claim; lead with what the platform does, then the measured
+  legacy-vs-better results. The team-of-agents section stays lower down as a build-process note.
+- Every count is re-read from the latest verified run, not typed by hand: pages (site build log), tests
+  (pytest summary), dbt models/seeds/tests (`manifest.json`), rows (reconcile output), runtime (run log).
+  Known drift today: "eight" vs "ten" diagnostics gates, the seed count, the gate list in screenshot captions.
+- New banner (`docs/img/fip-banner.svg`), H1 "F&IP", subtitle "F&I Data Platform"; screenshots re-taken in
+  the new theme with `tools/screenshots.py`.
+
+### 10.6 File ownership (V7 round; additive to sections 3, 8.8 and 9.4)
+| Role | Owns |
+|---|---|
+| **Front-end Developer** | `reports/templates/` (incl. `_components.html.j2`), `reports/static/` (css, js, wordmark, favicon), `reports/explain.py`, glossary auto-link filter, `portal/static` + portal header, `tools/screenshots.py`, `docs/img/` |
+| **Reporting Manager** | content of `metric_explanations.csv` and `glossary_terms.csv`, role-page and data-flow copy, `METRICS.md` definitions log, `README.md`, `LEGACY_BENCHMARK.md`, `INTAKE_FORM.md`, deliverable register |
+| **Data Engineer** | `generator/`, ingest, `legacy/` (ddl, extract bugs), `test_generator.py` |
+| **DE Manager** | `marts/core`, staging, intermediate, `dbt/macros/` (display rules, split, window duplicates), core crosswalk seeds, diagnostics, `reports/ops.py`, `RUNBOOK.md` |
+| **Financial Analysts** | new finance, regulatory and dealer marts, their seeds, `reports/finance/`, `reports/regulatory/`, `reports/dealer/`, packet sections |
+| **Senior PBI Specialist** | `powerbi/` (theme JSON from the tokens, header image, page subtitles), `semantic/` descriptions and count check |
+| **Director / Senior Director** | this section, token or column-contract changes, merge conflicts, final `brand_scrub` + targeted tests |
+
+**Decision records:** (a) explanations live in a dbt seed, so the site, the semantic model and Power BI read
+one text, and a missing explanation fails the build; (b) status words come from thresholds in that seed,
+never from page code; (c) role pages reuse existing tiles, so no number is computed twice; (d) dark is the
+default theme; light is supported but never puts white text on green.
+
+### 10.7 Integration record (V7)
+Decisions taken while merging the V7 work; each one is additive to 10.1-10.6.
+| Topic | Decision |
+|---|---|
+| Fonts and chart slot 5 | Shipped as `JetBrains Mono` for numbers and labels, and violet for chart slot 5, because red is kept for the "Needs action" status. 10.1 is updated to match; the Power BI theme uses the system fallbacks. |
+| Edit 29 true-zero check | Added as `diag_filing_entity_true_zero` (now unblocked by the filing-entity map). The gate fails when a seed row resolves to no obligor, or when an obligor with contracts has no filing rows; the measured value is the list of mapped entities with zero in-force, which compliance confirms. |
+| Gate count | Sixteen diagnostics gates (ten before V7, six added). README, `ARCHITECTURE.md`, `test_docs.py` and the data-flow page name all of them. |
+| Chassis VIN status column | Accepted the Financial Analysts' added column on the custom-field staging model, `dim_contract_vehicle` and its contract: the status is computed before the VIN is hashed, so the raw value never leaves staging. |
+| Dealer role page | The incentive statement replaces the payments page in the dealer's four pages; the late-payment tile stays. |
+| Combined ratio | One formula (the P&L's); the README limitation and the `METRICS.md` governance item are closed. |
+| Legacy benchmark | Pain points 13 (type drift) and 14 (same id, two companies) are structure findings with no benchmark query; the DDL tests prove each failure. |
+| Column lock | `semantic/columns.lock.json` refreshed from the verified run, so `dim_tenant.admin_company_id` and the other V7 columns are locked. |
+
+**Verified run:** `20261026T183720Z`, from empty `data/` and `site/`: 595 s, dbt 929 nodes (175 models,
+26 seeds, 4 snapshots, 749 data tests; 1 warning, the known missing-chassis-VIN check), 16 of 16 gates,
+0 reconciliation breaks, 111 site pages with links ok. Postgres sync: 140 tables, 13.2M rows, 902 s.
+
+### 10.8 Fix round (V7 review)
+| Topic | Decision |
+|---|---|
+| Dealer and program packets | `publish/packets.py` renders in the F&IP dark theme: colour tokens and the tile, status and explain rules are read from `reports/static/site.css` at build time, the wordmark is inlined, and a program keeps only a 4px top stripe and a label edge in its own colour (no text on program colours; black on brat green only). |
+| Packet headline tiles | Each of the eight tiles shows a status word with a shape, a "compared to" line and the three explain lines from `metric_explanations.csv` (new row `peer_loss_ratio`). Loss ratio uses the seed thresholds and late payments seed rule `scorecard_watch_late_rate`; the other lines (program cancel rate +5 points, peer loss ratio +10 points, peer rank 50%/80%, oldest pending 60/90 days) are `PACKET_RULES`, **proposed** and waiting for the Financial Analysts. |
+| Edit 33 | Landed: `semantic/counts.py` and the "Power BI model vs warehouse" section on `ops.html` (explanation row `ops_semantic_counts`). The model side evaluates each measure's own `SUM`/`COUNTROWS` over its partition source and `sourceColumn`, so a wrong binding shows as a gap. |
+| Role pages | `reports/content/role_pages.yml` is the only source; `reports/guides.py` loads it and a test pins that no role list is left in code. |
+| Start page counter | The page tile is "Site pages" and counts report pages, guides and role pages, so it equals the build log (111). Proof stats replace it in the showcase round. |
+| Operations SLO | The table caption says in plain words that a run counts toward the next morning's 7 AM. |
+
+**Still open after the fix round:** status words on Power BI cards and an eye check in Desktop,
+phone-width checks, the `tile_metric_map.csv` stop-gap until tiles carry a `metric_id`, the Financial
+Analysts' open choices (incentive bucket, dealer de-dup key, funded-reserve mapping) plus the proposed
+packet status rules, and edits 47 and 53 (V8).

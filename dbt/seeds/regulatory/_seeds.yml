@@ -80,6 +80,7 @@ seeds:
       REPORTED_IN_WINDOW, CLOSED_IN_WINDOW (claim lines); RECEIVED_IN_WINDOW (complaints).
       category_filter / subcategory_exclude are '|'-separated product codes (blank = no filter).
       aggregation says how a multi-window total is formed (SUM, or LAST for point-in-time counts).
+      form_question_no (V7 edit 52) is the question on the state form that the line answers (Q<section>.<line>).
     config:
       column_types:
         report_id: varchar
@@ -87,6 +88,7 @@ seeds:
         line_no: integer
         line_item: varchar
         label: varchar
+        form_question_no: varchar
         measure: varchar
         date_rule: varchar
         status_set_id: varchar
@@ -161,3 +163,43 @@ seeds:
           - accepted_values:
               arguments:
                 values: [VSC, GAP, MAINTENANCE, ANCILLARY_OTHER]
+
+  - name: filing_entity_map
+    description: >
+      V7 edit 29: filing entity map. One row per obligor that can appear on a state filing:
+      provider_code, the obligor kind and its source id (obligor_id for internal providers,
+      participation_entity_id for dealer-owned obligors), the legal entity name the state form must
+      use, the financial security that backs its contracts (CLIP = contractual liability insurance
+      policy, FUNDED_RESERVE = its own reserve) and filing_provider_code, the provider a row rolls up
+      to on the form. Synthetic names only.
+    config:
+      column_types:
+        provider_code: varchar
+        obligor_kind: varchar
+        source_id: integer
+        legal_entity_name: varchar
+        financial_security: varchar
+        filing_provider_code: varchar
+        notes: varchar
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [obligor_kind, source_id]}
+    columns:
+      - name: provider_code
+        data_tests: [unique, not_null]
+      - name: legal_entity_name
+        data_tests: [unique, not_null]
+      - name: obligor_kind
+        data_tests:
+          - accepted_values:
+              arguments: {values: [internal_provider, dealer_owned]}
+      - name: financial_security
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: [CLIP, FUNDED_RESERVE]}
+      - name: filing_provider_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('filing_entity_map'), field: provider_code}

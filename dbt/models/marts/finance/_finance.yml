@@ -148,9 +148,16 @@ models:
     description: >
       Close control totals: transaction amount vs the sum of its cost split, per posting period x
       source system x transaction type, one column per bucket. is_balanced within $0.01.
+      V7 edit 21: group_* columns split the same lines by disbursement_group (set per line by the
+      program setup); they add back to split_amount and group_unassigned must be 0.
     data_tests:
       - unique_combination:
           arguments: {columns: [posting_period_key, source_system, txn_type]}
+      - expression_is_true:
+          arguments:
+            expression: "abs(group_admin + group_premium + group_dealer_participation + group_producer + group_tax_and_fees + group_unassigned - split_amount) < 0.05"
+      - expression_is_true:
+          arguments: {expression: "group_unassigned = 0"}
 
   - name: mart_funded_reserve_reconciliation
     description: >
@@ -213,7 +220,9 @@ models:
       Reserve bridge per tenant x month (V6 edit 2): gross new reserve (New Reserves) -> cancelled
       contracts' reserve -> partial-refund remainder -> other adjustments -> net written by entered
       month (Experience) -> entered-vs-effective timing -> net written by effective month. residual
-      must be 0.00 (singular test assert_reserve_bridge_closes).
+      must be 0.00 (singular test assert_reserve_bridge_closes). V7 edit 23:
+      contracts_cancel_reversed and reversed_cancel_reserve show cancels the source
+      reversed (the pair nets to 0.00).
     data_tests:
       - unique_combination:
           arguments: {columns: [tenant_key, month_start]}
@@ -223,6 +232,8 @@ models:
       Commission District > Regional > National (V6 edit 12) per product type x posting period:
       contracts entered vs the monthly volume target (seed commission_volume_targets), over/under,
       and commission posted. Each level's commission sums to the commission ledger.
+      V7 edit 28: commission_period_label, as_of_period_key and data_as_of_ts stamp every
+      row; is_unassigned marks the explicit UNASSIGNED node.
     data_tests:
       - unique_combination:
           arguments: {columns: [level, node, product_type, posting_period_key]}
@@ -281,3 +292,51 @@ models:
     columns:
       - name: cash_txn_key
         data_tests: [unique, not_null]
+
+  - name: mart_cancel_mileage
+    description: >
+      V7 edit 36: mileage-near-limit cancels. One row per effective cancel on a contract with a
+      mileage limit: miles used, miles remaining (term miles - (odometer at cancel - at sale)) and
+      the band from seed cancel_mileage_bands. No odometer = no band, never 0 miles.
+    columns:
+      - name: cancel_key
+        data_tests: [unique, not_null]
+
+  - name: mart_portfolio_facts
+    description: >
+      V7 edits 34 + 42: portfolio facts pack. Window (ITD, TTM, YTD, each prior calendar year) x
+      tenant scope (each tenant + COMBINED) x metric x product line: active dealers, dealer groups,
+      contracts with of-which bundles / limited warranty, and cancel rate by cohort and by flow,
+      each with and without admin corrections. numerator and denominator are kept.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [window_id, tenant_scope, metric_id, product_line]}
+      - expression_is_true:
+          arguments: {expression: "not is_rate or value is null or value between 0 and 1"}
+      - split_matches_total_model:
+          arguments:
+            measure: numerator
+            total_model: ref('mart_portfolio_facts')
+            total_measure: numerator
+            total_where: "metric_id = 'CONTRACTS' and product_line = 'ALL' and tenant_scope = 'COMBINED'"
+          config:
+            where: "metric_id = 'CONTRACTS' and product_line <> 'ALL' and tenant_scope <> 'COMBINED'"
+    columns:
+      - name: metric_id
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [ACTIVE_DEALERS, DEALER_GROUPS, CONTRACTS, OF_WHICH_BUNDLES, OF_WHICH_LIMITED_WARRANTY,
+                         CANCEL_RATE_COHORT, CANCEL_RATE_COHORT_EXCL_ADMIN, CANCEL_RATE_FLOW,
+                         CANCEL_RATE_FLOW_EXCL_ADMIN]
+
+  - name: mart_dealer_count_reconciliation
+    description: >
+      V7 edit 43: dealer-count reconciliation. Basis (TTM non-voided, TTM incl. voided, ITD
+      non-voided, ITD all, dealer dim total, cross-tenant de-duplicated) x tenant scope, with the
+      difference from the TTM non-voided count the portfolio pack uses.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [basis, tenant_scope]}
+      - expression_is_true:
+          arguments: {expression: "dealer_count >= 0"}

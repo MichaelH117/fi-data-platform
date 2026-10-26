@@ -100,6 +100,7 @@ class PainPoint:
     where: str
     questions: tuple[str, ...]
     failure: str  # lost | doubled | zeroed | sign | stale | timeout/slow | skewed | extra step | clutter | sprawl
+    # | type drift | id reuse
     measured_by: str = ""  # only for entries with no benchmark question (default: the schema-registry check)
 
 
@@ -218,6 +219,23 @@ def _impact_12(r: Result) -> str:
             "endorsement or sensitivity label, a reader cannot tell the certified model from a test copy.")
 
 
+def _impact_13(r: Result) -> str:
+    # Structure only (V7 edit 31): the drift is in the DDL; tests/test_legacy.py proves each failure on the server.
+    return ("Not a single query: every cross-layer join or comparison breaks before it returns a number. An amount "
+            "stored as money compared with a numeric raises error 42883 (no such operator), and so does the padded "
+            "text contract id against the numeric one; a query written against one dealer view raises 42703 (no "
+            "such column) on the other, because the same dealer number has two column names. Each fix is a cast or "
+            "a rename typed into every query, and each analyst types a slightly different one.")
+
+
+def _impact_14(r: Result) -> str:
+    # Structure only (V7 edit 45): both tenants' admin systems number themselves company 1.
+    return ("Not a single query: in the legacy database company id 1 means tenant A in the ops schema and tenant B "
+            "in the mirror, so only the schema name tells the two companies apart. A union of both schemas, or any "
+            "join on the company id alone, silently mixes the two books. The modern side has a test that each "
+            "company, dealer and agent id is unique per tenant, and every join carries the tenant key.")
+
+
 PAIN_POINTS: tuple[PainPoint, ...] = (
     PainPoint(1, "One semantic model per source schema, and a contract \"dim\" that is a query",
               "Three source-named schemas each backed their own model; finance carried _gen2/_gen3 copies that "
@@ -315,9 +333,32 @@ PAIN_POINTS: tuple[PainPoint, ...] = (
               "docs/operating-model/RELEASE.md; semantic/model/",
               (), "sprawl",
               "a structure review of the BI service (no query: the service is not rebuilt here)"),
+    PainPoint(13, "Type drift between layers",
+              "The accounting extract stored the same values with other types than the ops and reporting layers: "
+              "amounts as money, the contract id as padded text, the cancel period as a text month plus a decimal "
+              "year, yes/no flags as numbers, and one dealer number under two column names.",
+              "Each layer was loaded by a different extract with its own idea of the types, and no contract checked "
+              "a column's type where it was read.",
+              "One type per business value, set once in staging and enforced by dbt model contracts; dates are "
+              "dates, flags are booleans, ids keep one type and one name in every layer.",
+              "legacy/ddl/45_type_drift.sql (the old side); dbt/models/marts/core/_core_keys.yml (contracts)",
+              (), "type drift",
+              "the legacy DDL tests in tests/test_legacy.py (no benchmark question: the failure is an error, "
+              "not a number)"),
+    PainPoint(14, "Same id, two companies",
+              "Every tenant's admin system called itself company 1, so the mirror schema for tenant B carried the "
+              "same company id as tenant A's ops schema.",
+              "Ids were only unique inside one admin system, and multi-tenancy was solved by copying schemas, so "
+              "the schema name was the only tenant marker.",
+              "Every id is unique per tenant: uniqueness tests on (tenant key, id) for company, dealer and agent, "
+              "and every join carries the tenant key.",
+              "legacy/ddl/40_tenant_b.sql (the old side); core.dim_tenant.admin_company_id; dbt tenant-unique tests",
+              (), "id reuse",
+              "the tenant-id tests in tests/test_legacy.py and the dbt unique-per-tenant tests"),
 )
 IMPACT = {1: _impact_1, 2: _impact_2, 3: _impact_3, 4: _impact_4, 5: _impact_5, 6: _impact_6, 7: _impact_7,
-          8: _impact_8, 9: _impact_9, 10: _impact_10, 11: _impact_11, 12: _impact_12}
+          8: _impact_8, 9: _impact_9, 10: _impact_10, 11: _impact_11, 12: _impact_12, 13: _impact_13,
+          14: _impact_14}
 
 
 def impact(p: PainPoint, r: Result) -> str:

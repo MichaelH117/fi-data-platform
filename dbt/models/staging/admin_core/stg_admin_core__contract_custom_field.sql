@@ -4,7 +4,10 @@
 -- to repeat `max(case when field_id = ... then value end)` in every query; here the pivot is by
 -- field NAME (ids differ by tenant), values are cast to their declared type, and a value that does
 -- not cast is counted in invalid_value_count instead of silently becoming NULL.
--- The chassis VIN is hashed like every other VIN (PII never leaves staging).
+-- The chassis VIN is hashed like every other VIN (PII never leaves staging). V7 edit 27: before hashing,
+-- chassis_vin_shape records only HOW it was typed (macro chassis_vin_shape), never the value.
+-- V7 edit 26: 'Parent Contract Number' is free text on add-on contracts (the VSC they were sold with),
+-- kept raw here as parent_contract_ref; dim_contract parses it (junk values resolve to no key).
 -- Until the source tables exist in raw (older builds), the model is empty with the same columns.
 {%- set fields = [
     ('Coach Make', 'coach_make', 'varchar'),
@@ -12,6 +15,7 @@
     ('Chassis Make', 'chassis_make', 'varchar'),
     ('Chassis VIN', 'chassis_vin', 'varchar'),
     ('Model Year', 'model_year', 'integer'),
+    ('Parent Contract Number', 'parent_contract_ref', 'varchar'),
 ] %}
 {%- set has_source = true %}
 {%- if execute %}
@@ -52,6 +56,7 @@ select
     {%- for name, col, typ in fields %}
     {%- if col == 'chassis_vin' %}
     {{ hash_pii("upper(max(case when field_name = '" ~ name ~ "' then value_text end))") }} as chassis_vin_hash,
+    {{ chassis_vin_shape("max(case when field_name = '" ~ name ~ "' then value_text end)") }} as chassis_vin_shape,
     {%- elif typ == 'varchar' %}
     max(case when field_name = '{{ name }}' then value_text end) as {{ col }},
     {%- else %}
@@ -70,6 +75,7 @@ select
     {%- for name, col, typ in fields %}
     {%- if col == 'chassis_vin' %}
     cast(null as varchar) as chassis_vin_hash,
+    cast(null as varchar) as chassis_vin_shape,
     {%- else %}
     cast(null as {{ typ }}) as {{ col }},
     {%- endif %}

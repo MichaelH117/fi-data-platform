@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from powerbi.model import MODEL_NAME
 from semantic.__main__ import main as semantic_main
 from semantic.export import FILES, export, field_ref, measure_refs, parse_tmdl, split_ref, sql_ident
 
@@ -136,7 +137,7 @@ def _model_measures(folder: Path) -> set[str]:
 ])
 def test_every_measure_is_documented_with_its_dax(exported, model_set, folder):
     doc = exported[2]["Model_Documentation.csv"]
-    # the display name lives in database.tmdl ("F&I Data Platform"); the folder drops the "&"
+    # the display name lives in database.tmdl ("F&IP"); the folder name stays "FI Data Platform"
     model = re.match(r"database (?:'(.+)'|(\S+))", (folder / "definition" / "database.tmdl").read_text("utf-8"))
     model = model.group(1) or model.group(2)
     got = {r["name"]: r for r in doc if r["model_set"] == model_set and r["model"] == model
@@ -187,7 +188,7 @@ def test_report_field_usage_covers_every_page_and_resolves_every_field(exported)
              for p in order]
     assert [p for p in dict.fromkeys(r["page"] for r in usage if r["page_order"] != "-1")] == names
     for r in usage:
-        assert r["model"] == "F&I Data Platform"
+        assert r["model"] == MODEL_NAME
         if r["field_kind"] == "measure":
             assert r["dax"], r
         elif r["dax"].startswith("field parameter: "):  # V6 Experience "View by" switch
@@ -209,7 +210,7 @@ def test_report_field_usage_covers_every_page_and_resolves_every_field(exported)
 def test_measure_report_map_statuses_and_dependencies(exported):
     mm = exported[2]["Measure_Report_Map.csv"]
     usage = exported[2]["Report_Field_Usage.csv"]
-    report = {r["measure"]: r for r in mm if r["model"] == "F&I Data Platform"}
+    report = {r["measure"]: r for r in mm if r["model"] == MODEL_NAME}
     used_in_report = {r["field"] for r in usage if r["field_kind"] == "measure"}
     assert {m for m, r in report.items() if r["status"] == "used"} == used_in_report
     lr = report["Loss Ratio (on earned premium)"]

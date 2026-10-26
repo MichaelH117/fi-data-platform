@@ -17,7 +17,7 @@ import pandas as pd
 
 from reports import charts
 from reports.build import Kpi, Page, Section, chart_section, link, money, num, pct
-from reports.finance import v6
+from reports.finance import v6, v7
 
 AREA = "finance"
 NAV_LABEL = "Finance"  # the shell links the nav entry to the first page returned (finance/index.html)
@@ -166,6 +166,7 @@ def load(con: duckdb.DuckDBPyConnection) -> dict[str, pd.DataFrame | int]:
     for seed in SEEDS:
         d[f"seed_{seed}"] = _df(con, f"select * from seeds.{seed}")
     d.update(v6.load(con, closed, t12))
+    d.update(v7.load(con, closed, t12))
     return d
 
 
@@ -225,6 +226,7 @@ def page_index(d: dict) -> Page:
         ("finance/controls.html", "Close controls",
          "Cost-split control totals, the reserve roll-forward and the reserve bridge"),
         *v6.index_rows(),
+        *v7.index_rows(d),
         (f"downloads/{AREA}/{WORKBOOK}", "Finance pack (Excel)", "Inputs, then outputs, one tab per statement"),
     ]
     s = Section("Finance reports", "Every statement here is built from the posted ledger by the pipeline, "
@@ -645,7 +647,16 @@ def page_controls(d: dict) -> Page:
     ]
     return Page("finance/controls.html", "Close controls",
                 "Control totals the finance team checks before any statement leaves the team.", kpis,
-                [s1, s2, s3, *v6.control_sections(d, money_cents)])
+                [s1, *v7.group_section(d, money_cents, span), s2, s3, *controls_v6(d)])
+
+
+def controls_v6(d: dict) -> list[Section]:
+    """V6 bridge and rate-card sections; the bridge also shows cancels the source reversed (V7 edit 23)."""
+    out = v6.control_sections(d, money_cents)
+    if out:
+        extra = v7.reversal_rows(d, money_cents)
+        out[0].rows[4:4] = extra  # after step 4, which already holds them, before the Experience total
+    return out
 
 
 # --------------------------------------------------------------------------- excel
@@ -731,13 +742,18 @@ def excel_format(col: str, s: pd.Series) -> str | None:
 # --------------------------------------------------------------------------- plug-in entry point
 def build_pages(d: dict) -> list[Page]:
     span = f"{period_label(d['t12_start'])} to {period_label(d['closed'])}"
+    hierarchy = v6.page_commission_hierarchy(d, span)
+    stamp, unassigned = v7.commission_stamp(d)  # V7 edit 28: which month, as of when, and the Unassigned row
+    hierarchy.lede += stamp
+    hierarchy.sections[1:1] = unassigned
     return [page_index(d), page_cession(d), page_profit_share(d), page_commissions(d), page_pnl(d),
             page_remittance(d), page_controls(d), v6.page_experience(d, period_label(d["closed"]), lr_status),
-            v6.page_new_reserves(d, span), v6.page_commission_hierarchy(d, span)]
+            v6.page_new_reserves(d, span), hierarchy, *v7.pages(d, span)]
 
 
 def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> list[Page]:
     """Report-shell plug-in: write the Excel pack under ``out_dir/downloads/finance`` and return pages."""
     d = load(con)
     write_workbook(d, Path(out_dir) / "downloads" / AREA / WORKBOOK)
+    v7.write_pack(d, out_dir)
     return build_pages(d)

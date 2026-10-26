@@ -98,7 +98,7 @@ def test_classify_and_errors():
 
 
 def test_catalog_covers_every_pain_point_with_a_fix():
-    assert [p.num for p in report.PAIN_POINTS] == list(range(1, 13))
+    assert [p.num for p in report.PAIN_POINTS] == list(range(1, 15))
     for p in report.PAIN_POINTS:
         assert p.what and p.root_cause and p.fix and p.where, p.num
         assert set(p.questions) <= set(benchmark.QUESTIONS), p.num

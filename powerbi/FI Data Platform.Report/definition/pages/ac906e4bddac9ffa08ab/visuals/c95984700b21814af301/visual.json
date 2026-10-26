@@ -3,11 +3,11 @@
   "name": "c95984700b21814af301",
   "position": {
     "x": 24,
-    "y": 482,
+    "y": 598,
     "width": 608,
     "height": 226,
-    "z": 12000,
-    "tabOrder": 12000
+    "z": 14000,
+    "tabOrder": 14000
   },
   "visual": {
     "visualType": "clusteredColumnChart",
@@ -99,7 +99,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#fcfcfb'"
+                      "Value": "'#16191A'"
                     }
                   }
                 }
@@ -130,7 +130,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#d9d8d0'"
+                      "Value": "'#3F5811'"
                     }
                   }
                 }
@@ -139,7 +139,7 @@
             "radius": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "0D"
                 }
               }
             }
@@ -215,7 +215,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#0b0b0b'"
+                      "Value": "'#E8ECE4'"
                     }
                   }
                 }
@@ -232,6 +232,51 @@
               "expr": {
                 "Literal": {
                   "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Claims reserve and profit-share reserve disbursed to dealer participation structures, against claims paid on the same business.'"
+                }
+              }
+            },
+            "titleWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#C5CCBF'"
+                    }
+                  }
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
                 }
               }
             }
@@ -282,7 +327,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#2a78d6'"
+                      "Value": "'#70A600'"
                     }
                   }
                 }
@@ -300,7 +345,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#6250d6'"
+                      "Value": "'#5F665C'"
                     }
                   }
                 }
@@ -318,7 +363,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#eb6834'"
+                      "Value": "'#C72481'"
                     }
                   }
                 }

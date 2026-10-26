@@ -10,6 +10,12 @@ alter table tenant_b.tbl_contract drop column "fxProviderId";
 create table tenant_b.tbl_dealer as
 select * from legacy_ops.tbl_dealer where "fxAdminCompanyId" = ${tenant_b};
 
+-- Same id, two companies: the mirror was copied from tenant B's own admin instance, which numbers itself
+-- admin company 1. So "fxAdminCompanyId" = 1 means tenant A in legacy_ops and tenant B here; only the
+-- schema name tells them apart, and a union of the two layers merges the tenants.
+update tenant_b.tbl_contract set "fxAdminCompanyId" = 1;
+update tenant_b.tbl_dealer set "fxAdminCompanyId" = 1;
+
 create table tenant_b.tbl_product as select * from legacy_ops.tbl_product;
 
 create table tenant_b.tbl_claim as

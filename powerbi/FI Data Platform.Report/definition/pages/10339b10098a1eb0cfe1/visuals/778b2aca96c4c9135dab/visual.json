@@ -3,11 +3,11 @@
   "name": "778b2aca96c4c9135dab",
   "position": {
     "x": 960,
-    "y": 482,
+    "y": 598,
     "width": 296,
     "height": 226,
-    "z": 13000,
-    "tabOrder": 13000
+    "z": 15000,
+    "tabOrder": 15000
   },
   "visual": {
     "visualType": "textbox",
@@ -22,7 +22,7 @@
                     "value": "Row-level security",
                     "textStyle": {
                       "fontSize": "11pt",
-                      "color": "#0b0b0b",
+                      "color": "#E8ECE4",
                       "fontWeight": "bold"
                     }
                   }
@@ -34,7 +34,7 @@
                     "value": "Dealer User: only the dealers mapped to the signed-in login. Tenant Partner: every dealer of the user's programs. Internal: everything.",
                     "textStyle": {
                       "fontSize": "9pt",
-                      "color": "#52514e"
+                      "color": "#C5CCBF"
                     }
                   }
                 ]
@@ -45,7 +45,7 @@
                     "value": "Test it: Modeling > View as > tick Other user, type a user_login from core.dim_user_dealer_access, tick Dealer User. The filing and IBNR pages go blank for external roles (internal only).",
                     "textStyle": {
                       "fontSize": "9pt",
-                      "color": "#52514e"
+                      "color": "#C5CCBF"
                     }
                   }
                 ]
@@ -71,7 +71,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#fcfcfb'"
+                      "Value": "'#16191A'"
                     }
                   }
                 }
@@ -95,7 +95,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#d9d8d0'"
+                      "Value": "'#3F5811'"
                     }
                   }
                 }
@@ -104,7 +104,7 @@
             "radius": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "0D"
                 }
               }
             }

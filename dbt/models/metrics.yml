@@ -107,9 +107,11 @@ semantic_models:
         expr: "make_date(cast(posting_period_key / 100 as integer), cast(posting_period_key % 100 as integer), 1)"
         type_params: {time_granularity: month}
       - {name: cancel_method, type: categorical, expr: method}
+      - {name: cancel_reason_group, type: categorical, expr: reason_group}
     measures:
       - {name: cancellations, agg: count, expr: cancel_key}
       - {name: effective_cancellations, agg: sum_boolean, expr: is_effective_cancel, description: Cancels not later reinstated.}
+      - {name: effective_cancellations_excl_admin, agg: sum_boolean, expr: is_effective_cancel_excl_admin, description: "Effective cancels that are not administrative corrections (cancel_reason_crosswalk)."}
       - {name: customer_refunds, agg: sum, expr: customer_refund}
       - {name: cancel_fees, agg: sum, expr: cancel_fee}
       - {name: dealer_chargebacks, agg: sum, expr: dealer_portion, description: Dealer portion of the refund (chargeback).}
@@ -504,6 +506,13 @@ metrics:
     label: Effective cancel rate (effective cancels / contracts written, same period)
     type: ratio
     type_params: {numerator: effective_cancellations, denominator: contracts_written}
+    config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations, domains: [Sales, Finance]}}}
+  - {name: effective_cancellations_excl_admin, label: Effective cancellations excl. admin corrections, type: simple, type_params: {measure: effective_cancellations_excl_admin}, config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations}}}}
+  - name: cancel_rate_excl_admin
+    label: Cancel rate excl. admin corrections (same period)
+    description: "Effective cancels that are not data-entry corrections / contracts written, same period. A cancel coded as an administrative correction in seeds/core/cancel_reason_crosswalk.csv is a fix, not a customer cancel."
+    type: ratio
+    type_params: {numerator: effective_cancellations_excl_admin, denominator: contracts_written}
     config: {meta: {owner: "Financial Analyst II", certified: false, pbi: {folder: Cancellations, domains: [Sales, Finance]}}}
   - name: net_coverage_cost
     label: Net coverage cost (gross - coverage cost refunds)

@@ -10,6 +10,9 @@ copied into the site, and checks the service levels in docs/operating-model/SLA.
 - **Database health** (V6 edit 20, ``audit.db_health`` from pipeline/db_health.py): empty serving tables,
   Postgres statistics not refreshed, and the refresh login used for ad-hoc queries. Postgres rows say
   ``skipped`` when the server was down.
+- **Semantic model vs warehouse** (V7 edit 33, semantic/counts.py): six headline numbers worked out from the
+  Power BI model's own measures and from the certified marts, plus when the model files and the warehouse
+  were last built.
 """
 
 from __future__ import annotations
@@ -171,6 +174,37 @@ def env_diff_section(path: Path | None = None) -> Section | None:
                    rows=rows, table_open=True, wide=True)
 
 
+def semantic_counts_section(con) -> Section | None:
+    """Headline counts from the semantic model's measures vs the certified marts (semantic/counts.py)."""
+    from semantic import counts
+
+    if not counts.load_models():
+        return None
+    try:
+        results = counts.check(con)
+    except Exception:  # noqa: BLE001 - an optional Operations section never breaks the page
+        return None
+    agree = sum(r.ok for r in results)
+
+    def when(ts) -> str:
+        return f"{ts.astimezone(SLA_TZ):%b %d %H:%M}" if ts else "unknown"
+
+    def show(r, v) -> str:
+        return "" if v is None else (f"{v:,.2f}" if r.headline.kind == "money" else f"{v:,.0f}")
+
+    caption = (f"{agree} of {len(results)} agree. Each number is worked out twice: once from the Power BI model's "
+               "own measure, over the table it loads, and once from the mart the report pages use. A gap means "
+               "the model points at the wrong table or column. Model files written "
+               f"{when(counts.model_written_at())}; warehouse built {when(counts.warehouse_built_at(con))} "
+               f"({SLA_TZ}). Run it yourself: python -m semantic count-check.")
+    rows = [[r.headline.label, f"{r.headline.model}: {r.headline.measure}", show(r, r.model_value),
+             show(r, r.warehouse_value), r.headline.warehouse_source,
+             _status(r.ok, "agree" if r.ok else (r.note or "differs"))] for r in results]
+    return Section("Power BI model vs warehouse", caption,
+                   cols=["Number", "Model measure", "Model", "Warehouse", "Warehouse source", "Status"],
+                   rows=rows, table_open=agree < len(results), wide=True)
+
+
 HEALTH_LABELS = {"zero_row_table": "Empty serving table", "stale_statistics": "Statistics not refreshed",
                  "refresh_login_adhoc": "Refresh login used ad hoc"}
 
@@ -241,7 +275,9 @@ def build(con, out_dir: Path, now: datetime | None = None) -> list[Page]:
     sections = [Section(
         "Service level: reports published by 7 AM",
         f"A business day is met when a run that published the reports finished in the 24 hours before 07:00 "
-        f"({SLA_TZ}) that day. Days before the first recorded run are untracked and left out of the SLO.",
+        f"({SLA_TZ}) that day. Days before the first recorded run are untracked and left out of the SLO. "
+        "In plain words: a run counts toward the next morning's 7 AM, so a publish time from the afternoon "
+        "before is normal.",
         cols=["Business day", "Status", "Published at (local)"],
         rows=[[f"{r.business_day:%a %b %d}",
                _status({"met": True, "missed": False}.get(r.status), r.status.title()),
@@ -267,11 +303,14 @@ def build(con, out_dir: Path, now: datetime | None = None) -> list[Page]:
                    _status(None if r.status in RECON_WAIVERS else r.status == "pass", r.status)]
                   for r in recon.itertuples()],
             table_open=True, wide=True))
+    model_counts = semantic_counts_section(con)
+    if model_counts is not None:
+        sections.append(model_counts)
     packets = sorted(out_dir.glob("dealers/*/*/index.html"))
     if packets:
         sections.append(Section(
             "Dealer packets", f"{len(packets)} per-dealer packets from python -m publish, each filtered to one "
-            "dealer and branded for its administrator.",
+            "dealer, in the F&IP theme with a thin stripe in its program's colour.",
             cols=["Administrator", "Dealer", "Packet"],
             rows=[[p.parent.parent.name, p.parent.name,
                    {"text": "Open packet", "href": p.relative_to(out_dir).as_posix()}] for p in packets],

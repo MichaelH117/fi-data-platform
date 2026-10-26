@@ -48,6 +48,16 @@ GEN2_LAG_DAYS = 45  # the gen2 finance copy stopped loading this many days befor
 FROZEN_LAG_DAYS = 180  # report.earned_by_month_frozen cutoff
 
 PAID_LINES = "('PAYMENT', 'PAYMENT_2', 'SUPPLEMENT')"
+# V7 edit 21: the legacy build fixed each fee's bucket by its type alone. Admin Core stores the bucket on the
+# line because it depends on the program setup, so this lookup is wrong for every participating setup.
+LEGACY_DISB_GROUP = dict(cat.DISBURSEMENT_GROUP_DEFAULT)
+# V7 edit 44: the legacy custom-field extract skips contracts that are still PENDING, and for one coach type
+# it copies the chassis MAKE into the Chassis VIN field (a field-mapping bug in the old extract).
+EAV_MAKE_INTO_VIN_MODEL = "Class A%"
+
+
+def _case_text(col: str, mapping: dict[str, str]) -> str:
+    return "case " + " ".join(f"when {col} = '{k}' then '{v}'" for k, v in mapping.items()) + " end"
 
 
 def _case(col: str, mapping: dict[str, int]) -> str:
@@ -83,6 +93,11 @@ def staging_sql() -> list[tuple[str, str]]:
                  "when (l.legacy_contract_id * 31) % 100 < 10 then l.vin || '  ' "
                  "when (l.legacy_contract_id * 31) % 100 < 13 then ' ' || l.vin else l.vin end")
     return [
+        # surcharges as the old contract screen exported them: one comma-joined text cell per contract, in
+        # the order they were keyed (not sorted), so "DIESEL, 4X4" and "4X4, DIESEL" are both present
+        ("s_surcharge_list", f"""
+            select contract_id, string_agg(surcharge_code, ', ' order by surcharge_id) as codes
+            from {core('contract_surcharge', 'surcharge_id')} group by contract_id"""),
         ("s_dup", f"select d.dealer_id from {core('dealer', 'dealer_id')} d where {DUP_DEALER}"),
         ("s_product", f"""
             select p.product_id, p.product_code, p.product_name, p.plan_year, s.subcategory_code, s.subcategory_name,
@@ -124,8 +139,10 @@ def staging_sql() -> list[tuple[str, str]]:
                    c.customer_email as "Email", c.customer_state as "PhysicalState",
                    c.customer_zip as "PhysicalZipCode",
                    case when {core_test} then 'svc_api' else 'svc_network' end as "EnteredByUser",
-                   'CORE' as "SourceSystem", null::date as "ConversionDate"
+                   'CORE' as "SourceSystem", null::date as "ConversionDate",
+                   sur.codes as "Surcharges"
             from {core('contract', 'contract_id')} c
+            left join s_surcharge_list sur on sur.contract_id = c.contract_id
             left join {core('plan', 'plan_id')} pl using (plan_id)
             left join s_product p on p.product_id = pl.product_id
             left join s_dup dd on dd.dealer_id = c.dealer_id
@@ -144,7 +161,7 @@ def staging_sql() -> list[tuple[str, str]]:
                    l.customer_email, l.customer_state, l.customer_zip,
                    case when {old_test} then 'svc_api' else 'conversion' end, 'CONVERSION',
                    case when (l.legacy_contract_id * 37) % 100 = 0 then date '{SENTINEL_DATE}'
-                        else date '{cat.CUTOVER}' end
+                        else date '{cat.CUTOVER}' end, null
             from {old('contracts', 'legacy_contract_id')} l
             left join {core('dealer', 'dealer_id')} d
                    on d.dealer_number = l.dealer_code and d.tenant_id = {LEGACY_TENANT}
@@ -223,7 +240,8 @@ def staging_sql() -> list[tuple[str, str]]:
                    d.contract_id as "fxContractId", {_case('t.txn_type', TXN_TYPES)} as "fxTransactionTypeId",
                    {_case('d.disbursement_type', DISB_TYPES)} as "fxDisbursementTypeId",
                    d.account_holder_id as "fxAccountHolderId", d.amount::decimal(14, 2) as "Amount",
-                   d.posted_at::date as "PostedDate"
+                   d.posted_at::date as "PostedDate",
+                   {_case_text('d.disbursement_type', LEGACY_DISB_GROUP)} as "DisbursementGroup"
             from {core('disbursement', 'disbursement_id')} d
             left join {core('transaction', 'txn_id')} t using (txn_id)
             union all
@@ -231,7 +249,7 @@ def staging_sql() -> list[tuple[str, str]]:
                    {LEGACY_TXN_OFFSET} + l.legacy_contract_id, l.legacy_contract_id, 1, k.n, null,
                    (case k.n when 1 then l.reserve_amount when 2 then l.admin_fee
                          else l.commission end)::decimal(14, 2),
-                   l.sale_date
+                   l.sale_date, case k.n when 1 then 'PREMIUM' when 2 then 'ADMIN' else 'PRODUCER' end
             from {old('contracts', 'legacy_contract_id')} l cross join (select unnest([1, 2, 3]) as n) k"""),
         ("t_cession_type", f"""
             select row_number() over (order by structure_type) as "CessionTypeId", structure_type as "CessionType"
@@ -259,7 +277,7 @@ ADMIN_EXPORTS: list[tuple[str, str, str]] = [
     (ADMIN_SCHEMA, "contract_field", "t_contract_field"),
 ]
 DDL_FILES = ("10_legacy_ops.sql", "20_legacy_finance.sql", "30_legacy_reporting.sql", "40_tenant_b.sql",
-             "50_clutter.sql", "60_indexes.sql")
+             "45_type_drift.sql", "50_clutter.sql", "60_indexes.sql")
 
 
 def _eav(con: duckdb.DuckDBPyConnection) -> None:
@@ -284,6 +302,21 @@ def _eav(con: duckdb.DuckDBPyConnection) -> None:
                    data_type as "DataType" from defs""")
 
 
+def _eav_extract_bugs(con: duckdb.DuckDBPyConnection) -> None:
+    """V7 edit 44: what the old custom-field extract lost. Values typed while a contract is PENDING never
+    reach it, and for one coach type the chassis make lands in the Chassis VIN field. The modern path
+    (raw_admin_core.contract_custom_field) keeps every value as typed."""
+    vin, make, model = cf.FIELD_ID["Chassis VIN"], cf.FIELD_ID["Chassis Make"], cf.FIELD_ID["Coach Model"]
+    con.execute(f"""delete from t_contract_field where "fxContractId" in
+        (select contract_id from {core('contract', 'contract_id')} where status = 'PENDING')""")
+    con.execute(f"""create temp table t_make_into_vin as
+        select mk."fxContractId", mk."Value" from t_contract_field mk
+        join t_contract_field md on md."fxContractId" = mk."fxContractId" and md."fxFieldId" = {model}
+        where mk."fxFieldId" = {make} and md."Value" like '{EAV_MAKE_INTO_VIN_MODEL}'""")
+    con.execute(f"""update t_contract_field set "Value" = m."Value" from t_make_into_vin m
+        where t_contract_field."fxContractId" = m."fxContractId" and t_contract_field."fxFieldId" = {vin}""")
+
+
 def as_of_date(con: duckdb.DuckDBPyConnection) -> date:
     return con.execute(f"select max(entered_date) from {core('contract', 'contract_id')}").fetchone()[0]
 
@@ -298,6 +331,7 @@ def extract(warehouse: Path, out: Path) -> tuple[dict, date]:
         for name, sql in staging_sql():
             con.execute(f"create temp table {name} as {sql}")
         _eav(con)
+        _eav_extract_bugs(con)
         files: dict[str, tuple[Path, list[tuple[str, str]]]] = {}
         for schema, table, temp in EXPORTS + ADMIN_EXPORTS:
             path = out / f"{schema}.{table}.csv"

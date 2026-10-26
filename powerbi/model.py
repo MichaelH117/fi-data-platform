@@ -1,4 +1,4 @@
-"""The ``F&I Data Platform`` reporting semantic model: the four domain models in one, for one internal report.
+"""The ``F&IP`` (F&I Data Platform) reporting semantic model: the four domain models in one, for one internal report.
 
 A Power BI report binds to exactly ONE semantic model, and the seven report pages need measures from all
 four domain models (dealer scorecard: Sales; claims: Claims; funded reserve: Compliance; P&L: Finance).
@@ -23,12 +23,13 @@ from semantic import spec
 from semantic.metrics import Catalog, friendly, q
 from semantic.tmdl import TAB, annotation, description, join, name, prop_expr
 
-MODEL_NAME = "F&I Data Platform"  # display name (database, theme, exports)
+MODEL_NAME = "F&IP"  # display name (database, theme, exports); subtitle: SUBTITLE
+SUBTITLE = "F&I Data Platform"
 FILE_NAME = "FI Data Platform"  # file/folder name: "&" is unsafe in paths and URLs
 DOMAIN = "Portfolio"
 TARGET = "postgres"  # the local server filled by python -m warehouse.postgres sync
 PURPOSE = ("Internal portfolio report model: Sales, Claims, Finance and Compliance measures in one model "
-           "for the F&I Data Platform report (powerbi/). External audiences use the domain models.")
+           "for the F&IP report (powerbi/). External audiences use the domain models.")
 PBISM_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/semanticModel/definitionProperties/1.0.0/schema.json"
 ROLES = ("Internal", "Tenant Partner", "Dealer User")
 
@@ -49,7 +50,8 @@ IBNR_COLUMNS: tuple[tuple[str, str, bool], ...] = (
     ("method", "string", False),
     ("valuation_date", "dateTime", False),
 )
-# Actuarial output measures (not dbt metrics): name -> (DAX, format, description).
+# Actuarial output measures (not dbt metrics): name -> (DAX, format, description). The plain-English lines
+# come from metric_explanations.csv like every other measure (IBNR_EXPLAINED: measure -> metric_id there).
 IBNR_MEASURES: dict[str, tuple[str, str, str]] = {
     "IBNR (selected)": (f"SUM({q(IBNR)}[Selected IBNR])", "currency",
                         "Selected IBNR reserve (chain-ladder / Bornhuetter-Ferguson pick) at the valuation date."),
@@ -60,6 +62,9 @@ IBNR_MEASURES: dict[str, tuple[str, str, str]] = {
     "Ultimate Loss Ratio (actuarial)": (f"DIVIDE(SUM({q(IBNR)}[Selected Ultimate]), SUM({q(IBNR)}[Ultimate Premium]))",
                                         "percent", "Selected ultimate losses over ultimate earned premium."),
 }
+IBNR_EXPLAINED = {"IBNR (selected)": "act_ibnr", "Ultimate Losses (selected)": "act_ultimate_losses",
+                  "Paid To Date (actuarial)": "claims_paid",
+                  "Ultimate Loss Ratio (actuarial)": "act_ultimate_loss_ratio"}
 # Internal-only tables: an external role's filter hides every row (facts or disconnected, so the filter
 # never spreads to a shared dimension).
 INTERNAL_ONLY = ("Funded Reserve Filing", "Regulatory Line Value", IBNR)
@@ -104,8 +109,10 @@ def render_ibnr() -> str:
     out = [*description("Actuarial IBNR by accident-quarter cohort (Python valuation output, not a dbt model). "
                         "Disconnected: no tenant or dealer key, so slicers do not filter it and external "
                         "roles cannot see it.", 0), f"table {name(IBNR)}"]
+    explanations = sb.load_explanations()
     for m, (dax, fmt, desc) in IBNR_MEASURES.items():
-        out += ["", *description(desc, 1), *prop_expr(f"measure {name(m)}", dax, 1),
+        out += ["", *description(sb.explained(IBNR_EXPLAINED[m], desc, explanations), 1),
+                *prop_expr(f"measure {name(m)}", dax, 1),
                 f"{TAB * 2}formatString: {sb.FORMATS[fmt]}", f"{TAB * 2}displayFolder: Actuarial",
                 annotation("source", "actuarial valuation (gold_actuarial.ibnr_by_cohort), not metrics.yml", 2)]
     for c, dtype, hidden in IBNR_COLUMNS:

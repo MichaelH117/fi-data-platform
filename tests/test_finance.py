@@ -37,7 +37,9 @@ REQUIRED_MARTS = {"mart_pnl_by_product", "mart_profit_share_statement", "mart_co
                   # V6 (docs/V3_DESIGN.md section 9)
                   "mart_participation_contract", "mart_experience", "mart_new_reserves_by_term",
                   "mart_reserve_bridge", "mart_commission_hierarchy", "mart_rate_card", "mart_rate_card_exceptions",
-                  "mart_partner_settlement", "mart_remit_register"}
+                  "mart_partner_settlement", "mart_remit_register",
+                  # V7 (docs/V3_DESIGN.md 10.4)
+                  "mart_portfolio_facts", "mart_dealer_count_reconciliation", "mart_cancel_mileage"}
 # V6 interim staging reads: core has no rate dimension and no contract rate id yet (DE Manager). Remove an
 # entry when core carries it; nothing else in finance may read staging.
 INTERIM_STAGING = {"mart_rate_card": {"stg_admin_core__rate", "stg_admin_core__rate_component"},
@@ -356,6 +358,58 @@ create table staging.stg_admin_core__contract (contract_number varchar, rate_id 
 insert into staging.stg_admin_core__contract values ('VSC0001', 1, false), ('VSC0002', 2, false);
 """
 CORE_DDL += V6_DDL
+
+# V7 (docs/V3_DESIGN.md 10.4) columns, again on top so every V5/V6 number above still holds. Each cost-split
+# line carries the group the program setup put it in (edit 21); C2's cancel was never reversed (edit 23);
+# commission carries its posting time (edit 28). Portfolio facts (34 + 42) and the dealer-count
+# reconciliation (43) read status, product line, tenant and dealer group; C2 cancels 85,000 miles in on a
+# 60,000-mile term that started at 30,000, so it has 5,000 miles left (edit 36, band "3000 to 5999").
+V7_DDL = """
+alter table core.fct_disbursement add column disbursement_group varchar;
+update core.fct_disbursement set disbursement_group = case disbursement_type
+    when 'ADMIN_FEE' then 'ADMIN' when 'COMMISSION' then 'PRODUCER' when 'CLAIMS_RESERVE' then 'PREMIUM'
+    else 'DEALER_PARTICIPATION' end;
+alter table core.fct_cancellation add column cancel_key varchar;
+alter table core.fct_cancellation add column dealer_key varchar;
+alter table core.fct_cancellation add column cancel_date date;
+alter table core.fct_cancellation add column reason_group varchar;
+alter table core.fct_cancellation add column is_admin_correction boolean;
+alter table core.fct_cancellation add column odometer bigint;
+alter table core.fct_cancellation add column is_reversed boolean;
+alter table core.fct_cancellation add column is_reversal_row boolean;
+update core.fct_cancellation set cancel_key = 'X2', dealer_key = 'D2', cancel_date = date '2023-10-15',
+    reason_group = 'CUSTOMER', is_admin_correction = false, odometer = 85000, is_reversed = false,
+    is_reversal_row = false;
+alter table core.fct_commission add column posted_at timestamp;
+update core.fct_commission set posted_at = make_timestamp(posting_period_key // 100, posting_period_key % 100,
+    10, 9, 0, 0);
+alter table core.dim_contract add column status varchar;
+alter table core.dim_contract add column category_code varchar;
+alter table core.dim_contract add column subcategory_code varchar;
+update core.dim_contract set status = 'INFORCE', category_code = 'VSC', subcategory_code = 'VSC-PT'
+    where contract_key = 'C1';
+update core.dim_contract set status = 'CANCELLED', category_code = 'VSC', subcategory_code = 'VSC-PT'
+    where contract_key = 'C2';
+update core.dim_contract set status = 'INFORCE', category_code = 'GAP', subcategory_code = 'GAP'
+    where contract_key = 'C3';
+alter table core.dim_product add column is_bundle boolean;
+alter table core.dim_product add column external_product_line varchar;
+update core.dim_product set is_bundle = false, external_product_line = category_code;
+alter table core.dim_dealer add column dealer_group_key varchar;
+alter table core.dim_dealer add column tenant_key bigint;
+alter table core.dim_dealer add column city varchar;
+alter table core.dim_dealer add column state varchar;
+alter table core.dim_dealer add column is_current boolean;
+update core.dim_dealer set dealer_group_key = case when dealer_key = 'D3' then 'G2' else 'G1' end,
+    tenant_key = 1, city = 'Austin', state = 'TX', is_current = true;
+create table core.dim_tenant (tenant_key bigint, reportable_name varchar);
+insert into core.dim_tenant values (1, 'Tenant One');
+alter table core.dim_contract_terms add column term_miles integer;
+update core.dim_contract_terms set term_miles = case contract_key when 'C2' then 60000 when 'C1' then 36000 end;
+alter table core.dim_contract_vehicle add column odometer bigint;
+update core.dim_contract_vehicle set odometer = 30000 where contract_key = 'C2';
+"""
+CORE_DDL += V7_DDL
 
 
 def _dbt_build(db: Path, tmp: Path) -> subprocess.CompletedProcess:
@@ -699,6 +753,55 @@ def test_commission_hierarchy_rolls_up_against_targets(mini):
     assert un["contracts"] == 1 and pd.isna(un["target_contracts"]) and pd.isna(un["over_under_contracts"])
 
 
+# ---- V7 marts on the mini (docs/V3_DESIGN.md 10.4)
+def test_v7_control_totals_split_by_disbursement_group(mini):
+    df = _rows(mini, "select txn_type, split_amount, group_admin + group_premium + group_dealer_participation "
+                     "+ group_producer + group_tax_and_fees, group_unassigned, group_producer "
+                     "from finance.mart_disbursement_control_totals order by 1")
+    for txn_type, split, groups, unassigned, _ in df:
+        assert groups == pytest.approx(split) and unassigned == 0, txn_type
+    producer = {}  # one row per source system; the producer group is the commission bucket (150 + 80 + 10)
+    for r in df:
+        producer[r[0]] = producer.get(r[0], 0) + r[4]
+    assert producer == {"CANCEL": pytest.approx(-50), "SALE": pytest.approx(240)}
+
+
+def test_v7_bridge_shows_reversed_cancels_and_commission_is_stamped(mini):
+    assert _rows(mini, "select sum(contracts_cancel_reversed), sum(reversed_cancel_reserve) "
+                       "from finance.mart_reserve_bridge") == [(0, 0.0)]
+    r = _one(mini, "select * from finance.mart_commission_hierarchy where level = 'DISTRICT' and node = 'West' "
+                   "and product_type = 'VSC' and posting_period_key = 202301")
+    assert r["commission_period_label"] == "Jan 2023" and r["as_of_period_key"] == 202402
+    assert pd.Timestamp(r["data_as_of_ts"]) == pd.Timestamp("2023-10-10 09:00") and not r["is_unassigned"]
+    assert _rows(mini, "select distinct is_unassigned from finance.mart_commission_hierarchy "
+                       "where node = 'UNASSIGNED'") == [(True,)]
+
+
+def test_v7_portfolio_facts_windows_and_cancel_methods(mini):
+    facts = {(w, m): (n, d, v) for w, m, n, d, v in _rows(
+        mini, "select window_id, metric_id, numerator, denominator, value from finance.mart_portfolio_facts "
+              "where tenant_scope = 'COMBINED' and product_line = 'ALL'")}
+    assert facts[("ITD", "CONTRACTS")][0] == 3 and facts[("ITD", "ACTIVE_DEALERS")][0] == 3
+    assert facts[("ITD", "DEALER_GROUPS")][0] == 2
+    assert facts[("ITD", "CANCEL_RATE_COHORT")] == (1, 3, pytest.approx(1 / 3, abs=1e-6))
+    # TTM ends Jan 2024 (the latest closed period): only C3 was sold in it, and C2's cancel is dated in it
+    assert facts[("TTM", "CONTRACTS")][0] == 1 and facts[("TTM", "CANCEL_RATE_FLOW")][2] == pytest.approx(1.0)
+    assert facts[("CY2023", "CONTRACTS")][0] == 3
+    by_line = dict(_rows(mini, "select product_line, numerator from finance.mart_portfolio_facts "
+                               "where window_id = 'ITD' and metric_id = 'CONTRACTS' and tenant_scope = '1'"))
+    assert by_line == {"ALL": 3, "VSC": 2, "GAP": 1}
+
+
+def test_v7_dealer_counts_side_by_side_and_mileage_bands(mini):
+    counts = dict(_rows(mini, "select basis, dealer_count from finance.mart_dealer_count_reconciliation "
+                              "where tenant_scope = 'COMBINED'"))
+    assert counts == {"TTM_NONVOIDED": 1, "TTM_INCL_VOIDED": 1, "ITD_NONVOIDED": 3, "ITD_ALL": 3,
+                      "DEALER_DIM_TOTAL": 3, "CROSS_TENANT_DEDUP": 3}  # three different names: nothing merges
+    m = _one(mini, "select * from finance.mart_cancel_mileage")
+    assert (m["miles_used"], m["miles_remaining"], m["mileage_band_id"]) == (55000, 5000, "LT6K")
+    assert not m["is_near_limit"]
+
+
 def test_rate_card_fee_stack_and_reviewer_sort(mini):
     import reports.finance as fin
     r1 = _one(mini, "select * from finance.mart_rate_card where rate_id = 1")
@@ -742,7 +845,7 @@ insert into core.dim_contract (contract_key, dealer_key, contract_number, source
     values ('C4', 'D1', 'VSC0004', 'admin_core', 1, 'P1', 'A1', date '2023-08-15', date '2023-08-15', 'TX');
 insert into core.fct_transaction values ('T6', 'admin_core', 'C4', 'SALE', 202308, 500);
 insert into core.fct_disbursement values
-    ('T6', 'C4', 'D1', 'P1', 1, 'AH_OB', 'admin_core', 'SALE', 'CLAIMS_RESERVE', 202308, 500);
+    ('T6', 'C4', 'D1', 'P1', 1, 'AH_OB', 'admin_core', 'SALE', 'CLAIMS_RESERVE', 202308, 500, 'PREMIUM');
 insert into core.fct_gross_premium values ('C4', 'P1', 1, 202308, 1, 500, 800);
 """
 

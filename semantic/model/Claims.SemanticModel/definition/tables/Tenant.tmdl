@@ -28,6 +28,12 @@ table Tenant
 		dataType: string
 		sourceColumn: SECONDARY_COLOR
 
+	column 'Admin Company ID'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: ADMIN_COMPANY_ID
+
 	partition Tenant = m
 		mode: import
 		source =

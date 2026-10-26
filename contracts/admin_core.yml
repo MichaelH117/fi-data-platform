@@ -28,6 +28,7 @@ tables:
       logo_path: TEXT
       primary_color: TEXT
       secondary_color: TEXT
+      admin_company_id: INTEGER
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
@@ -448,6 +449,7 @@ tables:
       posted_at: TIMESTAMP NOT NULL
       is_refundable: INTEGER
       is_renewable: INTEGER
+      disbursement_group: TEXT
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL
@@ -473,6 +475,7 @@ tables:
       coverage_cost_refund: REAL
       dealer_profit_refund: REAL
       admin_withheld_claims: REAL
+      reverses_cancel_id: INTEGER
       created_at: TIMESTAMP NOT NULL
       updated_at: TIMESTAMP NOT NULL
       row_version: INTEGER NOT NULL

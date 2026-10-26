@@ -13,6 +13,7 @@ timestamps), so ``python -m semantic --check`` can tell whether the committed fi
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import shutil
@@ -46,6 +47,8 @@ TARGETS: tuple[str, ...] = ("snowflake", "postgres")
 DEFAULT_TARGET = "snowflake"
 TARGET_OUT_DIRS = {"snowflake": OUT_DIR, "postgres": ROOT / "semantic" / "model_postgres"}
 LOCK_PATH = ROOT / "semantic" / "columns.lock.json"
+# Plain-English explanations (docs/V3_DESIGN.md 10.2): the same seed the report site reads.
+EXPLANATIONS_PATH = ROOT / "dbt" / "seeds" / "core" / "metric_explanations.csv"
 
 Columns = dict[str, list[tuple[str, str]]]  # source table -> [(column, duckdb type)]
 
@@ -78,6 +81,35 @@ def write_lock(columns: Columns, path: Path = LOCK_PATH) -> None:
 
 def visible_columns(columns: Columns, t: spec.TableSpec) -> list[tuple[str, str]]:
     return [(c, d) for c, d in columns.get(t.source, []) if not spec.is_dropped(t, c)]
+
+
+# ---------------------------------------------------------------------- explanations
+def load_explanations(path: Path = EXPLANATIONS_PATH) -> dict[str, dict[str, str]]:
+    """metric_id -> row of ``metric_explanations.csv`` (empty when the seed is not there)."""
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as fh:
+        return {r["metric_id"].strip(): r for r in csv.DictReader(fh) if (r.get("metric_id") or "").strip()}
+
+
+def explained(metric_id: str, technical: str, explanations: dict[str, dict[str, str]]) -> str:
+    """Measure description: the plain-English lines first, the technical definition last.
+
+    Power BI shows the first lines in the field list tooltip, so a business reader sees the plain words and
+    an author still finds the exact definition. A metric with no row raises (the build never ships a measure
+    without its explanation, docs/V3_DESIGN.md 10.2).
+    """
+    row = explanations.get(metric_id)
+    if row is None:
+        if not explanations:  # seed not written (fresh checkout of an old branch): keep the technical text
+            return technical
+        raise TranslationError(f"metric {metric_id}: no row in {EXPLANATIONS_PATH.name} (plain-English explanation)")
+    lines = [(row.get("what_it_means") or "").strip()]
+    if (row.get("why_your_boss_asks") or "").strip():
+        lines.append("Why your boss asks: " + row["why_your_boss_asks"].strip())
+    if technical and technical.strip() != lines[0]:
+        lines.append("Definition: " + technical.strip())
+    return "\n".join(x for x in lines if x)
 
 
 # ---------------------------------------------------------------------- plan
@@ -155,6 +187,7 @@ def make_plan(catalog: Catalog, columns: Columns, metrics_text: str = "") -> Pla
             raise TranslationError(f"certified metric {m.name}: needs config.meta.owner and definition_of_record")
 
     cols_by_table = {t: {c for c, _ in visible_columns(columns, spec.ALL_TABLES[t])} for t in spec.ALL_TABLES}
+    explanations = load_explanations()
     measures: dict[str, ModelMeasure] = {}
     for m in exported:
         if m.type == "simple":
@@ -186,7 +219,8 @@ def make_plan(catalog: Catalog, columns: Columns, metrics_text: str = "") -> Pla
             desc = m.description
         measures[m.name] = ModelMeasure(
             name=names[m.name], metric=m.name, dax=dax, format=format_of(m, catalog),
-            folder=str(m.pbi.get("folder", "General")), description=(desc or m.label).strip(),
+            folder=str(m.pbi.get("folder", "General")),
+            description=explained(m.name, (desc or m.label).strip(), explanations),
             tables=tuple(sorted(catalog.tables_of(m))), owner=m.owner, certified=m.certified,
         )
 

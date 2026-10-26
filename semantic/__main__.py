@@ -63,6 +63,9 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] in ("export-docs", "export"):  # Tabular-Editor-style CSV docs (semantic/export.py)
         from semantic.export import main as export_main
         return export_main(argv[1:])
+    if argv and argv[0] == "count-check":  # model vs warehouse headline counts (semantic/counts.py)
+        from semantic.counts import main as counts_main
+        return counts_main(argv[1:])
     if argv and argv[0] == "access-audit":  # app audience x report visibility CSV (semantic/access.py)
         from semantic.access import main as access_main
         return access_main(argv[1:])

@@ -149,6 +149,60 @@ upstream of them:
 - **Do:** compare `stg_network_feed__deals.deal_id` with `stg_admin_core__contract.deal_id` for the
   failing rows (type, padding); fix the join, not the data.
 
+### `diag_cancel_reversals`
+- **Checks:** a cancel that the source undid with an offsetting row (`is_reversed`), and the row
+  that undoes it (`is_reversal_row`), are never the cancel that stops earning. The measured value is
+  how many contracts carry more than one cancel row; that count never fails.
+- **Usually means:** the reversal match in `int_cancellations_conformed` (same contract, same refund
+  with the opposite sign, dated on or after the cancel) no longer feeds `is_effective_cancel`.
+- **Do:** run `dbt build -s int_cancellations_conformed+`, then look at the failing contracts'
+  cancel rows side by side. Fix the flag logic, never delete the reversal row.
+
+### `diag_parent_contract_link`
+- **Checks:** an add-on contract's `parent_contract_key` never points to another tenant's
+  contract. The measured value is how many tie-back values name no contract (junk text or a
+  contract outside the book); that count never fails, it is the clean-up list for the admin team.
+- **Usually means:** the parse or the join in `dim_contract` (the `parents` step) lost the tenant.
+- **Do:** compare `stg_admin_core__contract_custom_field.parent_contract_ref` with the parent's
+  `tenant_key`; the join is always on tenant and id together.
+
+### `diag_agent_of_record`
+- **Checks:** a contract whose source names an agent always resolves to that agent in `dim_agent`.
+  The measured value is how many contracts name a different agent than their dealer's current agent
+  (a rep reassignment or an entry error); that count never fails, it feeds the agency roll-up page.
+- **Usually means:** a new agent arrived in contracts before the agent table, or the agent
+  staging filter dropped a row.
+- **Do:** look up the failing `agent_id` values in `stg_admin_core__agent` (deleted? other tenant?).
+
+### `diag_custom_field_layer_gap`
+- **Checks:** every custom-field value the source holds (coach make and model, chassis make, chassis
+  VIN, model year) is still there in staging and, for a reportable contract, in `dim_contract_vehicle`.
+  Each failing row names the contract, the field and the layer that lost it. The measured value is
+  how many reportable contracts have custom fields in staging but none in the mart; it must be 0.
+- **Usually means:** a status filter crept into the pivot (the old extract dropped values while a
+  contract was pending), a field was renamed in `custom_field_def`, or the mart join lost the key.
+- **Do:** run `dbt build -s stg_admin_core__contract_custom_field+`, then compare the failing
+  contract's source rows with the staging row. Fix the pivot or the join, never back-fill the value.
+
+### `diag_commission_unassigned`
+- **Checks:** each posting period's national commission in `mart_commission_hierarchy` equals the
+  commission ledger (`fct_commission`) to the cent, so no commission falls out of the hierarchy. The
+  measured value is how many contracts sit in the explicit UNASSIGNED district row; that count never
+  fails, it is the list of agents still waiting for a district.
+- **Usually means:** a join in the hierarchy dropped rows whose agent or product is unknown.
+- **Do:** compare the failing period's ledger lines with the district rows; route unknown agents to
+  UNASSIGNED instead of filtering them out.
+
+### `diag_filing_entity_true_zero`
+- **Checks:** every row of seed `filing_entity_map` resolves to an obligor in `dim_obligor`, and an
+  entity whose obligor has contracts in `dim_contract` also has rows in `mart_funded_reserve_contracts`.
+  The measured value is how many mapped entities show zero in-force contracts at their period end;
+  that count never fails, it is the list compliance confirms as true zeros before a filing goes out.
+- **Usually means:** a new obligor was added to the seed with the wrong `obligor_kind` or `source_id`,
+  or the obligor join in the filing mart changed.
+- **Do:** compare the failing `provider_code` with `dim_obligor` (kind and id); fix the seed row,
+  never type a zero into the filing.
+
 ---
 
 ## Reconciliation (`pipeline/reconcile.py`, gate step 6)
@@ -180,6 +234,26 @@ with a test, before the run is allowed to pass.
 | actuarial / semantic / publish | Traceback after the gates passed | The data is good. Fix the module and re-run `--from <step>`; the gates do not need to run again |
 | reports | `report plug-in reports.<area> failed: ...` | The owner of that area fixes its `build()`. Nothing replaces yesterday's site until the build passes, including the broken-link check |
 | any | `could not append audit.pipeline_run` warning | The run JSON in `data/runs/` is the fallback record. Check that no other writer has the warehouse locked (DuckDB allows one writer per file) |
+
+## Refresh operations (server warehouse and BI refresh)
+
+The scheduled refresh is the most fragile job: it opens a long connection, then sits idle while
+the BI service reads. Rules that keep it alive:
+
+- **One login per job.** The refresh signs in as its own login (member of `reporter`), never with
+  an analyst's or the ad-hoc reader's login. Ad-hoc queries use `bi_reader`. A slow ad-hoc query
+  can then be cancelled without killing the refresh, and the log shows which job held a lock.
+- **Keepalives on the refresh login.** Idle connections are dropped by the network long before a
+  refresh ends. Set TCP keepalives on that login only, for example
+  `ALTER ROLE <refresh login> SET tcp_keepalives_idle = 60;` (and `_interval = 10`, `_count = 6`),
+  so the server checks the line every minute instead of letting it die.
+- **Statement logging stays off.** Logging every statement on a busy reporting server fills the
+  disk and slows every query. `pg_stat_statements` replaces it: it keeps one row per query shape
+  with calls, total and mean time, and is what we read when a refresh gets slower.
+- **Dev first.** Any change to a role, a setting or a refresh schedule is made on the dev
+  warehouse, run through one full refresh there, and only then repeated on prod with the same script.
+- **When a refresh fails:** check `pg_stat_activity` for the refresh login (idle in transaction?
+  waiting on a lock?), then re-run the refresh once. Two failures in a row is an incident.
 
 ## Stakeholder notice (copy, fill in, send by 07:30)
 

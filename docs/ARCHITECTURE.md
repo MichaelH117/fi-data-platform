@@ -49,7 +49,7 @@ Each step is its own `python -m` subprocess, timed and logged; the run stops at 
 | 2 | feed | `python -m ingest.feed` | Checks each landing drop against its manifest and data contracts, quarantines bad rows, promotes the rest into Admin Core |
 | 3 | ingest | `python -m ingest` | CDC from all five sources into `raw_*` |
 | 4 | dbt | `dbt build` | Seeds, models, snapshots and data tests |
-| 5 | diagnostics | `python -m pipeline.diagnostics` | **Gate**: the eight `diag_*` checks |
+| 5 | diagnostics | `python -m pipeline.diagnostics` | **Gate**: the sixteen `diag_*` checks |
 | 6 | reconcile | `python -m pipeline.reconcile` | **Gate**: row and dollar tie-out source to raw to marts |
 | 7 | actuarial | `python -m actuarial` | Earning curves, triangles, IBNR |
 | 8 | semantic | `python -m semantic` | TMDL-style model spec from `dbt/models/metrics.yml` |

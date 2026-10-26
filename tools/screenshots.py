@@ -25,6 +25,8 @@ IMG_DIR = REPO_ROOT / "docs" / "img"
 
 # (output file, page under site/, window width x height). Heights crop each page to its key section.
 SHOTS: list[tuple[str, str, str]] = [
+    ("start-here.png", "start.html", "1400,1000"),
+    ("how-data-flows.png", "how-data-flows.html", "1400,1000"),
     ("executive-overview.png", "index.html", "1400,1100"),
     ("funded-reserve-filing.png", "regulatory/funded-reserve-tx.html", "1400,1250"),
     ("dealer-packet.png", "dealers/PVA/D1001/index.html", "1400,1180"),

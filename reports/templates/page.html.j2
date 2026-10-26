@@ -3,15 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ page.title }} · F&amp;I Data Platform</title>
+<title>{{ page.title }} · F&amp;IP · F&amp;I Data Platform</title>
 <meta name="description" content="{{ page.lede }}">
 <script>document.documentElement.className += " js"; try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+{% if brand_assets %}<link rel="icon" href="{{ root }}assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="{{ root }}assets/favicon.ico" sizes="any">{% endif %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="{{ root }}assets/site.css">
 <script src="{{ root }}assets/plotly.min.js"></script>
 </head>
+{% import "_components.html.j2" as ui with context %}
 {% macro cell(c) -%}
   {%- if c is mapping and c.href is defined -%}<a href="{{ root }}{{ c.href }}">{{ c.text }}</a>
-  {%- elif c is mapping and c.status is defined and c.status -%}<span class="status status-{{ c.status }}"><span class="status-icon" aria-hidden="true"></span>{{ c.text }}</span>
+  {%- elif c is mapping and c.status is defined and c.status -%}<span class="status status-{{ c.status }}"><span class="status-dot" aria-hidden="true"></span>{{ c.text }}</span>
   {%- elif c is mapping -%}<span class="{{ c.cls | default('') }}">{{ c.text }}</span>
   {%- else -%}{{ c }}{%- endif -%}
 {%- endmacro %}
@@ -31,9 +37,9 @@
 <a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class="nav-toggle" type="button" aria-controls="sidebar" aria-expanded="false"><span class="nav-toggle-bars" aria-hidden="true"></span><span class="nav-toggle-text">Menu</span></button>
-  <a class="brand" href="{{ root }}{{ start if nav_top else 'index.html' }}"><span class="brand-mark" aria-hidden="true"></span>F&amp;I Data Platform</a>
-  <span class="topbar-meta">Synthetic data &middot; as of {{ as_of.strftime('%b %d, %Y') }}</span>
-  <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor"/></svg></button>
+  <a class="brand" href="{{ root }}{{ start if nav_top else 'index.html' }}" aria-label="F&amp;IP, F&amp;I Data Platform: home">{{ ui.wordmark() }}<span class="brand-sub">F&amp;I Data Platform</span></a>
+  <span class="topbar-meta"><span class="meta-dot" aria-hidden="true"></span>Synthetic data &middot; as of {{ as_of.strftime('%b %d, %Y') }}</span>
+  <button class="theme-toggle" type="button" aria-label="Switch light or dark theme" title="Switch light or dark theme"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor"/></svg></button>
 </header>
 <div class="shell">
 <aside class="sidebar" id="sidebar">
@@ -62,43 +68,31 @@
   <div class="page-head">
     {% if page.nav %}<p class="crumb"><a href="{{ root }}{{ page.nav }}">&larr; {{ page.crumb or 'All dealers' }}</a></p>{% endif %}
     <h1>{{ page.title }}</h1>
-    <p class="lede">{{ page.lede }}</p>
-    {% if page.path == 'index.html' and nav_top %}<p class="callout">New here? <a href="{{ root }}{{ start }}">Start here</a> for a two-minute tour of the site and what it proves.</p>{% endif %}
+    <p class="lede">{{ ui.t(page.lede) }}</p>
+    {% if page.path == 'index.html' and nav_top %}<p class="callout">New here? <a href="{{ root }}{{ start }}">Start here</a>: pick your role and get the three or four pages you need.</p>{% endif %}
   </div>
+
+  {% if page.hero %}<section class="hero" aria-label="Choose your role"><h2 class="hero-title">Who are you?</h2><p class="hero-sub">One click takes you to the pages your job needs.</p>{{ chart(page.hero) }}</section>{% endif %}
 
   {% if page.kpis %}
   <section class="kpis" aria-label="Key figures">
     {% for k in page.kpis %}
-    {% set spark = sparkline(k.spark) if k.spark else '' %}
-    <div class="kpi{% if spark %} has-spark{% endif %}">
-      {% if k.sub %}
-      <details class="kpi-info">
-        <summary title="{{ k.sub }}"><span class="kpi-label">{{ k.label }}</span><span class="visually-hidden">: show definition</span><span class="kpi-i" aria-hidden="true">i</span></summary>
-        <p class="kpi-sub">{{ k.sub }}</p>
-      </details>
-      {% else %}
-      <p class="kpi-label">{{ k.label }}</p>
-      {% endif %}
-      <p class="kpi-value">{{ k.value }}</p>
-      <div class="kpi-foot">
-        {% if k.status %}<p class="status status-{{ k.status }}"><span class="status-icon" aria-hidden="true"></span>{{ {'good': 'On track', 'warning': 'Watch', 'critical': 'Action needed'}[k.status] }}</p>{% endif %}
-        {{ spark }}
-      </div>
-    </div>
+    {{ ui.kpi_tile(k) }}
     {% endfor %}
   </section>
   {% endif %}
 
   <div class="grid">
   {% for s in page.sections %}
-    <section class="card{% if s.wide %} wide{% endif %}" aria-labelledby="s{{ loop.index }}">
+    <section class="card{% if s.wide %} wide{% endif %}" aria-labelledby="s{{ loop.index }}"{% if s.metric_id %} data-metric="{{ s.metric_id }}"{% endif %}>
       <h2 id="s{{ loop.index }}">{{ s.title }}</h2>
-      {% if s.caption %}<p class="what">{{ s.caption }}</p>{% endif %}
+      {% if s.caption %}<p class="what">{{ ui.t(s.caption) }}</p>{% endif %}
+      {% if s.metric_id and explain is defined %}{{ ui.explain_block(explain(s.metric_id)) }}{% endif %}
       {% if s.html %}<div class="prose">{{ chart(s.html) }}</div>{% endif %}
       {% if s.chart %}
         {{ chart(s.chart) }}
         {% if s.rows %}
-        <details class="data-view"><summary>Show data</summary>{{ table(s) }}</details>
+        <details class="data-view"><summary>Show the numbers</summary>{{ table(s) }}</details>
         {% endif %}
       {% elif s.rows %}
         {{ table(s) }}
@@ -109,7 +103,7 @@
   </div>
 </main>
 <footer class="foot">
-  <p>Synthetic data for a portfolio project. Data as of {{ as_of.strftime('%b %d, %Y') }}; complete months through {{ last_month }}.
+  <p><span class="foot-brand">F&amp;IP</span> Synthetic data for a portfolio project. Data as of {{ as_of.strftime('%b %d, %Y') }}; complete months through {{ last_month }}.
   Metric definitions: docs/METRICS.md. Built by <code>python -m reports</code>.</p>
 </footer>
 </div>

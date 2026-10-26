@@ -3,11 +3,11 @@
   "name": "a20d5d418be404608c0b",
   "position": {
     "x": 24,
-    "y": 482,
+    "y": 598,
     "width": 608,
     "height": 226,
-    "z": 12000,
-    "tabOrder": 12000
+    "z": 14000,
+    "tabOrder": 14000
   },
   "visual": {
     "visualType": "clusteredBarChart",
@@ -100,7 +100,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#fcfcfb'"
+                      "Value": "'#16191A'"
                     }
                   }
                 }
@@ -131,7 +131,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#d9d8d0'"
+                      "Value": "'#3F5811'"
                     }
                   }
                 }
@@ -140,7 +140,7 @@
             "radius": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "0D"
                 }
               }
             }
@@ -216,7 +216,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#0b0b0b'"
+                      "Value": "'#E8ECE4'"
                     }
                   }
                 }
@@ -233,6 +233,51 @@
               "expr": {
                 "Literal": {
                   "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Trailing-12 written and earned premium by product category.'"
+                }
+              }
+            },
+            "titleWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#C5CCBF'"
+                    }
+                  }
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
                 }
               }
             }
@@ -283,7 +328,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#2a78d6'"
+                      "Value": "'#70A600'"
                     }
                   }
                 }
@@ -301,7 +346,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#eb6834'"
+                      "Value": "'#C72481'"
                     }
                   }
                 }

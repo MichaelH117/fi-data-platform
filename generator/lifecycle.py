@@ -108,6 +108,30 @@ def cancel_reason(age: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray
     return reason, by
 
 
+def source_reason(reason, keys, source: str, tenant_ids=None) -> np.ndarray:
+    """V7 edit 41: the label a source system types for each canonical cancel reason. ``source`` is
+    "admin_core" (tenant 1 keeps the canonical labels, other tenants use their own list) or "legacy".
+    ADMIN_CORRECTION_PCT percent of cancels, picked by a stable hash of ``keys`` (no random draw, so
+    nothing else moves), carry an override-coded admin-correction label instead."""
+    reason = np.asarray(reason, dtype=object)
+    keys = np.asarray(keys)
+    if source == "legacy":
+        vocab = np.full(len(reason), "legacy", dtype=object)
+    else:
+        ten = np.full(len(reason), 1) if tenant_ids is None else np.asarray(tenant_ids).astype(int)
+        vocab = np.where(ten == 1, "core_default", "core_alt").astype(object)
+    h = np.array([zlib.crc32(f"cxl-reason|{source}|{k}".encode()) for k in keys], dtype=np.int64)
+    fix = h % 100 < cat.ADMIN_CORRECTION_PCT
+    out = np.empty(len(reason), dtype=object)
+    for i, (r, v) in enumerate(zip(reason, vocab, strict=True)):
+        if fix[i]:
+            labels = cat.ADMIN_CORRECTION_REASONS[v]
+            out[i] = labels[int(h[i] // 100) % len(labels)]
+        else:
+            out[i] = cat.CANCEL_REASON_VOCAB[v].get(r, r)
+    return out
+
+
 def cancel_method(age: np.ndarray, subcat: np.ndarray, by: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     r78 = (subcat == "GAP") | ((by == "LENDER") & (rng.random(len(age)) < 0.2))
     return np.where(age <= cat.FREE_LOOK_DAYS, "FULL_REFUND", np.where(r78, "R78", "PRORATED")).astype(object)

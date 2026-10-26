@@ -21,10 +21,11 @@ import pandas as pd
 
 # table -> (primary key, column DDL). Standard audit columns are appended automatically.
 TABLES: dict[str, tuple[str, str]] = {
-    # ---- tenancy / white-label
+    # ---- tenancy / white-label. admin_company_id is the id each tenant's own admin instance gives itself:
+    # every instance numbers itself 1, so it is unique only together with tenant_id (V7 edit 45).
     "administrator": ("tenant_id", """
         tenant_id INTEGER NOT NULL, administrator_code TEXT NOT NULL UNIQUE, reportable_name TEXT NOT NULL,
-        logo_path TEXT, primary_color TEXT, secondary_color TEXT"""),
+        logo_path TEXT, primary_color TEXT, secondary_color TEXT, admin_company_id INTEGER"""),
     # ---- parties
     "dealer_group": ("dealer_group_id", """
         dealer_group_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, group_code TEXT NOT NULL, group_name TEXT"""),
@@ -125,21 +126,23 @@ TABLES: dict[str, tuple[str, str]] = {
     "cash_transaction": ("cash_txn_id", """
         cash_txn_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, remit_batch_id TEXT NOT NULL,
         contract_id INTEGER NOT NULL, amount REAL NOT NULL, posted_at TIMESTAMP NOT NULL"""),
-    # ---- accounting
+    # ---- accounting. disbursement_group (V7 edit 21): the line's bucket, chosen by the program setup.
     "transaction": ("txn_id", """
         txn_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, contract_id INTEGER NOT NULL, txn_type TEXT NOT NULL,
         posted_at TIMESTAMP NOT NULL, amount REAL NOT NULL, source_ref TEXT"""),
     "disbursement": ("disbursement_id", """
         disbursement_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, txn_id INTEGER NOT NULL,
         contract_id INTEGER NOT NULL, disbursement_type TEXT NOT NULL, account_holder_id INTEGER NOT NULL,
-        amount REAL NOT NULL, posted_at TIMESTAMP NOT NULL, is_refundable INTEGER, is_renewable INTEGER"""),
-    # ---- cancellations
+        amount REAL NOT NULL, posted_at TIMESTAMP NOT NULL, is_refundable INTEGER, is_renewable INTEGER,
+        disbursement_group TEXT"""),
+    # ---- cancellations. reverses_cancel_id (V7 edit 23): set on a row that undoes an earlier cancel of the
+    # same contract (amounts negated, so the pair nets to zero); NULL on every ordinary cancel.
     "cancellation": ("cancel_id", """
         cancel_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, contract_id INTEGER NOT NULL,
         cancel_date DATE NOT NULL, processed_at TIMESTAMP NOT NULL, initiated_by TEXT NOT NULL, reason TEXT,
         method TEXT NOT NULL, odometer INTEGER, contract_age_days INTEGER, refund_pct REAL, cancel_fee REAL,
         customer_refund REAL, admin_portion REAL, dealer_portion REAL, coverage_cost_refund REAL,
-        dealer_profit_refund REAL, admin_withheld_claims REAL"""),
+        dealer_profit_refund REAL, admin_withheld_claims REAL, reverses_cancel_id INTEGER"""),
     "reinstatement": ("reinstatement_id", """
         reinstatement_id INTEGER NOT NULL, tenant_id INTEGER NOT NULL, cancel_id INTEGER NOT NULL,
         contract_id INTEGER NOT NULL, reinstated_at TIMESTAMP NOT NULL, status TEXT NOT NULL"""),

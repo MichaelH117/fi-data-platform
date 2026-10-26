@@ -39,6 +39,7 @@ from generator.booking import (
     refund_terms,
     reinstate_rows,
     remit_rows,
+    reverse_cancel_rows,
 )
 from generator.booking import sale_rows as book_sales
 from generator.deals import make_deals
@@ -195,6 +196,7 @@ def build(
     lpol["active_from"] = lpol["eff_day"]
     lcx = lc.sample_cancels(lpol, end, rng)
     lcx["legacy_contract_id"] = lcon.loc[lcx.index, "legacy_contract_id"].to_numpy()
+    lcx["reason"] = lc.source_reason(lcx["reason"], lcx["legacy_contract_id"], "legacy")  # V7 edit 41
     terms_in = pd.DataFrame({
         "purchase_price": lcon.loc[lcx.index, "retail_price"].to_numpy(),
         "coverage_cost": lcon.loc[lcx.index, "dealer_cost"].to_numpy(),
@@ -293,6 +295,8 @@ def build(
     cpol["active_from"] = received_day.loc[live_idx].to_numpy()
     ccx = lc.sample_cancels(cpol, end, rng).rename_axis(None)
     ccx["contract_id"] = ccx.index.to_numpy()
+    ccx["reason"] = lc.source_reason(ccx["reason"], ccx["contract_id"], "admin_core",
+                                     con.loc[ccx["contract_id"], "tenant_id"].to_numpy())  # V7 edit 41
     cpol["end_day"] = cpol["exp_day"]
     cpol.loc[ccx.index, "end_day"] = ccx["cancel_day"].to_numpy()
     cpol["tenant_id"] = con.loc[live_idx, "tenant_id"].to_numpy()
@@ -371,6 +375,17 @@ def build(
         disb = cx_rows["disbursement"][cx_rows["disbursement"]["txn_id"].isin(ctx.loc[rx["contract_id"]])]
         comm = cx_rows["commission"][cx_rows["commission"]["txn_id"].isin(ctx.loc[rx["contract_id"]])]
         merge_rows(acc, reinstate_rows(rx, disb, comm, ids))
+
+    # V7 edit 23: a few cancels (never a reinstated one, never one with nothing refunded) are undone in the
+    # source by an offsetting cancel row. Own random stream, so no other generated value moves.
+    if len(cancels):
+        rrng = np.random.default_rng([seed, 23])
+        pool = cancels[~cancels["cancel_id"].isin(rx["cancel_id"] if len(rx) else [])
+                       & (cancels["customer_refund"] > 0)]
+        undo = pool.iloc[np.flatnonzero(rrng.random(len(pool)) < cat.CANCEL_REVERSAL_RATE)]
+        r_day = sim.parse_days(undo["processed_at"]) + rrng.integers(1, 11, len(undo)) * DAY
+        undo = undo[r_day <= end]
+        merge_rows(acc, reverse_cancel_rows(undo, cx_rows, sim.stamp(r_day[r_day <= end], rrng), ids))
 
     # amendments / renewals / transfers (+ a few transfers recorded against legacy contracts)
     alive = con.loc[live_idx]

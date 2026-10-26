@@ -381,6 +381,17 @@ def ceding_entity(dealer_id: pd.Series, entered_date: pd.Series | None, ref: Ref
     return structure, entity_id
 
 
+def disbursement_group(kind, structure) -> np.ndarray:
+    """V7 edit 21: the group (bucket) of each disbursement line, from its type AND the program setup (the
+    dealer's participation structure; NaN = non-participating). The same type lands in different groups
+    under different setups, so the group is stored on the line, never looked up from the type alone."""
+    kind = np.asarray(kind, dtype=object)
+    structure = pd.Series(structure).reset_index(drop=True)
+    structure = np.broadcast_to(structure.where(structure.notna(), None).to_numpy(dtype=object), kind.shape)
+    return np.array([cat.DISBURSEMENT_GROUP_OVERRIDES.get(st or "", {}).get(k, cat.DISBURSEMENT_GROUP_DEFAULT[k])
+                     for k, st in zip(kind, structure, strict=True)], dtype=object)
+
+
 def disbursements(contract: pd.DataFrame, txn: pd.DataFrame, ref: Ref, sign: float, pct: np.ndarray) -> pd.DataFrame:
     """Split each contract's rate components to account holders. ``pct`` scales refundable parts on cancel."""
     c = contract[["contract_id", "tenant_id", "dealer_id", "agent_id", "rate_id", "original_obligor_id",
@@ -411,6 +422,7 @@ def disbursements(contract: pd.DataFrame, txn: pd.DataFrame, ref: Ref, sign: flo
             "tenant_id": c["tenant_id"], "txn_id": c["txn_id"], "contract_id": c["contract_id"],
             "disbursement_type": kind, "account_holder_id": holders[kind].astype("int64"),
             "amount": np.round(sign * amt * scale, 2), "posted_at": c["posted_at"],
+            "disbursement_group": disbursement_group(np.full(len(c), kind, dtype=object), structure),
             "is_refundable": refundable.astype(int), "is_renewable": int(kind in ("CLAIMS_RESERVE", "ADMIN_FEE")),
             "created_at": c["posted_at"], "updated_at": c["posted_at"],
         }))
@@ -584,6 +596,50 @@ def reinstate_rows(rx: pd.DataFrame, cancel_disb: pd.DataFrame, cancel_comm: pd.
     return out
 
 
+CANCEL_MONEY = ["cancel_fee", "customer_refund", "admin_portion", "dealer_portion", "coverage_cost_refund",
+                "dealer_profit_refund", "admin_withheld_claims"]
+
+
+def reverse_cancel_rows(orig: pd.DataFrame, rows: dict[str, pd.DataFrame], at: np.ndarray, ids: Ids
+                        ) -> dict[str, pd.DataFrame]:
+    """V7 edit 23: undo cancels in the source with an offsetting row (not a reinstatement). ``orig``: the
+    cancellation rows to undo; ``rows``: the cancel batch they came from (its CANCEL transactions,
+    disbursements and commission chargebacks); ``at``: one timestamp per row. Writes a second
+    cancellation row on the same contract and cancel date with every amount negated and
+    ``reverses_cancel_id`` set, an offsetting CANCEL transaction with its disbursements and commissions
+    negated, and the status back to INFORCE. The pair nets to zero; the earned share of the reserve
+    that the original pro-rata refund left in place stays where it was."""
+    if orig.empty:
+        return {}
+    rev = orig.drop(columns=["row_version", "removed_from_source"], errors="ignore").copy()
+    rev["reverses_cancel_id"] = orig["cancel_id"].to_numpy()
+    rev["cancel_id"] = ids.take("cancellation", len(rev))
+    rev["processed_at"] = rev["created_at"] = rev["updated_at"] = at
+    for col in CANCEL_MONEY:
+        rev[col] = -rev[col].astype(float)
+    t0 = rows["transaction"]
+    t0 = t0[t0["source_ref"].isin(orig["cancel_id"].astype(str))].set_index("source_ref")
+    txn = pd.DataFrame({
+        "txn_id": ids.take("transaction", len(rev)), "tenant_id": rev["tenant_id"].values,
+        "contract_id": rev["contract_id"].values, "txn_type": "CANCEL", "posted_at": at,
+        "amount": -t0.loc[orig["cancel_id"].astype(str), "amount"].to_numpy(),
+        "source_ref": rev["cancel_id"].astype(str).values, "created_at": at, "updated_at": at,
+    })
+    new_txn = dict(zip(t0.loc[orig["cancel_id"].astype(str), "txn_id"], txn["txn_id"], strict=True))
+    new_at = dict(zip(txn["txn_id"], txn["posted_at"], strict=True))
+    out = {"cancellation": rev, "transaction": txn}
+    for table in ("disbursement", "commission"):
+        f = rows[table][rows[table]["txn_id"].isin(new_txn)].copy()
+        f["txn_id"] = f["txn_id"].map(new_txn).to_numpy()
+        f["posted_at"] = f["created_at"] = f["updated_at"] = f["txn_id"].map(new_at).to_numpy()
+        f["amount"] = -f["amount"]
+        f[ac.pk(table)] = ids.take(table, len(f))
+        out[table] = f.drop(columns=["row_version", "removed_from_source"], errors="ignore")
+    out["contract_status_history"] = status_rows(ids, rev["tenant_id"], rev["contract_id"], at, "CANCELLED",
+                                                 "INFORCE")
+    return out
+
+
 def amend_rows(am: pd.DataFrame, contract: pd.DataFrame, ref: Ref, ids: Ids) -> dict[str, pd.DataFrame]:
     """``am``: contract_id (or None + legacy_contract_ref), tenant_id, amendment_type, effective_date,
     delta_coverage_cost, note, at. A non-zero delta on an Admin Core contract posts an AMEND txn
@@ -616,6 +672,7 @@ def amend_rows(am: pd.DataFrame, contract: pd.DataFrame, ref: Ref, ids: Ids) -> 
             "txn_id": txn["txn_id"], "contract_id": txn["contract_id"], "disbursement_type": "CLAIMS_RESERVE",
             "account_holder_id": holder.astype("int64"), "amount": txn["amount"], "posted_at": txn["posted_at"],
             "is_refundable": 1, "is_renewable": 1, "created_at": txn["posted_at"], "updated_at": txn["posted_at"],
+            "disbursement_group": disbursement_group(np.full(len(txn), "CLAIMS_RESERVE", dtype=object), structure),
         })
         out.update({"transaction": txn, "disbursement": disb})
     return out

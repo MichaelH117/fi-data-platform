@@ -50,6 +50,18 @@ table Agent
 		dataType: string
 		sourceColumn: REGION
 
+	column 'Agency Name'
+		dataType: string
+		sourceColumn: AGENCY_NAME
+
+	column 'Principal Name'
+		dataType: string
+		sourceColumn: PRINCIPAL_NAME
+
+	column 'Is House Agent'
+		dataType: boolean
+		sourceColumn: IS_HOUSE_AGENT
+
 	partition Agent = m
 		mode: import
 		source =

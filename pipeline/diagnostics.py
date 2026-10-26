@@ -17,6 +17,14 @@ The checks:
   diag_form_code_coverage           form code from a document >= 99% per entered year from 2024 (V6 edit 4)
   diag_cobuyer_feed_gap             feed co-buyers reach the conformed contract; value = contracts whose
                                     co-buyer exists only in the e-contracting feed (V6 edit 9)
+  diag_cancel_reversals             V7 edit 23: contracts with more than one cancel row (informational)
+  diag_parent_contract_link         V7 edit 26: add-on tie-back values that name no contract (informational)
+  diag_agent_of_record              V7 edit 24: contracts whose agent differs from the dealer's (informational)
+  diag_custom_field_layer_gap       V7 edits 27 + 44: custom-field values lost between raw, staging and mart = 0
+  diag_commission_unassigned        V7 edit 28: contracts in the UNASSIGNED commission row (informational);
+                                    the gate is national commission = the commission ledger
+  diag_filing_entity_true_zero      V7 edit 29: mapped filing entities with zero in-force (informational);
+                                    the gate is that no zero comes from a broken obligor join
 
 It also records the row count of every raw source, staging, intermediate, snapshot and mart relation
 in the dbt manifest to ``audit.layer_row_count`` (informational, never fails the gate), so the data
@@ -93,6 +101,49 @@ MEASURES: dict[str, tuple[str, float | None]] = {
     ),
     "diag_cobuyer_feed_gap": (
         "select count(*) from intermediate.int_contracts_conformed where has_feed_cobuyer",
+        None,
+    ),
+    # V7 edits 23, 26, 24: informational counts (threshold None); the dbt checks are the gates.
+    "diag_cancel_reversals": (
+        "select count(*) from (select contract_key from intermediate.int_cancellations_conformed "
+        "group by contract_key having count(*) > 1)",
+        None,
+    ),
+    "diag_parent_contract_link": (
+        "select count(*) from staging.stg_admin_core__contract_custom_field as f "
+        "left join core.dim_contract as c on c.source_system = 'admin_core' "
+        "and c.source_contract_id = cast(f.contract_id as varchar) "
+        "where f.parent_contract_ref is not null and c.parent_contract_key is null",
+        None,
+    ),
+    "diag_agent_of_record": (
+        "select count(*) from core.dim_contract as c join core.dim_dealer as d using (dealer_key) "
+        "where c.contract_key <> '-1' and c.agent_key <> d.agent_key",
+        None,
+    ),
+    # V7 edits 27 + 44: reportable contracts with custom fields in staging but none in the mart.
+    "diag_custom_field_layer_gap": (
+        "select count(*) from staging.stg_admin_core__contract_custom_field as f "
+        "join intermediate.int_reportable_scope as r "
+        "on r.contract_key = md5('admin_core' || '|' || cast(f.contract_id as varchar)) "
+        "left join core.dim_contract_vehicle as v using (contract_key) "
+        "where r.is_reportable and not coalesce(v.has_custom_fields, false)",
+        0.0,
+    ),
+    # V7 edit 28: contracts in the explicit UNASSIGNED commission row (informational).
+    "diag_commission_unassigned": (
+        "select coalesce(sum(contracts), 0) from finance.mart_commission_hierarchy "
+        "where level = 'DISTRICT' and node = 'UNASSIGNED'",
+        None,
+    ),
+    # V7 edit 29: filing entities with zero in-force contracts at their period end (the confirm-list).
+    "diag_filing_entity_true_zero": (
+        "select count(*) from seeds.filing_entity_map as fm "
+        "left join core.dim_obligor as o on o.obligor_kind = fm.obligor_kind "
+        "and fm.source_id = case o.obligor_kind when 'dealer_owned' then o.participation_entity_id "
+        "else o.obligor_id end "
+        "where not exists (select 1 from regulatory.mart_funded_reserve_contracts as r "
+        "where r.provider_key = o.obligor_key and r.is_in_force_at_period_end)",
         None,
     ),
 }

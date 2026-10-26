@@ -1,0 +1,84 @@
+# Role start pages (docs/V3_DESIGN.md section 10.3). Copy owned by the Reporting Manager; the Front-end
+# Developer renders it (start.html role buttons + roles/<id>.html). Each role lands on 3-4 existing pages and
+# 3-4 tiles picked by audience_roles in dbt/seeds/core/metric_explanations.csv. No page computes a new number.
+# Rules: short sentences, no jargon a dealer would not use, every acronym is in glossary_terms.csv.
+intro: >
+  Pick the button that sounds like you. Each one opens the few pages your job needs, in the order most
+  people read them. Every number explains itself in three short lines under it.
+roles:
+  - id: dealer
+    button: "I'm a dealer or F&I manager"
+    title: For dealers and F&I managers
+    lede: >
+      What your stores sold, what is still unfinished, whether payments are on time, and how claims are going.
+    tiles: [contracts_written, dlr_pending_contracts, late_remittances, claim_paid_amount]
+    pages:
+      - href: dealer/production.html
+        name: Production
+        why: What you sold this month and over the last 12, by product. Start here every month.
+      - href: dealer/pending.html
+        name: Pending contracts
+        why: Contracts you sold that are not finished. Until they are, your customer may not be covered.
+      - href: dealer/incentive-statement.html
+        name: Incentive statement
+        why: What you are owed for each payment you sent, section by section, and what is still waiting.
+      - href: claims/kpi.html
+        name: Claims
+        why: How often your customers claim and what repairs cost. It drives what you pay for coverage.
+  - id: finance
+    button: "I'm in accounting or finance"
+    title: For accounting and finance
+    lede: >
+      Profit by product, how the reserve moves, what each partner owes or is owed, and the payment register.
+    tiles: [fin_program_margin, posted_loss_ratio, remitted_cash, fin_control_breaks]
+    pages:
+      - href: finance/pnl.html
+        name: Profit and loss by product
+        why: Where earned premium went, product by product. The quarterly profit review starts here.
+      - href: finance/controls.html
+        name: Controls and the reserve bridge
+        why: Every total tied to the source, and why two reserve reports differ, step by step.
+      - href: finance/remittance.html
+        name: Payments and partner settlement
+        why: Cash received, late fees, and the monthly statement each partner checks before paying.
+      - href: finance/cession.html
+        name: Dealer-owned companies
+        why: Results for dealers who share the risk. It decides whether a distribution can be paid.
+  - id: compliance
+    button: "I'm in compliance"
+    title: For compliance
+    lede: >
+      State reserve filings, the active book by state and form, and the definitions behind every filed number.
+    tiles: [reserve_shortfall, reg_states_filed, contracts_in_force, reg_missing_form_code]
+    pages:
+      - href: regulatory/index.html
+        name: Reserve filings
+        why: One filing per state that requires one. A shortfall must be funded before you file.
+      - href: regulatory/report-definitions.html
+        name: Counting rules
+        why: Which contracts count as active or written, and on which money basis. Settled before filing.
+      - href: regulatory/inforce-list-tx.html
+        name: State in-force lists
+        why: Every active contract in a state with its approved form, ready when a regulator asks.
+      - href: definitions.html
+        name: Definitions decided
+        why: Each tricky word, the rule chosen and who signed it off. Quote these in filings.
+  - id: executive
+    button: "I'm an executive"
+    title: For executives
+    lede: >
+      Is the book making money, which dealers need attention, and what the new platform fixed.
+    tiles: [combined_ratio, posted_loss_ratio, contracts_in_force, dealers_on_loss_ratio_watch]
+    pages:
+      - href: index.html
+        name: Executive overview
+        why: Premium, loss ratio and combined ratio for the whole book. Over 100% combined means a loss.
+      - href: finance/experience.html
+        name: Experience
+        why: The same results cut by date, product, dealer or state, the way partners ask for them.
+      - href: dealer/scorecard.html
+        name: Dealer scorecard
+        why: Every dealer judged on the same rules, with the ones on watch at the top.
+      - href: legacy.html
+        name: Legacy vs better
+        why: The old warehouse and the new one, answering the same questions. Measured, not promised.

@@ -301,7 +301,9 @@ def test_build_writes_workbooks_and_pages(tiny_warehouse: Path, tmp_path: Path):
     wb = openpyxl.load_workbook(out / "downloads/regulatory/funded_reserve_tx_20260831.xlsx", read_only=True)
     assert wb.sheetnames == ["Summary", "ITD Contracts", "Period Contracts", "ITD Claims", "Period Claims"]
     summary = [r for r in wb["Summary"].iter_rows(values_only=True) if r]
-    by_label = {r[1]: r for r in summary if len(r) > 2 and isinstance(r[0], int)}
+    # V7 edit 52: column A is the form question the line answers (Q2.1, Q3.4, ...)
+    by_label = {r[1]: r for r in summary if len(r) > 2 and isinstance(r[0], str) and r[0][:1] == "Q"}
+    assert by_label["Contracts in force at period end"][0] == "Q2.1"
     assert by_label["Contracts in force at period end"][2:4] == (2, 2)
     assert by_label["New contracts written"][2:4] == (3, 1)
     # Section 3: default basis first (coverage cost for TX), retail beside it; reserve = 40% x (1000 - 300)

@@ -1,0 +1,28 @@
+source_system,source_reason,match_type,reason_group,is_admin_correction,note
+admin_core,CUSTOMER REQUEST,exact,CUSTOMER_REQUEST,false,Customer asked to cancel
+admin_core,PAYOFF/TRADE,exact,PAYOFF_TRADE,false,Loan paid off or vehicle traded
+admin_core,TOTAL LOSS,exact,TOTAL_LOSS,false,Vehicle declared a total loss
+admin_core,REPOSSESSION,exact,REPOSSESSION,false,Lender repossessed the vehicle
+admin_core,UNWOUND DEAL,exact,UNWIND,false,The vehicle sale was reversed
+admin_core,DEALER ERROR,exact,DEALER_ERROR,false,Sold in error at the dealer; a real cancel of the sale
+admin_core,Z -,prefix,ADMIN_CORRECTION,true,Override-coded reason: the cancel fixes a data-entry mistake
+admin_core,X -,prefix,ADMIN_CORRECTION,true,Override-coded reason: the cancel fixes a data-entry mistake
+admin_core,CUSTOMER CANCEL,exact,CUSTOMER_REQUEST,false,Customer asked to cancel (second tenant's label)
+admin_core,LOAN PAYOFF,exact,PAYOFF_TRADE,false,Loan paid off or vehicle traded (second tenant's label)
+admin_core,VEHICLE TOTALED,exact,TOTAL_LOSS,false,Vehicle declared a total loss (second tenant's label)
+admin_core,REPO,exact,REPOSSESSION,false,Lender repossessed the vehicle (second tenant's label)
+admin_core,DEAL UNWIND,exact,UNWIND,false,The vehicle sale was reversed (second tenant's label)
+admin_core,DEALER ENTRY ERROR,exact,DEALER_ERROR,false,Sold in error at the dealer (second tenant's label)
+legacy_admin,CUSTOMER REQUEST,exact,CUSTOMER_REQUEST,false,Customer asked to cancel
+legacy_admin,PAYOFF/TRADE,exact,PAYOFF_TRADE,false,Loan paid off or vehicle traded
+legacy_admin,TOTAL LOSS,exact,TOTAL_LOSS,false,Vehicle declared a total loss
+legacy_admin,REPOSSESSION,exact,REPOSSESSION,false,Lender repossessed the vehicle
+legacy_admin,UNWOUND DEAL,exact,UNWIND,false,The vehicle sale was reversed
+legacy_admin,DEALER ERROR,exact,DEALER_ERROR,false,Sold in error at the dealer; a real cancel of the sale
+legacy_admin,Z -,prefix,ADMIN_CORRECTION,true,Override-coded reason: the cancel fixes a data-entry mistake
+legacy_admin,X -,prefix,ADMIN_CORRECTION,true,Override-coded reason: the cancel fixes a data-entry mistake
+legacy_admin,CUST REQUEST,exact,CUSTOMER_REQUEST,false,Customer asked to cancel (legacy label)
+legacy_admin,PAYOFF,exact,PAYOFF_TRADE,false,Loan paid off or vehicle traded (legacy label)
+legacy_admin,REPO'D,exact,REPOSSESSION,false,Lender repossessed the vehicle (legacy label)
+legacy_admin,UNWIND,exact,UNWIND,false,The vehicle sale was reversed (legacy label)
+legacy_admin,DLR ERROR,exact,DEALER_ERROR,false,Sold in error at the dealer (legacy label)

@@ -1,7 +1,9 @@
 /// Every measure is generated from dbt/models/metrics.yml (annotation dbt_metric).
 table 'Key Measures'
 
-	/// Reserve premium booked in the sale month.
+	/// The money taken in for contracts sold in the period, before any of it counts as earned.
+	/// Why your boss asks: Shows how much business came in; leaders use it to set dealer targets and size the reserve.
+	/// Definition: Reserve premium booked in the sale month.
 	measure 'Written Premium' = SUM('Contract Month'[Written Premium])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Premium
@@ -9,7 +11,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Pro-rata earned reserve premium.
+	/// The part of the premium used up as coverage time passes; a 36-month contract earns a slice each month.
+	/// Why your boss asks: It is the bottom half of the loss ratio, so it decides whether a book looks profitable.
+	/// Definition: Pro-rata earned reserve premium.
 	measure 'Earned Premium' = SUM('Contract Month'[Earned Premium])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Premium
@@ -17,7 +21,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Paid + case reserve on open claims, by loss month.
+	/// Claims already paid plus money held for claims that are filed but not paid yet.
+	/// Why your boss asks: Partners who share the risk ask for it to see whether their book makes money.
+	/// Definition: Paid + case reserve on open claims, by loss month.
 	measure 'Incurred Claims (accident month)' = SUM('Contract Month'[Incurred Claims])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -25,7 +31,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Incurred claims divided by EARNED premium (never written). Not comparable with the loss ratio on claims reserve.
+	/// For every $1 of premium earned, how many cents went to claims.
+	/// Why your boss asks: Decides whether a dealer's program is renewed, re-priced or re-trained.
+	/// Definition: Incurred claims divided by EARNED premium (never written). Not comparable with the loss ratio on claims reserve.
 	measure 'Loss Ratio (on earned premium)' = DIVIDE([Incurred Claims (accident month)], [Earned Premium])
 		formatString: 0.0%
 		displayFolder: Ratios
@@ -33,7 +41,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = true
 
-	/// Non-denied claims per earned contract-year, accident-month basis (claims page tile).
+	/// How many claims each contract makes per year of coverage.
+	/// Why your boss asks: A rise means prices may be too low or cars are riskier; it drives re-pricing.
+	/// Definition: Non-denied claims per earned contract-year, accident-month basis (claims page tile).
 	measure 'Claim Frequency' = DIVIDE([Claim Count (accident month)], [Exposure Years])
 		formatString: #,0.00
 		displayFolder: Ratios
@@ -41,7 +51,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = true
 
-	/// Non-denied claims, by loss month.
+	/// The number of claims accepted for review, leaving out denied ones.
+	/// Why your boss asks: Claims managers plan adjuster staffing from it.
+	/// Definition: Non-denied claims, by loss month.
 	measure 'Claim Count (accident month)' = SUM('Contract Month'[Claim Count])
 		formatString: #,0
 		displayFolder: Claims
@@ -49,7 +61,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Earned contract-years (days in force / 365.25).
+	/// Coverage time counted in contract-years; one contract active all year counts as 1.
+	/// Why your boss asks: Lets leaders compare claim rates fairly between big and small dealers.
+	/// Definition: Earned contract-years (days in force / 365.25).
 	measure 'Exposure Years' = SUM('Contract Month'[Exposure Years])
 		formatString: #,0.00
 		displayFolder: Exposure
@@ -57,7 +71,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Unearned reserve premium at month end (a balance, so it never sums across months).
+	/// Premium collected for coverage time that has not happened yet; part is owed back if contracts cancel.
+	/// Why your boss asks: Finance checks it against the reserve held; buyers use it to value the book.
+	/// Definition: Unearned reserve premium at month end (a balance, so it never sums across months).
 	measure 'Unearned Premium Balance' =
 			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
 			VAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)
@@ -69,7 +85,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Claim dollars paid (always positive after conforming).
+	/// Claim dollars paid, counted in the accounting month they were booked.
+	/// Why your boss asks: Statements and state filings must use the booked figure.
+	/// Definition: Claim dollars paid (always positive after conforming).
 	measure 'Claims Paid' = SUM('Claim Payment Line'[Paid Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -77,7 +95,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Paid plus change in case reserve (as posted).
+	/// Claims paid plus the change in money held for open claims, by accounting month.
+	/// Why your boss asks: It is the top half of the booked loss ratio on partner statements.
+	/// Definition: Paid plus change in case reserve (as posted).
 	measure 'Claims Incurred' = SUM('Claim Payment Line'[Incurred Change])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -85,7 +105,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Change in outstanding case reserve.
+	/// How much the money held for open claims went up or down this month.
+	/// Why your boss asks: A big jump means large claims are open; finance checks the reserve is enough.
+	/// Definition: Change in outstanding case reserve.
 	measure 'Claims Reserve Change' = SUM('Claim Payment Line'[Pending Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -93,7 +115,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims with posted activity
+	/// Claims that had any payment or reserve change booked this month.
+	/// Why your boss asks: Claims managers use it for adjuster workload.
+	/// Definition: Claims with posted activity
 	measure 'Claims With Activity' = DISTINCTCOUNT('Claim Payment Line'[Claim Key])
 		formatString: #,0
 		displayFolder: Claims
@@ -101,7 +125,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Average claim process days
+	/// Average days from a claim's first entry to its booked payment.
+	/// Why your boss asks: It is the service promise to dealers and customers; it drives staffing.
+	/// Definition: Average claim process days
 	measure 'Average Claim Process Days' = AVERAGE('Claim Payment Line'[Process Days])
 		formatString: #,0.00
 		displayFolder: Claims
@@ -109,7 +135,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims reported (both systems).
+	/// New claims reported in the month.
+	/// Why your boss asks: Plans staffing and warns early of a rise in breakdowns.
+	/// Definition: Claims reported (both systems).
 	measure 'Claims Opened' = CALCULATE(COUNTROWS('Claim Summary'), USERELATIONSHIP('Claim Summary'[Reported Month], 'Posting Period'[Period Start]))
 		formatString: #,0
 		displayFolder: Claims
@@ -117,7 +145,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims reported, one row per claim from both admin systems, by loss month.
+	/// Claims counted by the month the car broke down, from both admin systems.
+	/// Why your boss asks: It is the base for the denial rate and the early-claim checks.
+	/// Definition: Claims reported, one row per claim from both admin systems, by loss month.
 	measure 'Claims Reported (loss month)' = COUNTROWS('Claim Summary')
 		formatString: #,0
 		displayFolder: Claims
@@ -125,7 +155,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Claims denied (loss month)
+	/// Claims not paid because the repair was not covered.
+	/// Why your boss asks: States ask for denied claims on the yearly renewal; a spike triggers a review.
+	/// Definition: Claims denied (loss month)
 	measure 'Claims Denied' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "denied")
 		formatString: #,0
 		displayFolder: Claims
@@ -133,7 +165,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Paid claims (loss month)
+	/// Claims closed with a payment, counted by breakdown month.
+	/// Why your boss asks: Used to track repair cost per claim over time.
+	/// Definition: Paid claims (loss month)
 	measure 'Paid Claim Count' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "paid")
 		formatString: #,0
 		displayFolder: Claims
@@ -141,7 +175,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claim dollars paid on paid claims (loss month)
+	/// Total paid on claims that were paid, by breakdown month.
+	/// Why your boss asks: Used to track repair cost per claim over time.
+	/// Definition: Claim dollars paid on paid claims (loss month)
 	measure 'Paid On Paid Claims' = CALCULATE(SUM('Claim Summary'[Paid Amount]), 'Claim Summary'[Status Group] = "paid")
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -149,7 +185,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims open as of the as-of date.
+	/// Claims not yet closed on the report date.
+	/// Why your boss asks: The daily adjuster workload.
+	/// Definition: Claims open as of the as-of date.
 	measure 'Open Claims' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "open")
 		formatString: #,0
 		displayFolder: Claims
@@ -157,7 +195,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days).
+	/// Open claims that were reported more than 30 days ago.
+	/// Why your boss asks: Old open claims mean unhappy customers; managers assign follow-ups from it.
+	/// Definition: Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days).
 	measure 'Open Claims Aged 30 Plus' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Is Aged Open] = TRUE())
 		formatString: #,0
 		displayFolder: Claims
@@ -165,7 +205,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Average days from reported to closed, closed claims only.
+	/// Average days from a claim being reported to being closed.
+	/// Why your boss asks: It is the service promise; it drives staffing and dealer satisfaction.
+	/// Definition: Average days from reported to closed, closed claims only.
 	measure 'Average Turnaround Days' = AVERAGE('Claim Summary'[Turnaround Days])
 		formatString: #,0.00
 		displayFolder: Claims
@@ -173,7 +215,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Collected deductibles (admin core status history)
+	/// Deductibles customers paid on claims.
+	/// Why your boss asks: It lowers net claim cost; finance checks it against contract terms.
+	/// Definition: Collected deductibles (admin core status history)
 	measure 'Collected Deductibles' = SUM('Claim History'[Collected Deductible])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -181,7 +225,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Same definition as the claims KPI page and mart_claims_kpi.denial_rate.
+	/// Of all reported claims, the share that was denied.
+	/// Why your boss asks: Too high draws complaints and state attention; too low can mean loose checks.
+	/// Definition: Same definition as the claims KPI page and mart_claims_kpi.denial_rate.
 	measure 'Denial Rate' = DIVIDE([Claims Denied], [Claims Reported (loss month)])
 		formatString: 0.0%
 		displayFolder: Ratios
@@ -189,7 +235,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Numerator and denominator are the same population (paid claims). Same as mart_claims_kpi.claim_severity.
+	/// Paid dollars divided by paid claims; the same claims are on top and bottom.
+	/// Why your boss asks: Tracks repair cost inflation; it drives rate reviews.
+	/// Definition: Numerator and denominator are the same population (paid claims). Same as mart_claims_kpi.claim_severity.
 	measure 'Paid Claim Severity' = DIVIDE([Paid On Paid Claims], [Paid Claim Count])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Ratios

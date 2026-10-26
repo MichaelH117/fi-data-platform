@@ -119,3 +119,14 @@ models:
         data_tests:
           - accepted_values:
               arguments: {values: [internal_provider, dealer_owned]}
+
+  - name: mart_inforce_profile
+    description: >
+      V7 edit 30: in-force profile at the latest closed period end. Status x entered year x expires
+      after the period end x counted: whether the status is in the IN_FORCE set and whether the
+      contract passes the in-force date rule, so the page explains why each status counts or not.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [status, entered_year, expires_after_period_end, in_force_set_member, is_counted]}
+      - expression_is_true:
+          arguments: {expression: "in_force_set_member or not is_counted"}

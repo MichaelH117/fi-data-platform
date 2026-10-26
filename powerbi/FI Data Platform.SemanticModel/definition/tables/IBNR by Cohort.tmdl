@@ -1,25 +1,33 @@
 /// Actuarial IBNR by accident-quarter cohort (Python valuation output, not a dbt model). Disconnected: no tenant or dealer key, so slicers do not filter it and external roles cannot see it.
 table 'IBNR by Cohort'
 
-	/// Selected IBNR reserve (chain-ladder / Bornhuetter-Ferguson pick) at the valuation date.
+	/// Money for claims that have happened but nobody has reported yet.
+	/// Why your boss asks: Finance books it so the loss ratio is not too rosy; partners ask before any distribution.
+	/// Definition: Selected IBNR reserve (chain-ladder / Bornhuetter-Ferguson pick) at the valuation date.
 	measure 'IBNR (selected)' = SUM('IBNR by Cohort'[Selected IBNR])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Actuarial
 		annotation source = actuarial valuation (gold_actuarial.ibnr_by_cohort), not metrics.yml
 
-	/// Selected ultimate losses: paid to date plus IBNR.
+	/// Reported losses plus IBNR plus losses still to come: what the book should cost in the end.
+	/// Why your boss asks: The figure pricing and reserve decisions rest on.
+	/// Definition: Selected ultimate losses: paid to date plus IBNR.
 	measure 'Ultimate Losses (selected)' = SUM('IBNR by Cohort'[Selected Ultimate])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Actuarial
 		annotation source = actuarial valuation (gold_actuarial.ibnr_by_cohort), not metrics.yml
 
-	/// Claims paid to date by accident-quarter cohort, as valued.
+	/// Claim dollars paid, counted in the accounting month they were booked.
+	/// Why your boss asks: Statements and state filings must use the booked figure.
+	/// Definition: Claims paid to date by accident-quarter cohort, as valued.
 	measure 'Paid To Date (actuarial)' = SUM('IBNR by Cohort'[Paid To Date])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Actuarial
 		annotation source = actuarial valuation (gold_actuarial.ibnr_by_cohort), not metrics.yml
 
-	/// Selected ultimate losses over ultimate earned premium.
+	/// Ultimate losses divided by the premium that pays for them.
+	/// Why your boss asks: Groups above the line will lose money for their reinsurance company; it drives re-pricing.
+	/// Definition: Selected ultimate losses over ultimate earned premium.
 	measure 'Ultimate Loss Ratio (actuarial)' = DIVIDE(SUM('IBNR by Cohort'[Selected Ultimate]), SUM('IBNR by Cohort'[Ultimate Premium]))
 		formatString: 0.0%
 		displayFolder: Actuarial

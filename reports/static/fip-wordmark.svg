@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 96" width="240" height="96" role="img" aria-labelledby="fip-t">
+  <title id="fip-t">F&amp;IP</title>
+  <defs>
+    <clipPath id="fip-slice"><rect x="0" y="50" width="240" height="5"/></clipPath>
+  </defs>
+  <path d="M0 0H224L240 16V96H0Z" fill="#8ACE00"/>
+  <g font-family="'Barlow Condensed','Bahnschrift','Arial Narrow',Impact,sans-serif" font-weight="800"
+     font-size="70" letter-spacing="-1" text-anchor="middle">
+    <text x="118" y="74" fill="#2EC4D6" clip-path="url(#fip-slice)">F&amp;IP</text>
+    <text x="120" y="74" fill="#000">F&amp;IP</text>
+  </g>
+  <g fill="#000" fill-opacity=".12">
+    <rect x="0" y="22" width="240" height="1"/><rect x="0" y="42" width="240" height="1"/><rect x="0" y="82" width="240" height="1"/>
+  </g>
+</svg>

@@ -91,6 +91,14 @@ models:
         data_tests:
           - relationships:
               arguments: {to: "ref('dealer_specialty_lines')", field: subcategory_code}
+      - name: chassis_vin_status
+        description: >
+          V7 edit 27: how the chassis VIN was typed (lines that require one): valid, missing,
+          placeholder, bad_length, lowercase_fixed, duplicate_across_contracts. NULL on other lines.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [valid, missing, placeholder, bad_length, lowercase_fixed, duplicate_across_contracts]
 
   - name: mart_remittance_aging
     description: Remittance aging per dealer x posting period x age band, with late fees.
@@ -159,3 +167,86 @@ models:
         data_tests:
           - expression_is_true:
               arguments: {expression: "t12_loss_ratio_peer_pct between 0 and 1", where_clause: "t12_loss_ratio_peer_pct is not null"}
+
+  - name: mart_agent_dealer_production
+    description: >
+      V7 edit 24: agency roll-up and rep reassignment. Agent x dealer x entered month: contracts
+      written, the agent's agency / principal / house flag, first and last sale at the dealer, and
+      whether the agent is still the dealer's agent of record. The page sums months from a chosen
+      start date.
+    meta: {grain: "agent x dealer x month", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [agent_key, dealer_key, month_start]}
+      - split_matches_total_model:
+          arguments:
+            measure: contracts_written
+            total_model: ref('mart_dealer_production')
+            total_measure: contracts_written
+    columns:
+      - name: contracts_written
+        data_tests:
+          - expression_is_true:
+              arguments: {expression: "contracts_written > 0"}
+
+  - name: mart_dealer_activations
+    description: >
+      V7 edit 25: Current Month Activations. Dealer x product family (VSC, GAP, OTHER) x entered
+      month for the reporting month and the three before it: contracts still pending and contracts
+      active (dealer status sets DEALER_PROD_PENDING / DEALER_PROD_IN_FORCE).
+    meta: {grain: "dealer x product family x month", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, dealer_key, product_family, month_start]}
+    columns:
+      - name: product_family
+        data_tests:
+          - accepted_values:
+              arguments: {values: [VSC, GAP, OTHER]}
+
+  - name: mart_dealer_incentive_statement
+    description: >
+      V7 edit 46: dealer incentive statement per remittance. Dealer x remittance x product type:
+      commissions on new sales, cancels, reinstatements, amendments and other adjustments of the
+      PRODUCER_INCENTIVE bucket, with contract counts, and total due. Adjustments land on the
+      dealer's first remittance received on or after they posted.
+    meta: {grain: "dealer x remittance x product type", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [tenant_key, dealer_key, remit_batch_id, product_type]}
+      - expression_is_true:
+          arguments:
+            expression: "abs(commissions + cancels + reinstatements + amendments + other_adjustments - total_due) <= 0.025"
+    columns:
+      - name: statement_status
+        data_tests:
+          - accepted_values:
+              arguments: {values: [REMITTED, NOT_YET_REMITTED, NEXT_REMITTANCE, LEGACY]}
+
+  - name: mart_ancillary_pricing
+    description: >
+      V7 edit 48: ancillary pricing and markup. Dealer group x dealer x ancillary subcategory with
+      GROUPING SETS subtotals (dealer "(all products)", group "(all dealers)", grand total):
+      contracts, average / min / max retail price, dealer cost, markup and markup %.
+    meta: {grain: "dealer group x dealer x subcategory, with subtotals", contains_pii: false}
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [row_type, dealer_group, dealer_number, subcategory_code]}
+      - assert_split_sums_to_total:
+          arguments:
+            measure: contracts
+            is_total_expr: "row_type = 'DEALER_TOTAL'"
+            total_by: [dealer_group, dealer_number]
+          config:
+            where: "row_type in ('DETAIL', 'DEALER_TOTAL')"
+      - assert_split_sums_to_total:
+          arguments:
+            measure: markup_total
+            is_total_expr: "row_type = 'GRAND_TOTAL'"
+          config:
+            where: "row_type in ('DETAIL', 'GRAND_TOTAL')"
+    columns:
+      - name: row_type
+        data_tests:
+          - accepted_values:
+              arguments: {values: [DETAIL, DEALER_TOTAL, GROUP_SUBCATEGORY, GRAND_TOTAL]}

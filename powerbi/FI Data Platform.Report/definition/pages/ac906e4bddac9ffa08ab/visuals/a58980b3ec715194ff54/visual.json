@@ -3,11 +3,11 @@
   "name": "a58980b3ec715194ff54",
   "position": {
     "x": 856,
-    "y": 244,
+    "y": 364,
     "width": 400,
     "height": 226,
-    "z": 11000,
-    "tabOrder": 11000
+    "z": 13000,
+    "tabOrder": 13000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -88,7 +88,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#fcfcfb'"
+                      "Value": "'#16191A'"
                     }
                   }
                 }
@@ -119,7 +119,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#d9d8d0'"
+                      "Value": "'#3F5811'"
                     }
                   }
                 }
@@ -128,7 +128,7 @@
             "radius": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "0D"
                 }
               }
             }
@@ -204,7 +204,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#0b0b0b'"
+                      "Value": "'#E8ECE4'"
                     }
                   }
                 }
@@ -221,6 +221,51 @@
               "expr": {
                 "Literal": {
                   "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'One measure, three windows: the Time Intelligence calculation group on the columns. No MTD/YTD copies of any measure exist in the model.'"
+                }
+              }
+            },
+            "titleWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#C5CCBF'"
+                    }
+                  }
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
                 }
               }
             }

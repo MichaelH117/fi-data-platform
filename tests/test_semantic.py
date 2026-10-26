@@ -897,3 +897,30 @@ def test_t12m_scorecard_ratios_equal_the_site_per_dealer_and_portfolio():
         assert (want.isna() == got.isna()).all(), ratio
         assert (got[both] - want[both]).abs().max() < 1e-9, ratio
     assert t12["scorecard_loss_ratio_n"].sum() / t12["scorecard_loss_ratio_d"].sum() == pytest.approx(portfolio)
+
+
+# --------------------------------------------------------------------------- V7 edit 33: model vs warehouse
+def test_count_check_reads_the_measures_and_bindings_from_the_model_files():
+    from semantic import counts
+
+    models = counts.load_models()
+    assert {h.model for h in counts.HEADLINES} <= set(models)
+    for h in counts.HEADLINES:  # every headline is a plain aggregate over a table the model loads
+        sql = counts.model_sql(models[h.model], h.measure)
+        assert sql.startswith("select ") and " from " in sql, (h.label, sql)
+    with pytest.raises(ValueError):
+        counts.model_sql(models["Sales"], "No Such Measure")
+
+
+def test_count_check_agrees_with_the_warehouse():
+    if not WAREHOUSE.exists():
+        pytest.skip("warehouse not built")
+    from semantic import counts
+
+    with duckdb.connect(str(WAREHOUSE), read_only=True) as con:
+        try:
+            con.execute("select 1 from finance.mart_pnl_by_product limit 1")
+        except duckdb.CatalogException:
+            pytest.skip("marts not built")
+        results = counts.check(con)
+    assert results and all(r.ok for r in results), [(r.headline.label, r.diff, r.note) for r in results if not r.ok]

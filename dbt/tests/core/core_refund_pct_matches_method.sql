@@ -12,6 +12,8 @@ select
     x.admin_portion + x.dealer_portion - x.cancel_fee - x.admin_withheld_claims as expected_refund
 from {{ ref('int_cancellations_conformed') }} as x
 inner join {{ ref('int_contracts_conformed') }} as c using (contract_key)
-where abs(x.refund_pct - {{ refund_share('x.method', 'x.contract_age_days', 'c.term_months') }}) > 0.002
+-- V7 edit 23: a reversal row negates the cancel it undoes, so it is checked through that cancel.
+where not x.is_reversal_row
+  and (abs(x.refund_pct - {{ refund_share('x.method', 'x.contract_age_days', 'c.term_months') }}) > 0.002
    or abs(x.customer_refund
-          - greatest(0, x.admin_portion + x.dealer_portion - x.cancel_fee - x.admin_withheld_claims)) > 0.02
+          - greatest(0, x.admin_portion + x.dealer_portion - x.cancel_fee - x.admin_withheld_claims)) > 0.02)

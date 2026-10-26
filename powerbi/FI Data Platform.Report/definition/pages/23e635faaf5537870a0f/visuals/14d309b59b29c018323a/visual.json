@@ -3,11 +3,11 @@
   "name": "14d309b59b29c018323a",
   "position": {
     "x": 544,
-    "y": 482,
+    "y": 598,
     "width": 712,
     "height": 226,
-    "z": 13000,
-    "tabOrder": 13000
+    "z": 15000,
+    "tabOrder": 15000
   },
   "visual": {
     "visualType": "lineClusteredColumnComboChart",
@@ -121,7 +121,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#fcfcfb'"
+                      "Value": "'#16191A'"
                     }
                   }
                 }
@@ -152,7 +152,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#d9d8d0'"
+                      "Value": "'#3F5811'"
                     }
                   }
                 }
@@ -161,7 +161,7 @@
             "radius": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "0D"
                 }
               }
             }
@@ -237,7 +237,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#0b0b0b'"
+                      "Value": "'#E8ECE4'"
                     }
                   }
                 }
@@ -254,6 +254,51 @@
               "expr": {
                 "Literal": {
                   "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Actuarial valuation (chain ladder / Bornhuetter-Ferguson). Young quarters carry most of the IBNR.'"
+                }
+              }
+            },
+            "titleWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#C5CCBF'"
+                    }
+                  }
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
                 }
               }
             }
@@ -324,7 +369,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#2a78d6'"
+                      "Value": "'#70A600'"
                     }
                   }
                 }
@@ -342,7 +387,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#eda100'"
+                      "Value": "'#D57700'"
                     }
                   }
                 }
@@ -360,7 +405,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#e34948'"
+                      "Value": "'#B6BDB0'"
                     }
                   }
                 }

@@ -66,6 +66,14 @@ table Cancellation
 		dataType: string
 		sourceColumn: REASON
 
+	column 'Reason Group'
+		dataType: string
+		sourceColumn: REASON_GROUP
+
+	column 'Is Admin Correction'
+		dataType: boolean
+		sourceColumn: IS_ADMIN_CORRECTION
+
 	column Method
 		dataType: string
 		sourceColumn: METHOD
@@ -137,6 +145,18 @@ table Cancellation
 	column 'Is Effective Cancel'
 		dataType: boolean
 		sourceColumn: IS_EFFECTIVE_CANCEL
+
+	column 'Is Effective Cancel Excl Admin'
+		dataType: boolean
+		sourceColumn: IS_EFFECTIVE_CANCEL_EXCL_ADMIN
+
+	column 'Is Reversed'
+		dataType: boolean
+		sourceColumn: IS_REVERSED
+
+	column 'Is Reversal Row'
+		dataType: boolean
+		sourceColumn: IS_REVERSAL_ROW
 
 	column 'Is Amount Sign Fixed'
 		dataType: boolean

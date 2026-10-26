@@ -87,7 +87,8 @@ def build_reference(seed: int, created: str) -> tuple[dict[str, pd.DataFrame], d
     t: dict[str, pd.DataFrame] = {}
 
     t["administrator"] = pd.DataFrame(
-        [dict(tenant_id=i, administrator_code=c, reportable_name=n, logo_path=lp, primary_color=p, secondary_color=s)
+        [dict(tenant_id=i, administrator_code=c, reportable_name=n, logo_path=lp, primary_color=p, secondary_color=s,
+              admin_company_id=1)  # V7 edit 45: each tenant's instance calls itself company 1
          for i, c, n, lp, p, s, _ in cat.TENANTS]
     )
     tenant_ids = [x[0] for x in cat.TENANTS]
@@ -250,8 +251,9 @@ def build_reference(seed: int, created: str) -> tuple[dict[str, pd.DataFrame], d
         ptype = PROGRAM_TYPE_BY_CATEGORY[s.category]
         for year in cat.PLAN_YEARS:
             pid = len(products) + 1
+            pname = cat.BUNDLE_PRODUCT_NAMES.get((s.code, year), s.name)  # V7 edit 50: bundle names
             products.append(dict(product_id=pid, tenant_id=PLATFORM, subcategory_id=si + 1, product_code=s.code,
-                                 product_name=f"{s.name} {year} - {PROGRAM_SUFFIX[ptype]}", contract_prefix=s.prefix,
+                                 product_name=f"{pname} {year} - {PROGRAM_SUFFIX[ptype]}", contract_prefix=s.prefix,
                                  plan_year=year, is_cancellable=int(s.cancellable), claim_wait_days=s.wait_days,
                                  claim_wait_miles=s.wait_miles, coverage_limit=s.coverage_limit,
                                  program_type=ptype))

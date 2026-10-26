@@ -1,4 +1,4 @@
-# F&I Data Platform: Power BI report (PBIP)
+# F&IP: Power BI report (PBIP)
 
 A seven-page Power BI report over the warehouse on the local PostgreSQL server. It is saved as a
 **Power BI project (PBIP)**: plain text files instead of one binary `.pbix`, so git can show every
@@ -12,8 +12,17 @@ change.
 | `build.py`, `report.py`, `model.py` | The generator. `python -m powerbi` rewrites the two folders and the `.pbip` |
 | `validate.py`, `schemas.py` | Checks: Microsoft's JSON schemas, field references, layout grid |
 
-The display name is **F&I Data Platform** (model, report theme, exports). Files and folders drop the
-"&" (`FI Data Platform`) because it is unsafe in paths and URLs.
+The display name is **F&IP** (model, report theme, exports), with "F&I Data Platform" as the subtitle on
+every page. Files and folders keep the old `FI Data Platform` name (no "&", which is unsafe in paths and
+URLs), so existing links and Desktop's local settings still work.
+
+**Look and words (V7).** The report uses the F&IP dark theme (`StaticResources/RegisteredResources/FIP_Theme.json`):
+the same colours as the site (`reports/static/site.css`): near-black page, charcoal panels, thin green
+borders, the site's five validated chart colours, and black text on any brand-green fill. Each page has the
+wordmark at the top left and a card that says, in plain words, **what this page shows** and **why your boss
+asks** for it. Every KPI card has a subtitle with what the number means, which way is good, and the watch
+and act levels (from `dbt/seeds/core/metric_explanations.csv`). Every measure's description (the tooltip in
+the Data pane) starts with the same plain-English line, then "Why your boss asks", then the exact definition.
 
 Pages: **Executive overview** (KPI cards, written vs earned trend, loss ratio), **Dealer scorecard**
 (table with slicers and conditional formatting, RLS note), **Claims & IBNR** (frequency and
@@ -75,7 +84,7 @@ Reserves** (claims reserve booked at sale by product category and term).
 
 A Power BI report connects to exactly **one** semantic model, but these seven pages need measures
 from all four domain models in `semantic/` (scorecard: Sales; claims: Claims; filing:
-Compliance; P&L: Finance). So `model.py` builds one internal **reporting model**, `F&I Data Platform`,
+Compliance; P&L: Finance). So `model.py` builds one internal **reporting model**, `F&IP`,
 from the same plan as `python -m semantic`: the same 80 measures (each still maps to one metric
 in `dbt/models/metrics.yml`), the same Time Intelligence calculation group, relationships and RLS
 rules, over every fact and conformed dimension. The only addition is `IBNR by Cohort`, the

@@ -137,15 +137,40 @@ item is a seed row in `report_definitions.csv` (status set, scope, basis, filter
 Section 3 computation is: reserve = state method rate x net consideration, from
 `state_reserve_method.csv` (all 50 states + DC; states without a requirement are skipped).
 
+## Definitions decided
+
+Words that sound obvious but were answered wrongly the first time. Each row is the rule the platform now
+follows, who signed it off and what it replaced. The site's `definitions.html` page is built from this
+table, so add a row here (in a release, like any definition change) instead of explaining it in a chat.
+Columns are fixed: term, decision, owner role, date, what it replaced.
+
+| Term | Decision | Owner role | Date | What it replaced |
+|---|---|---|---|---|
+| Active dealer | A dealer with at least one contract that is not voided, inception to date, across both partner programs. A 12-month count is shown next to it | Senior Data Analyst (dealer & claims) | 2026-10-25 | A volume cut-off over the last year, which left out small but real dealers |
+| Dealer group count | Distinct group names, blanks left out | Senior Data Analyst (dealer & claims) | 2026-10-25 | Counting dealers and calling it groups |
+| Cancel rate (in a bid or partner review) | Two methods, by sale group and by period, each with and without data-entry corrections; the method is written on its own tab | Financial Analyst II | 2026-10-25 | One unexplained percent |
+| VSC | Vehicle service contracts only. GAP, ancillary and limited warranties are separate lines | Senior Power BI Specialist | 2026-10-25 | Any contract sold in the finance office |
+| Limited warranty | Reported under ancillary / other, never under VSC. Bundles are reported on their own line | Senior Power BI Specialist | 2026-10-25 | Grouped with VSC because the product name looked similar |
+| Premium (in a loss ratio) | Two named bases, never one label: earned claims reserve (booked, `posted_loss_ratio`) and earned premium (by breakdown month, `loss_ratio`) | Senior Power BI Specialist | 2026-10-25 | "Premium" meaning written, earned or reserve depending on the report |
+| Losses | Incurred: paid plus money held for open claims. IBNR is added only in figures labelled ultimate | Data Scientist | 2026-10-25 | Paid only in one report, incurred in another |
+| Insurer-program fee | Shown on its own line of the partner settlement, because it funds incentives; never folded into the admin fee | Financial Analyst I | 2026-10-25 | One admin-fee bucket that did not match the agreement |
+| Pending | Sold but not yet finished: paperwork or payment missing (status `PENDING`) | Senior Data Analyst (dealer & claims) | 2026-10-25 | Pending and in force counted together as "sold" |
+| In force | A point-in-time count at the period end, using the `IN_FORCE` status set in `report_status_sets.csv` | Senior Data Analyst (regulatory) | 2026-10-25 | A status list kept in spreadsheet comments |
+| Voided contracts | Left out of dealer and agency lists by default | Senior Data Analyst (dealer & claims) | 2026-10-25 | Shown, then removed by hand after a complaint |
+| Co-buyer | An old source column labelled "lienholder" actually holds the co-buyer; it is renamed in staging | Data Engineer | 2026-10-25 | The column read as the lender |
+| Late remittance | Money received more than 30 days after the contract was entered (seed `remit_late_days`) | Financial Analyst I | 2026-10-25 | Late judged by the month the cash was booked |
+| Dealer on loss-ratio watch | 12-month loss ratio on earned claims reserve above 80%, with at least the seed minimum earned reserve | Senior Data Analyst (dealer & claims) | 2026-10-25 | A watch list that flagged tiny dealers on one claim |
+| Early claim (headline) | A claim within 90 days of the contract start (seed `early_claim_headline_days`) | Data Scientist | 2026-10-25 | Several windows quoted under one name |
+
 ## Open governance items
 
 - **Remittance aging is defined twice.** `dealer.mart_remittance_aging` (age bands by posting
   period) and `finance.mart_remittance_late_fees` (seed `remit_aging_buckets`, days from entry to
   receipt) both bill late fees. They must use one band seed and one late-fee rule, or show that they
   tie. Owners: Senior Data Analyst (dealer & claims) and Financial Analyst II.
-- **Combined ratio has two formulas**: the finance P&L (earned basis) and the V1 executive overview
-  (written-expense basis). The P&L formula should become the one `metrics.yml` entry, and the
-  overview should switch to it. The cession loss ratio is also computed in a mart but is not yet a metric.
+- **Combined ratio: closed in V7.** The finance P&L formula (claims plus acquisition cost and the admin
+  fee, over earned premium) is the one `metrics.yml` entry, and the executive overview uses it. Still
+  open: the cession loss ratio is computed in a mart but is not yet a metric.
 - The V1 semantic models (`contract_month`, `contract_sale`, `claim`) still read
   `marts/core/v1_compat/`. They are retired when the V1 report pages move to `core`.
 
@@ -187,6 +212,8 @@ Section 3 computation is: reserve = state method rate x net consideration, from
 | `dealer_chargebacks` | Dealer chargebacks | simple | `sum(dealer_portion)` | `fct_cancellation` | Cancellations | Financial Analyst II |  |
 | `coverage_cost_refunds` | Coverage cost refunds | simple | `sum(coverage_cost_refund)` | `fct_cancellation` | Cancellations | Financial Analyst II |  |
 | `effective_cancel_rate` | Effective cancel rate (effective cancels / contracts written, same period) | ratio | `effective_cancellations / contracts_written` |  | Cancellations | Financial Analyst II |  |
+| `effective_cancellations_excl_admin` | Effective cancellations excl. admin corrections | simple | `sum_boolean(is_effective_cancel_excl_admin)` | `fct_cancellation` | Cancellations | Financial Analyst II |  |
+| `cancel_rate_excl_admin` | Cancel rate excl. admin corrections (same period) | ratio | `effective_cancellations_excl_admin / contracts_written` |  | Cancellations | Financial Analyst II |  |
 | `net_coverage_cost` | Net coverage cost (gross - coverage cost refunds) | derived | `gross_coverage_cost - coverage_cost_refunds` |  | Sales | Senior Data Analyst (dealer & claims) |  |
 | `reinstatements` | Reinstatements | simple | `count(reinstatement_key)` | `fct_reinstatement` | Cancellations | Financial Analyst II |  |
 | `reinstatement_reversals` | Reinstatement reversals | simple | `sum(reversal_amount)` | `fct_reinstatement` | Cancellations | Financial Analyst II |  |

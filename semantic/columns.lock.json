@@ -267,6 +267,18 @@
     "VARCHAR"
    ],
    [
+    "agency_name",
+    "VARCHAR"
+   ],
+   [
+    "principal_name",
+    "VARCHAR"
+   ],
+   [
+    "is_house_agent",
+    "BOOLEAN"
+   ],
+   [
     "_built_at",
     "TIMESTAMP WITH TIME ZONE"
    ]
@@ -524,6 +536,10 @@
    ],
    [
     "deal_id",
+    "VARCHAR"
+   ],
+   [
+    "parent_contract_key",
     "VARCHAR"
    ],
    [
@@ -906,6 +922,10 @@
    ],
    [
     "custom_chassis_vin_hash",
+    "VARCHAR"
+   ],
+   [
+    "custom_chassis_vin_shape",
     "VARCHAR"
    ],
    [
@@ -1309,6 +1329,14 @@
     "INTEGER"
    ],
    [
+    "is_bundle",
+    "BOOLEAN"
+   ],
+   [
+    "external_product_line",
+    "VARCHAR"
+   ],
+   [
     "_built_at",
     "TIMESTAMP WITH TIME ZONE"
    ]
@@ -1367,6 +1395,10 @@
    [
     "secondary_color",
     "VARCHAR"
+   ],
+   [
+    "admin_company_id",
+    "BIGINT"
    ],
    [
     "_built_at",
@@ -1461,6 +1493,14 @@
     "VARCHAR"
    ],
    [
+    "reason_group",
+    "VARCHAR"
+   ],
+   [
+    "is_admin_correction",
+    "BOOLEAN"
+   ],
+   [
     "method",
     "VARCHAR"
    ],
@@ -1510,6 +1550,18 @@
    ],
    [
     "is_effective_cancel",
+    "BOOLEAN"
+   ],
+   [
+    "is_effective_cancel_excl_admin",
+    "BOOLEAN"
+   ],
+   [
+    "is_reversed",
+    "BOOLEAN"
+   ],
+   [
+    "is_reversal_row",
     "BOOLEAN"
    ],
    [
@@ -2011,6 +2063,14 @@
    [
     "incentive_group",
     "VARCHAR"
+   ],
+   [
+    "disbursement_group",
+    "VARCHAR"
+   ],
+   [
+    "is_group_from_line",
+    "BOOLEAN"
    ],
    [
     "posted_at",
@@ -2642,6 +2702,10 @@
    ],
    [
     "label",
+    "VARCHAR"
+   ],
+   [
+    "form_question_no",
     "VARCHAR"
    ],
    [

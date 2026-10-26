@@ -71,6 +71,10 @@ table 'Regulatory Line Value'
 		dataType: string
 		sourceColumn: LABEL
 
+	column 'Form Question No'
+		dataType: string
+		sourceColumn: FORM_QUESTION_NO
+
 	column Measure
 		dataType: string
 		sourceColumn: MEASURE

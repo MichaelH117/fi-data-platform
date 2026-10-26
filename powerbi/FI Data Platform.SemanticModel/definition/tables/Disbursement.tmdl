@@ -57,6 +57,14 @@ table Disbursement
 		dataType: string
 		sourceColumn: incentive_group
 
+	column 'Disbursement Group'
+		dataType: string
+		sourceColumn: disbursement_group
+
+	column 'Is Group From Line'
+		dataType: boolean
+		sourceColumn: is_group_from_line
+
 	column 'Posted At'
 		dataType: dateTime
 		formatString: yyyy-mm-dd

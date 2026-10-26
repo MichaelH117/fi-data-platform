@@ -54,4 +54,8 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> list[Page]:
             excel.write_inforce_list(out_dir / rel, data.inforce_tabs(rows))
             files[f"inforce:{state}"] = rel
             out.append(pages.inforce_page(d, state, rows, rel))
-    return [pages.index_page(d, files, inforce), *out, pages.definitions_page(d)]
+    profile = data.inforce_profile(con)  # V7 edit 30; None on a warehouse built before the mart
+    if profile is not None and len(profile):
+        out.append(pages.inforce_profile_page(profile))
+    has_profile = any(p.path == pages.INFORCE_PROFILE for p in out)
+    return [pages.index_page(d, files, inforce, has_profile), *out, pages.definitions_page(d)]

@@ -1,6 +1,6 @@
 """Plotly figure helpers with one house style.
 
-Figures are drawn with light-mode colors and a transparent background. ``static/site.js`` re-inks
+Figures are drawn with the default (dark) theme colors and a transparent background. ``static/site.js`` re-inks
 fonts, gridlines and series (via ``trace.meta.slot``) from the page's CSS tokens, so the same HTML
 reads correctly in light and dark mode. Chart titles and captions live in the HTML card, not the
 figure, so they stay real text for screen readers.
@@ -13,10 +13,13 @@ from collections.abc import Sequence
 import pandas as pd
 import plotly.graph_objects as go
 
-# Categorical slots (validated reference palette, light steps). Dark steps live in site.css.
-SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
-INK_2, INK_3, GRID, AXIS, SURFACE = "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb"
-FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+# Categorical slots in fixed order (F&IP dark steps; light steps live in site.css). Slots 1-5 passed the dataviz
+# palette validator on the dark panel #16191A (lightness band, chroma, adjacent CVD >= 8, normal >= 15, contrast).
+# Slots 6-8 are neutrals for a rare extra series. The bright brand green #8ACE00 is too light for the chart band,
+# so series 1 is the same green hue one step darker.
+SERIES = ["#70A600", "#C72481", "#00A7AE", "#D57700", "#7F57D1", "#8C9488", "#5F665C", "#B6BDB0"]
+INK_2, INK_3, GRID, AXIS, SURFACE = "#C5CCBF", "#9AA394", "rgba(232,236,228,0.07)", "rgba(232,236,228,0.20)", "#16191A"
+FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
 
 CONFIG = {
     "displaylogo": False,
@@ -35,7 +38,7 @@ def layout(fig: go.Figure, *, yfmt: str = ",.0f", ysuffix: str = "", height: int
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family=FONT, size=12, color=INK_2),
         hovermode="x unified",
-        hoverlabel=dict(bgcolor=SURFACE, bordercolor=AXIS, font=dict(color="#0b0b0b", family=FONT)),
+        hoverlabel=dict(bgcolor=SURFACE, bordercolor=AXIS, font=dict(color="#E8ECE4", family=FONT)),
         showlegend=legend,
         legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0, title=None, traceorder="normal"),
         bargap=0.25,

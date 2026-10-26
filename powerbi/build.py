@@ -20,6 +20,8 @@ def build_files() -> dict[Path, str]:
     files: dict[Path, str] = {PBIP: report.dumps(report.pbip(REPORT_DIR.name))}
     for rel, doc in report.report_files(MODEL_DIR.name).items():
         files[REPORT_DIR / rel] = report.dumps(doc)
+    for rel, text in report.static_files().items():  # the wordmark image
+        files[REPORT_DIR / rel] = text
     plan, columns = model.load_plan()
     model.write_portfolio(plan, columns, MODEL_DIR, lambda p, t: files.__setitem__(p, t))
     return files

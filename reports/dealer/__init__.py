@@ -23,6 +23,7 @@ import pandas as pd
 
 from reports import charts
 from reports.build import Kpi, Page, Section, chart_section, link, money, month_label, num, pct
+from reports.dealer import v7
 from reports.dealer.excel import write_workbook
 from reports.dealer.watch import CANCEL_RATE_T12, LR_LABEL, min_volume_text, rules, watch_counts
 
@@ -118,7 +119,8 @@ def page_production(con, out: Path, last_month: pd.Timestamp) -> tuple[Page, Pat
     }, notes=[f"Dealer production through {month_label(last_month)} (synthetic data).",
               "Counts contracts written by entered month; status set from seed dealer_report_status_sets."])
     page = _sub("dealer/production.html", "Dealer production",
-                "Contracts each dealer wrote, by product subcategory and month.", kpis, [s1, s2])
+                "Contracts each dealer wrote, by product subcategory and month.", kpis,
+                [s1, *v7.activation_section(con), s2])
     return page, xlsx
 
 
@@ -314,8 +316,10 @@ def page_specialty(con, out: Path, last_month: pd.Timestamp) -> tuple[Page, Path
         "Monthly": sp.loc[sp["entered_month"] == last_month, cols],
         "Monthly summary": sp.groupby(["entered_month", "line_name"]).size().reset_index(name="contracts"),
     }, notes=[f"Specialty-line contracts; the Monthly tab is {month_label(last_month)} (synthetic data)."])
+    vin_kpis, vin_sections = v7.chassis_section(sp)  # V7 edit 27
     page = _sub("dealer/specialty-line.html", "Specialty line (RV and powersports)",
-                "Recreational-vehicle contracts with their chassis VIN, and powersports contracts.", kpis, [s1, s2, s3])
+                "Recreational-vehicle contracts with their chassis VIN, and powersports contracts.", kpis + vin_kpis,
+                [s1, *vin_sections, s2, s3])
     return page, xlsx
 
 
@@ -458,9 +462,12 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> list:
     built = [page_production(con, out_dir, last_month), page_pending(con, out_dir),
              page_surcharge(con, out_dir), page_specialty(con, out_dir, last_month),
              page_remittance(con, out_dir, last_month), page_scorecard(con, out_dir, last_month)]
+    extra = v7.build(con, out_dir, last_month, HUB, CRUMB)  # V7 pages whose marts exist in this warehouse
+    listed = REPORTS + [r for r in v7.REPORTS if any(p.path == r[0] for p, _ in extra)]
+    built += extra
     pages = [p for p, _ in built]
     rows = []
-    for (path, title, what), (_, xlsx) in zip(REPORTS, built, strict=True):
+    for (path, title, what), (_, xlsx) in zip(listed, built, strict=True):
         rel = xlsx.relative_to(out_dir).as_posix()
         rows.append([link(title, path), what, link(xlsx.name, rel)])
     hub = Page(HUB, "Dealer operations",

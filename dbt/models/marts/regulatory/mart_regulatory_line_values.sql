@@ -3,6 +3,7 @@
 -- provider. The seed decides the measure, the status set, the date rule, the product scope and the
 -- dollar basis, so a counting rule changes in the seed, not in this SQL. Missing combinations are
 -- filled with 0 (a genuine zero is reported, never dropped).
+-- V7 edit 52: form_question_no (seed) labels each value with the state-form question it answers.
 --   contract measures: status set and date rule apply to the contract
 --   CLAIM_COUNT:       status set applies to the claim; date rule REPORTED_ / CLOSED_IN_WINDOW
 --   CLAIM_PAID_AMOUNT: status set and date rule pick the contracts; payments posted in the window
@@ -17,7 +18,7 @@ lines as (
     select
         w.report_id, w.state, w.scope, w.window_id, w.window_label, w.window_start, w.window_end, w.is_final,
         coalesce(w.window_start, date '1900-01-01') as win_from,
-        d.section, d.line_no, d.line_item, d.label, d.measure, d.date_rule, d.status_set_id, d.basis,
+        d.section, d.line_no, d.line_item, d.label, d.form_question_no, d.measure, d.date_rule, d.status_set_id, d.basis,
         d.category_filter, d.subcategory_exclude, d.aggregation
     from {{ ref('mart_regulatory_windows') }} as w
     inner join defs as d on d.report_id = w.report_id and d.scope = w.scope
@@ -161,6 +162,7 @@ select
     l.line_no,
     l.line_item,
     l.label,
+    l.form_question_no,
     l.measure,
     l.basis,
     l.aggregation,

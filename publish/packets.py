@@ -32,6 +32,7 @@ import html
 import json
 import logging
 import math
+import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -174,7 +175,48 @@ TABLE_SPECS: dict[str, Spec] = {
          Col("early_claim_rate", "Early-claim rate", "pct"), Col("incurred_claims", "Incurred claims", "money"),
          Col("earned_claims_reserve", "Earned claims reserve", "money"), Col("loss_ratio", "Loss ratio", "pct")),
     ),
+    # V7 edit 25: this month's pending vs active, with the three months before it.
+    "activations": Spec(
+        "Current month activations", "asof",
+        f"""
+        select strftime(month_start, '%b %Y') || case when is_current_month then ' (in progress)' else '' end
+                   as month,
+               product_family,
+               cast(sum(contracts_pending) as bigint) as contracts_pending,
+               cast(sum(contracts_active) as bigint) as contracts_active
+        from dealer.mart_dealer_activations
+        where {_DEALER}
+        group by month_start, is_current_month, product_family
+        order by month_start desc, product_family
+        """,
+        (Col("month", "Month"), Col("product_family", "Product family"),
+         Col("contracts_pending", "Still pending", "int"), Col("contracts_active", "Active", "int")),
+    ),
+    # V7 edit 46: what the store is owed for each remittance, line by line (total = sum of the sections).
+    "incentive_statement": Spec(
+        "Incentive statement by remittance", "t12",
+        f"""
+        select remit_batch_id, remit_received_date, product_type,
+               round(sum(commissions), 2) as commissions, round(sum(cancels), 2) as cancels,
+               round(sum(reinstatements), 2) as reinstatements, round(sum(amendments), 2) as amendments,
+               round(sum(other_adjustments), 2) as other_adjustments, round(sum(total_due), 2) as total_due
+        from dealer.mart_dealer_incentive_statement
+        where {_DEALER} and statement_status = 'REMITTED'
+          and remit_received_date between $t12_start and last_day($t12_end)
+        group by all
+        order by remit_received_date desc, remit_batch_id, product_type
+        """,
+        (Col("remit_batch_id", "Remittance"), Col("remit_received_date", "Received", "date"),
+         Col("product_type", "Product type"), Col("commissions", "New-sale commission", "money"),
+         Col("cancels", "Cancels", "money"), Col("reinstatements", "Reinstatements", "money"),
+         Col("amendments", "Amendments", "money"), Col("other_adjustments", "Other adjustments", "money"),
+         Col("total_due", "Total due", "money")),
+    ),
 }
+
+# Sections added after a mart existed (V7): an older warehouse without the mart gets an empty table
+# instead of a failed packet run.
+OPTIONAL_TABLES = {"activations", "incentive_statement"}
 
 PROGRAM_CLAIMS = Spec(
     "Program claims KPIs by product line", "program_t12",
@@ -312,7 +354,12 @@ def packet_tables(con: duckdb.DuckDBPyConnection, p: Packet, per: Periods | None
     out: dict[str, pd.DataFrame] = {}
     for name, spec in TABLE_SPECS.items():
         sql_params = {k: v for k, v in params.items() if f"${k}" in spec.sql}
-        out[name] = con.execute(spec.sql, sql_params).df()
+        try:
+            out[name] = con.execute(spec.sql, sql_params).df()
+        except duckdb.CatalogException:
+            if name not in OPTIONAL_TABLES:
+                raise
+            out[name] = pd.DataFrame(columns=[c.key for c in spec.cols])
     kpi = out["kpi"]
     if len(kpi):
         value, scope = peer_loss_ratio(peer, _dealer_state(con, p.dealer_key))
@@ -378,38 +425,273 @@ def _table_html(df: pd.DataFrame, cols: tuple[Col, ...], per: Periods, links: di
             f"<tbody>{''.join(body)}</tbody></table></div>")
 
 
-def _kpi_strip(row: dict, cols: tuple[Col, ...], note: str = "") -> str:
-    tiles = "".join(f"<div class='kpi'><span>{html.escape(c.label)}</span>"
-                    f"<b>{html.escape(fmt_value(row.get(c.key), c.fmt))}</b></div>" for c in cols)
-    return f"<div class='kpis'>{tiles}</div>" + (f"<p class='note'>{html.escape(note)}</p>" if note else "")
+# --------------------------------------------------------------------------- look and explanations (V7)
+# Packets use the F&IP site theme: the colour tokens and the tile / status / explain rules are read from
+# reports/static/site.css at build time (one source, so a token change reaches every packet), plus a few
+# packet-only rules below. A program keeps only a thin accent stripe and a label edge in its own colour; text
+# is never drawn on a program colour. Black text on brat green only.
+STATIC = Path(__file__).resolve().parents[1] / "reports" / "static"
+SITE_CSS = STATIC / "site.css"
+WORDMARK = STATIC / "fip-wordmark.svg"
+SITE_RULE_PREFIXES = (".kpi", ".explain", ".status")
+FONTS = ("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600"
+         "&family=JetBrains+Mono:wght@400;600;700&display=swap")
+PACKET_CSS = """
+body { margin: 0; padding: 0 16px 40px; background: var(--bg); color: var(--text); font: 15px/1.55 var(--font); }
+a { color: var(--brand-ink); text-underline-offset: 3px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; margin: 0 -16px 20px;
+  padding: 16px; background: var(--panel); border-bottom: 1px solid var(--line); border-top: 4px solid var(--program); }
+header.top svg { height: 40px; width: auto; flex: none; }
+.who { display: grid; gap: 4px; min-width: 0; }
+.who h1 { margin: 0; font: 700 26px/1.1 var(--font-head); letter-spacing: 0.01em; color: var(--text); }
+.who p { margin: 0; color: var(--text-2); font-size: 13.5px; }
+.program { justify-self: start; padding: 2px 8px; border-left: 4px solid var(--program); background: var(--panel-2);
+  color: var(--text); font: 600 12px/1.5 var(--font-mono); letter-spacing: 0.04em; }
+.intro { max-width: 80ch; color: var(--text-2); margin: 0 0 18px; }
+h2 { margin: 30px 0 2px; font: 700 21px/1.2 var(--font-head); letter-spacing: 0.02em; color: var(--text); }
+.period { margin: 0 0 10px; color: var(--muted); font: 12.5px/1.4 var(--font-mono); }
+.kpis { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.kpi-compare { color: var(--text); font-size: 13px; line-height: 1.4; }
+.kpi-compare b { color: var(--muted); font: 600 10.5px/1.3 var(--font-mono); letter-spacing: 0.06em;
+  text-transform: uppercase; }
+.note, .empty { color: var(--muted); font-size: 13px; max-width: 90ch; }
+.scroll { overflow-x: auto; border: 1px solid var(--line-soft);
+  background: var(--panel); }
+table.t { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+table.t th { background: var(--panel-2); color: var(--text); text-align: left; font: 600 11.5px/1.35 var(--font-mono);
+  letter-spacing: 0.04em; border-bottom: 1px solid var(--line); }
+table.t th, table.t td { padding: 6px 10px; white-space: nowrap; }
+table.t td { border-bottom: 1px solid var(--line-soft); color: var(--text-2); }
+table.t .num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+@media (max-width: 560px) { .kpis { grid-template-columns: 1fr; } header.top svg { height: 32px; } }
+"""
+
+
+def _top_rules(css: str) -> list[tuple[str, str]]:
+    """(selector, full rule) for each top-level rule; rules inside @media and other at-rules are skipped."""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    out: list[tuple[str, str]] = []
+    depth, start, sel = 0, 0, ""
+    for i, ch in enumerate(css):
+        if ch == "{":
+            if depth == 0:
+                sel = css[start:i].strip()
+                rule_start = start
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                if not sel.startswith("@"):
+                    out.append((sel, css[rule_start:i + 1].strip()))
+                start = i + 1
+    return out
+
+
+def theme_css(site_css: Path = SITE_CSS) -> str:
+    """The site's dark colour tokens and its KPI tile, status and explain rules, then the packet rules."""
+    keep = []
+    if site_css.is_file():
+        for sel, rule in _top_rules(site_css.read_text(encoding="utf-8")):
+            parts = [s.strip() for s in sel.split(",")]
+            if sel == ":root" or any(p.startswith(SITE_RULE_PREFIXES) for p in parts):
+                keep.append(rule)
+    return "\n".join(keep) + PACKET_CSS
+
+
+def wordmark_svg() -> str:
+    """The F&IP wordmark, inline (works with no site next to the packet). Black text on brat green."""
+    svg = WORDMARK.read_text(encoding="utf-8") if WORDMARK.is_file() else ""
+    svg = re.sub(r"<title[^>]*>.*?</title>", "", svg, flags=re.S)
+    return svg.replace('aria-labelledby="fip-t"', 'aria-label="F&amp;IP"').strip() or "<b>F&amp;IP</b>"
+
+
+# Packet tile -> row in dbt/seeds/core/metric_explanations.csv (the same three lines the site shows).
+PACKET_METRICS = {
+    "contracts_written": "scorecard_contracts_written", "cancel_rate": "scorecard_cancel_rate",
+    "loss_ratio": "scorecard_loss_ratio", "peer_loss_ratio": "peer_loss_ratio",
+    "loss_ratio_peer_pct": "loss_ratio_peer_percentile", "contracts_in_force": "contracts_in_force",
+    "pending_contracts": "dlr_pending_contracts", "late_fees": "late_fees",
+}
+PROGRAM_METRICS = {"contracts_written": "contracts_written", "contracts_in_force": "contracts_in_force",
+                   "loss_ratio": "posted_loss_ratio", "late_fees": "late_fees",
+                   "pending_contracts": "dlr_pending_contracts"}
+# Status rules for packet tiles whose seed row has no threshold. PROPOSED in the V7 fix round; the Financial
+# Analysts confirm or change them (docs/V3_DESIGN.md 10.8). Loss ratio uses the seed thresholds; late payments
+# use seed rule scorecard_watch_late_rate.
+PACKET_RULES = {
+    "cancel_watch_pts": 0.05,  # Watch up to 5 points above the program's own cancel rate; Needs action beyond
+    "peer_watch_pts": 0.10,  # Watch up to 10 points above the peer loss ratio; Needs action beyond
+    "rank_watch": 0.50, "rank_alert": 0.80,  # loss-ratio rank: worse than the middle dealer = Watch, top fifth = action
+    "pending_watch_days": 60, "pending_alert_days": 90,  # oldest pending contract
+}
+STATUS_WORDS = {"good": "On track", "warning": "Watch", "critical": "Needs action"}
+_ICONS = {
+    "good": '<path d="M2 6.5l2.6 2.5L10 3.2" fill="none" stroke="currentColor" stroke-width="2" '
+            'stroke-linecap="square"/>',
+    "warning": '<path d="M2 6h8" stroke="currentColor" stroke-width="2.4"/>',
+    "critical": '<path d="M6 1.2L11.2 10.6H.8z" fill="currentColor"/><path d="M6 4.6v3M6 8.6v.9" stroke="#000" '
+                'stroke-width="1.3"/>',
+}
+
+
+@dataclass(frozen=True)
+class Bench:
+    """What a dealer's tiles are compared with: its program's totals and the seed late-payment rule."""
+    program_cancel_rate: float | None = None
+    program_written_per_dealer: float | None = None
+    late_rate_rule: float = 0.50
+
+
+def explanations():
+    """The site's explanation catalog (reports/explain.py), or None when the report package is not there."""
+    try:
+        from reports import explain
+    except ImportError:
+        return None
+    return explain.load()
+
+
+def late_rate_rule(con: duckdb.DuckDBPyConnection) -> float:
+    try:
+        row = con.execute("select rule_value from seeds.dealer_claim_kpi_rules "
+                          "where rule_id = 'scorecard_watch_late_rate'").fetchone()
+        if row:
+            return float(row[0])
+    except duckdb.Error:
+        pass
+    seed = Path(__file__).resolve().parents[1] / "dbt" / "seeds" / "dealer" / "dealer_claim_kpi_rules.csv"
+    if seed.is_file():
+        rules = pd.read_csv(seed, dtype=str).set_index("rule_id")["rule_value"]
+        if "scorecard_watch_late_rate" in rules:
+            return float(rules["scorecard_watch_late_rate"])
+    return 0.50
+
+
+def _num(v: object) -> float | None:
+    return None if _missing(v) else float(v)
+
+
+def _pct(v: float | None) -> str:
+    return fmt_value(v, "pct")
+
+
+def _sum(df: pd.DataFrame | None, col: str) -> float:
+    if df is None or not len(df) or col not in df:
+        return 0.0
+    return float(pd.to_numeric(df[col], errors="coerce").fillna(0).sum())
+
+
+def kpi_status(key: str, row: dict, tables: dict[str, pd.DataFrame], bench: Bench, cat=None) -> tuple[str, str]:
+    """(status, "compared to" sentence) for one dealer packet tile; status is good / warning / critical or ""."""
+    v = _num(row.get(key))
+    lr = _num(row.get("loss_ratio"))
+    r = PACKET_RULES
+    if key == "contracts_written":
+        avg = bench.program_written_per_dealer
+        return ("good" if v else "warning"), (f"Program average per dealer: {avg:,.0f}." if avg is not None else "")
+    if key == "cancel_rate":
+        base = bench.program_cancel_rate
+        if v is None or base is None:
+            return "", ""
+        st = "good" if v <= base else "warning" if v <= base + r["cancel_watch_pts"] else "critical"
+        return st, f"Program average: {_pct(base)}. Watch up to {r['cancel_watch_pts'] * 100:.0f} points above it."
+    if key == "loss_ratio":
+        mid = PACKET_METRICS[key]
+        e = cat.metrics.get(mid) if cat is not None else None
+        if e is None or e.watch_threshold is None or e.alert_threshold is None:
+            return "", ""
+        return cat.status(mid, v), (f"Watch above {_pct(e.watch_threshold)}, "
+                                    f"needs action above {_pct(e.alert_threshold)}.")
+    if key == "peer_loss_ratio":
+        scope = row.get("peer_scope") or "peers"
+        if v is None:
+            return "", "Not published: too few similar dealers to share it safely."
+        if lr is None:
+            return "", f"Average for {scope}."
+        st = "good" if lr <= v else "warning" if lr <= v + r["peer_watch_pts"] else "critical"
+        return st, f"Yours: {_pct(lr)} vs {_pct(v)} for {scope}. Lower is better."
+    if key == "loss_ratio_peer_pct":
+        if v is None:
+            return "", "Not ranked yet: not enough earned reserve in 12 months."
+        st = "good" if v <= r["rank_watch"] else "warning" if v < r["rank_alert"] else "critical"
+        return st, "50% is the middle dealer; 0% is the lowest loss ratio. Lower is better."
+    if key == "contracts_in_force":
+        return ("good" if v else "warning"), (
+            f"Written in the last 12 months: {fmt_value(row.get('contracts_written'), 'int')}.")
+    if key == "pending_contracts":
+        pend = tables.get("pending_contracts")
+        oldest = (float(pd.to_numeric(pend["days_pending"], errors="coerce").max())
+                  if pend is not None and len(pend) else 0.0)
+        st = ("good" if oldest <= r["pending_watch_days"] else
+              "warning" if oldest <= r["pending_alert_days"] else "critical")
+        return st, (f"Oldest one: {oldest:,.0f} days. Watch past {r['pending_watch_days']} days, "
+                    f"needs action past {r['pending_alert_days']}." if v else "Nothing waiting.")
+    if key == "late_fees":
+        aging = tables.get("remittance_aging")
+        paid, late = _sum(aging, "t12_remittances"), _sum(aging, "t12_late_remittances")
+        share = late / paid if paid else 0.0
+        st = "good" if not v else "critical" if share > bench.late_rate_rule else "warning"
+        return st, (f"{late:,.0f} of {paid:,.0f} payments were late in 12 months. "
+                    f"Needs action when more than {bench.late_rate_rule:.0%} are late.")
+    return "", ""
+
+
+def _status_html(status: str) -> str:
+    if not status:
+        return ""
+    return (f"<p class='status status-{status}'><svg class='status-icon' viewBox='0 0 12 12' aria-hidden='true'>"
+            f"{_ICONS[status]}</svg><span>{STATUS_WORDS[status]}</span></p>")
+
+
+def _explain_html(cat, metric_id: str) -> str:
+    e = cat.metrics.get(metric_id) if cat is not None and metric_id else None
+    if e is None:
+        return ""
+    lines = "".join(f"<div><dt>{html.escape(label)}</dt><dd>{html.escape(text)}</dd></div>"
+                    for label, text in e.lines() if text)
+    return f"<dl class='explain'>{lines}</dl>"
+
+
+def _kpi_strip(row: dict, cols: tuple[Col, ...], note: str = "", status=None, cat=None,
+               metrics: dict[str, str] | None = None) -> str:
+    """KPI tiles: label, big value, status word + shape, a "compared to" line and the three explain lines."""
+    metrics = metrics or {}
+    tiles = []
+    for c in cols:
+        value = fmt_value(row.get(c.key), c.fmt)
+        st, cmp = status(c.key) if status else ("", "")
+        mid = metrics.get(c.key, "")
+        val = ("<p class='kpi-value kpi-empty'>Not enough data yet</p>" if value == "-"
+               else f"<p class='kpi-value'>{html.escape(value)}</p>")
+        tiles.append(
+            (f'<div class="kpi" data-metric="{html.escape(mid)}">' if mid else "<div class='kpi'>")
+            + f"<p class='kpi-label'>{html.escape(c.label)}</p>{val}"
+            + (f"<div class='kpi-foot'>{_status_html(st)}</div>" if st else "")
+            + (f"<p class='kpi-compare'><b>Compared to</b><br>{html.escape(cmp)}</p>" if cmp else "")
+            + f"{_explain_html(cat, mid)}</div>")
+    return f"<div class='kpis'>{''.join(tiles)}</div>" + (f"<p class='note'>{html.escape(note)}</p>" if note else "")
 
 
 def _page(title: str, brand: str, tint: str, header: str, body: str) -> str:
+    """``brand`` is the program's own colour, used only for the thin top stripe and the label edge. ``tint`` is
+    kept for callers; the dark theme never draws text on a program colour."""
+    del tint
+    program = brand if re.fullmatch(r"#[0-9A-Fa-f]{3,8}", brand or "") else "#8ACE00"
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="{FONTS}">
 <style>
-:root {{ --brand: {brand}; --tint: {tint}; --ink: #1d2733; --muted: #5b6673; --line: #d8dee6;
-         --bg: #fff; --card: #f6f8fa; }}
-body {{ font-family: system-ui, sans-serif; margin: 0 16px 32px; color: var(--ink); background: var(--bg); }}
-header {{ background: var(--brand); color: #fff; padding: 16px; margin: 0 -16px 16px; }}
-header a {{ color: #fff; }}
-h2 {{ margin: 24px 0 2px; font-size: 18px; }}
-.period {{ margin: 0 0 8px; color: var(--muted); font-size: 13px; }}
-.kpis {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }}
-.kpi {{ background: var(--card); border-left: 4px solid var(--brand); padding: 8px 10px; }}
-.kpi span {{ display: block; font-size: 12px; color: var(--muted); }}
-.kpi b {{ font-size: 20px; font-variant-numeric: tabular-nums; }}
-.note, .empty {{ color: var(--muted); font-size: 13px; }}
-.scroll {{ overflow-x: auto; }}
-table.t {{ border-collapse: collapse; width: 100%; font-size: 14px; }}
-table.t th {{ background: var(--tint); text-align: left; }}
-table.t th, table.t td {{ padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }}
-table.t .num {{ text-align: right; font-variant-numeric: tabular-nums; }}
-</style></head><body>
-<header>{header}</header>
+{theme_css()}
+:root {{ --program: {program}; }}
+</style></head><body><div class="wrap">
+<header class="top">{wordmark_svg()}{header}</header>
 {body}
-</body></html>
+</div></body></html>
 """
 
 
@@ -421,23 +703,35 @@ def _peer_note(kpi: pd.DataFrame) -> str:
     if not len(kpi):
         return ""
     scope = kpi["peer_scope"].iloc[0] if "peer_scope" in kpi else ""
-    return ("Loss ratio = incurred claims / earned claims reserve. Peer loss ratio: VSC contracts, "
-            f"{scope or 'not published (suppressed)'}, from the suppressed T12 peer benchmark. "
+    return ("How these are worked out: loss ratio = incurred claims / earned claims reserve. Peer loss ratio: VSC "
+            f"contracts, {scope or 'not published (suppressed)'}, from the suppressed T12 peer benchmark. "
             "Peer percentile ranks this dealer's T12 loss ratio among all dealers with enough earned reserve "
-            "(mart_dealer_scorecard; 0% = lowest).")
+            "(0% = lowest).")
 
 
-def _html(p: Packet, tables: dict[str, pd.DataFrame], per: Periods) -> str:
+def _header(kicker: str, title: str, detail: str) -> str:
+    return (f"<div class='who'><span class='program'>{html.escape(kicker)}</span><h1>{html.escape(title)}</h1>"
+            f"<p>{detail}</p></div>")
+
+
+def _html(p: Packet, tables: dict[str, pd.DataFrame], per: Periods, bench: Bench | None = None, cat=None) -> str:
+    bench = bench or Bench()
     kpi = tables["kpi"]
-    parts = [_section("Headline KPIs", per.label("t12"),
-                      _kpi_strip(kpi.iloc[0].to_dict(), KPI_COLS, _peer_note(kpi)) if len(kpi)
-                      else "<p class='empty'>No activity in this period.</p>")]
+    row = kpi.iloc[0].to_dict() if len(kpi) else {}
+    parts = [
+        "<p class='intro'>Your store's last 12 complete months on one page. Each headline number has a status word, "
+        "what it is compared with, and three short lines on what it means and why it is asked for. The tables "
+        "below hold the detail; the same tables are in packet.xlsx.</p>",
+        _section("Headline KPIs", per.label("t12"),
+                 _kpi_strip(row, KPI_COLS, _peer_note(kpi), lambda k: kpi_status(k, row, tables, bench, cat),
+                            cat, PACKET_METRICS) if len(kpi)
+                 else "<p class='empty'>No activity in this period.</p>")]
     for name, spec in TABLE_SPECS.items():
         if name != "kpi":
             parts.append(_section(spec.title, per.label(spec.period), _table_html(tables[name], spec.cols, per)))
-    header = (f"<strong>{html.escape(p.reportable_name)}</strong><br>Dealer packet: {html.escape(p.dealer_number)} "
-              f"{html.escape(p.dealer_name or '')} &middot; {html.escape(per.t12_label)} &middot; "
-              f"data as of {per.as_of:%Y-%m-%d} &middot; <a href='../index.html'>program</a>")
+    header = _header(p.reportable_name, f"Dealer packet: {p.dealer_number} {p.dealer_name or ''}".strip(),
+                     f"F&amp;I Data Platform &middot; {html.escape(per.t12_label)} &middot; data as of "
+                     f"{per.as_of:%Y-%m-%d} &middot; <a href='../index.html'>program packet</a>")
     return _page(f"{p.dealer_number} packet", p.primary_color, p.secondary_color, header, "\n".join(parts))
 
 
@@ -501,12 +795,13 @@ def _xlsx_async(path: Path, sheets: list[tuple[str, str, str, pd.DataFrame, tupl
     return True
 
 
-def write_packet(out_dir: Path, p: Packet, tables: dict[str, pd.DataFrame], per: Periods) -> Path:
+def write_packet(out_dir: Path, p: Packet, tables: dict[str, pd.DataFrame], per: Periods,
+                 bench: Bench | None = None, cat=None) -> Path:
     d = out_dir / p.tenant_code / p.dealer_number
     d.mkdir(parents=True, exist_ok=True)
     for name, df in tables.items():
         df.to_csv(d / f"{name}.csv", index=False)
-    (d / "index.html").write_text(_html(p, tables, per), encoding="utf-8")
+    (d / "index.html").write_text(_html(p, tables, per, bench, cat), encoding="utf-8")
     sheets = [(name, spec.title, per.label(spec.period), tables[name], spec.cols) for name, spec in TABLE_SPECS.items()]
     has_xlsx = _xlsx_async(d / "packet.xlsx", sheets, per)
     meta = {"tenant_code": p.tenant_code, "dealer_number": p.dealer_number, "dealer_key": p.dealer_key,
@@ -538,7 +833,29 @@ def program_tables(con: duckdb.DuckDBPyConnection, members: list[tuple[Packet, d
     return {"program_kpi": pd.DataFrame([total]), "dealers": dealers, "program_claims": claims}
 
 
-def write_program(out_dir: Path, tenant: Packet, tables: dict[str, pd.DataFrame], per: Periods) -> Path:
+def _program_status(tables: dict[str, pd.DataFrame], cat):
+    """Program tiles get a status only where the seed has a rule (loss ratio)."""
+    row = tables["program_kpi"].iloc[0].to_dict()
+
+    def status(key: str) -> tuple[str, str]:
+        if key != "loss_ratio" or cat is None:
+            return "", ""
+        e = cat.metrics.get(PROGRAM_METRICS[key])
+        if e is None or e.watch_threshold is None or e.alert_threshold is None:
+            return "", ""
+        return cat.status(e.metric_id, _num(row.get(key))), (
+            f"Watch above {_pct(e.watch_threshold)}, needs action above {_pct(e.alert_threshold)}.")
+    return status
+
+
+def bench_for(members: list[tuple[Packet, dict[str, pd.DataFrame]]], late_rule: float) -> Bench:
+    """A program's own cancel rate and average contracts per dealer, from its dealer packets' KPI rows."""
+    written = sum(_sum(t["kpi"], "contracts_written") for _, t in members)
+    cancelled = sum(_sum(t["kpi"], "contracts_cancelled") for _, t in members)
+    return Bench(cancelled / written if written else None, written / len(members) if members else None, late_rule)
+
+
+def write_program(out_dir: Path, tenant: Packet, tables: dict[str, pd.DataFrame], per: Periods, cat=None) -> Path:
     d = out_dir / tenant.tenant_code
     d.mkdir(parents=True, exist_ok=True)
     for name, df in tables.items():
@@ -549,14 +866,15 @@ def write_program(out_dir: Path, tenant: Packet, tables: dict[str, pd.DataFrame]
                  _kpi_strip(tables["program_kpi"].iloc[0].to_dict(), PROGRAM_KPI_COLS,
                             "Written, earned, incurred and late fees are T12 sums of the dealer packets below; "
                             f"in force and pending are as of {per.as_of:%Y-%m-%d}. "
-                            "Loss ratio = incurred / earned claims reserve.")),
+                            "Loss ratio = incurred / earned claims reserve.", _program_status(tables, cat),
+                            cat, PROGRAM_METRICS)),
         _section("Dealers", per.label("t12"), _table_html(tables["dealers"], PROGRAM_DEALER_COLS, per, links)),
         _section(PROGRAM_CLAIMS.title, per.label("program_t12"),
                  _table_html(tables["program_claims"], PROGRAM_CLAIMS.cols, per)),
     ])
-    header = (f"<strong>{html.escape(tenant.reportable_name)}</strong><br>Partner program packet: "
-              f"{html.escape(tenant.tenant_code)} &middot; {len(tables['dealers'])} dealers &middot; "
-              f"{html.escape(per.t12_label)} &middot; data as of {per.as_of:%Y-%m-%d}")
+    header = _header(tenant.reportable_name, f"Partner program packet: {tenant.tenant_code}",
+                     f"F&amp;I Data Platform &middot; {len(tables['dealers'])} dealers &middot; "
+                     f"{html.escape(per.t12_label)} &middot; data as of {per.as_of:%Y-%m-%d}")
     (d / "index.html").write_text(_page(f"{tenant.tenant_code} program packet", tenant.primary_color,
                                         tenant.secondary_color, header, body), encoding="utf-8")
     has_xlsx = _xlsx_async(d / "program.xlsx", [
@@ -575,12 +893,14 @@ def build_packets(con: duckdb.DuckDBPyConnection, out_dir: Path, peer: pd.DataFr
     per = periods(con)
     written: list[Path] = []
     by_tenant: dict[str, list[tuple[Packet, dict[str, pd.DataFrame]]]] = {}
+    cat, late_rule = explanations(), late_rate_rule(con)
+    for p in packets(con):  # tables first: each dealer's tiles are compared with its whole program
+        by_tenant.setdefault(p.tenant_code, []).append((p, packet_tables(con, p, per, peer)))
     with workpool.workbook_pool():  # packet workbooks are written in parallel; the block waits for all
-        for p in packets(con):
-            tables = packet_tables(con, p, per, peer)
-            written.append(write_packet(out_dir, p, tables, per))
-            by_tenant.setdefault(p.tenant_code, []).append((p, tables))
         for members in by_tenant.values():
-            write_program(out_dir, members[0][0], program_tables(con, members, per), per)
+            bench = bench_for(members, late_rule)
+            for p, tables in members:
+                written.append(write_packet(out_dir, p, tables, per, bench, cat))
+            write_program(out_dir, members[0][0], program_tables(con, members, per), per, cat)
     log.info("dealer packets: %d, program packets: %d -> %s", len(written), len(by_tenant), out_dir)
     return written

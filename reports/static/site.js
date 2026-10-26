@@ -1,4 +1,5 @@
-// Theme toggle + re-ink Plotly charts from CSS tokens so they match light or dark mode.
+// Theme toggle (dark is the default; light only when the viewer picks it) + re-ink Plotly charts from the
+// CSS tokens so they match the theme.
 (function () {
   "use strict";
   var root = document.documentElement;
@@ -9,6 +10,7 @@
     document.querySelectorAll(".js-plotly-plot").forEach(function (el) {
       var lay = {
         "font.color": token("--ink-2"),
+        "font.family": token("--font"),
         "hoverlabel.bgcolor": token("--surface"),
         "hoverlabel.bordercolor": token("--axis"),
         "hoverlabel.font.color": token("--ink-1"),
@@ -43,9 +45,7 @@
   var btn = document.querySelector(".theme-toggle");
   if (btn) {
     btn.addEventListener("click", function () {
-      var dark = root.dataset.theme ? root.dataset.theme === "dark"
-        : window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(dark ? "light" : "dark");
+      setTheme(root.dataset.theme === "light" ? "dark" : "light");
     });
   }
   // Phone/tablet menu: the sidebar is a drawer opened by the Menu button; Escape or a click outside closes it.
@@ -73,6 +73,5 @@
     });
   }
 
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", inkCharts);
   if (document.readyState === "complete") inkCharts(); else window.addEventListener("load", inkCharts);
 })();

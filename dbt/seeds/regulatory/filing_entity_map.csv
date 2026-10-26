@@ -1,0 +1,13 @@
+provider_code,obligor_kind,source_id,legal_entity_name,financial_security,filing_provider_code,notes
+INT-1,internal_provider,1,"Obligor 1 Service Corporation",CLIP,INT-1,Synthetic legal name; contracts backed by a contractual liability insurance policy.
+INT-2,internal_provider,2,"Obligor 2 Warranty Company",CLIP,INT-2,Synthetic legal name.
+INT-3,internal_provider,3,"Obligor 3 Contract Services, Inc.",FUNDED_RESERVE,INT-3,Synthetic legal name; backs its contracts with its own funded reserve.
+INT-4,internal_provider,4,"Obligor 4 Protection, LLC",CLIP,INT-4,Synthetic legal name.
+INT-5,internal_provider,5,"Obligor 5 Vehicle Plans, Inc.",FUNDED_RESERVE,INT-5,Synthetic legal name.
+DOO-4,dealer_owned,4,"Mesa Landing Dealer Obligor, LLC",FUNDED_RESERVE,DOO-4,Dealer-owned obligor; synthetic.
+DOO-14,dealer_owned,14,"Clear Valley Dealer Obligor, LLC",FUNDED_RESERVE,DOO-14,Dealer-owned obligor; synthetic.
+DOO-18,dealer_owned,18,"Granite Lake Dealer Obligor, LLC",FUNDED_RESERVE,DOO-18,Dealer-owned obligor; synthetic.
+DOO-31,dealer_owned,31,"River Meadow Dealer Obligor, LLC",FUNDED_RESERVE,DOO-31,Dealer-owned obligor; synthetic.
+DOO-37,dealer_owned,37,"Bay Plains Dealer Obligor, LLC",FUNDED_RESERVE,DOO-37,Dealer-owned obligor; synthetic.
+DOO-40,dealer_owned,40,"Twin Flats Dealer Obligor, LLC",FUNDED_RESERVE,DOO-40,Dealer-owned obligor; synthetic.
+DOO-60,dealer_owned,60,"Summit Trail Dealer Obligor, LLC",FUNDED_RESERVE,DOO-60,Dealer-owned obligor; synthetic.

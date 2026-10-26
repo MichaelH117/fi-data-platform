@@ -20,7 +20,7 @@ import plotly.offline
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
-from reports import charts
+from reports import charts, explain, guides
 from reports.data import ReportData, ratio
 
 HERE = Path(__file__).resolve().parent
@@ -78,6 +78,8 @@ class Kpi:
     sub: str = ""
     status: str = ""  # "", good, warning, critical (rendered with icon + word, never color alone)
     spark: list[float] = field(default_factory=list)  # optional monthly series, oldest first, drawn as a sparkline
+    metric_id: str = ""  # row in dbt/seeds/core/metric_explanations.csv: the three plain-English lines + thresholds
+    raw: float | None = None  # unformatted value; sets the status word from the seed thresholds when status is ""
 
 
 @dataclass
@@ -91,6 +93,7 @@ class Section:
     table_open: bool = False  # table shown directly (no chart) instead of behind "Show data"
     note: str = ""
     html: str = ""  # trusted shell-built markup (the Start here page); never data from a mart
+    metric_id: str = ""  # explanation row shown under the caption (see Kpi.metric_id)
 
 
 @dataclass
@@ -102,6 +105,7 @@ class Page:
     sections: list[Section] = field(default_factory=list)
     nav: str = ""
     crumb: str = ""  # back-link label for pages with a parent (``nav``); default "All dealers"
+    hero: str = ""  # trusted shell-built markup shown under the title, before the tiles (Start here role picker)
 
 
 def link(text: str, href: str) -> dict:
@@ -109,8 +113,9 @@ def link(text: str, href: str) -> dict:
 
 
 def chart_section(title: str, caption: str, fig, div_id: str, cols: list[str], rows: list[list],
-                  wide: bool = False, note: str = "") -> Section:
-    return Section(title, caption, charts.to_div(fig, div_id, f"Chart: {title}"), cols, rows, wide, note=note)
+                  wide: bool = False, note: str = "", metric_id: str = "") -> Section:
+    return Section(title, caption, charts.to_div(fig, div_id, f"Chart: {title}"), cols, rows, wide, note=note,
+                   metric_id=metric_id)
 
 
 SPARK_MONTHS = 24
@@ -159,11 +164,13 @@ def overview_money(d: ReportData) -> tuple[list[Kpi], list[Section]]:
         Kpi("Earned claims reserve, T12", money(now.t12_earned_claims_reserve), "the loss-ratio denominator",
             spark=spark(f["t12_earned_claims_reserve"])),
         Kpi("Loss ratio, T12", pct(now.t12_loss_ratio),
-            f"incurred / earned claims reserve; {'up' if lr_delta >= 0 else 'down'} {abs(lr_delta):.1f} pts "
-            "vs a year ago", lr_status(now.t12_loss_ratio), spark=spark(f["t12_loss_ratio"])),
+            f"incurred / earned claims reserve; vs a year ago: {'up' if lr_delta >= 0 else 'down'} "
+            f"{abs(lr_delta):.1f} pts", lr_status(now.t12_loss_ratio), spark=spark(f["t12_loss_ratio"]),
+            raw=float(now.t12_loss_ratio)),
         Kpi("Combined ratio, T12", pct(now.t12_combined_ratio),
-            "(claims + acquisition + admin fee) / earned premium",
-            "critical" if now.t12_combined_ratio > 1 else "good", spark=spark(f["t12_combined_ratio"])),
+            "(claims + acquisition + admin fee) / earned premium; above 100% the book loses money",
+            "critical" if now.t12_combined_ratio > 1 else "good", spark=spark(f["t12_combined_ratio"]),
+            raw=float(now.t12_combined_ratio)),
     ]
     prem = f[["month", "written_coverage_cost", "earned_premium", "earned_claims_reserve"]]
     s1 = chart_section(
@@ -205,9 +212,11 @@ def page_overview(d: ReportData) -> Page:
     money_kpis, money_sections = overview_money(d)
     kpis = money_kpis + [
         Kpi("Contracts in force", num(now.contracts_in_force), f"at end of {month_label(now.month)}",
-            spark=spark(p["contracts_in_force"])),
-        Kpi(CANCEL_RATE_ITD, pct(cancel_rate), f"portfolio; {pct(early_share, 0)} of cancels within 90 days"),
-        Kpi("IBNR (actuarial)", money(ibnr), "incurred, not yet reported (excludes unexpired coverage)"),
+            spark=spark(p["contracts_in_force"]), raw=float(now.contracts_in_force)),
+        Kpi(CANCEL_RATE_ITD, pct(cancel_rate), f"portfolio; {pct(early_share, 0)} of cancels within 90 days",
+            raw=cancel_rate),
+        Kpi("IBNR (actuarial)", money(ibnr), "incurred, not yet reported (excludes unexpired coverage)",
+            raw=float(ibnr)),
         overview_dealer_watch_kpi(d),
     ]
     cif = p[["month", "contracts_in_force"]]
@@ -619,7 +628,7 @@ NAV = [(START, "Start here"), ("index.html", "Overview"), ("products.html", "Pro
 
 # Sidebar sections, in display order. Core pages are placed by path; plug-ins by area name, or by an
 # optional ``NAV_GROUP`` attribute on the package. Anything unplaced lands in "Platform".
-NAV_GROUP_ORDER = ["Executive", "Finance", "Claims & Actuarial", "Regulatory", "Dealers", "Platform"]
+NAV_GROUP_ORDER = ["Executive", "Finance", "Claims & Actuarial", "Regulatory", "Dealers", "Platform", "Guides"]
 CORE_GROUPS = {"index.html": "Executive", "products.html": "Finance", "claims.html": "Claims & Actuarial",
                "dealers.html": "Dealers", "quality.html": "Platform"}
 AREA_GROUPS = {"regulatory": "Regulatory", "dealer": "Dealers", "claims": "Claims & Actuarial",
@@ -661,7 +670,7 @@ NAV_BLURBS = {
     "legacy.html": "The old warehouse rebuilt on purpose: ten questions answered both ways, measured, and fixed.",
 }
 TOUR = [  # (href, what to look at); a step is shown only when its page was built
-    ("index.html", "Read the headline tiles. Every figure has an \u201ci\u201d with its definition."),
+    ("index.html", "Read the headline tiles. Under every number: what it means and whether it is on track."),
     ("finance/index.html", "Open a statement and download its Excel copy; totals tie to the overview."),
     ("claims.html", "See how reported losses grow into ultimate losses (IBNR)."),
     ("regulatory/index.html", "Open a state filing: two reserve bases side by side, with notes."),
@@ -671,7 +680,7 @@ TOUR = [  # (href, what to look at); a step is shown only when its page was buil
 PROOFS = [  # (claim, explanation, page that shows it)
     ("Reliable", "One command rebuilds everything from an empty folder. Each step fails fast and every run is "
      "logged with its timing against a 7 AM target.", "ops.html"),
-    ("Reconciled", "Row counts and dollar totals are tied out from source to raw to marts on every run. Eight "
+    ("Reconciled", "Row counts and dollar totals are tied out from source to raw to marts on every run. The "
      "diagnostics gates block publishing when one breaks.", "ops.html"),
     ("Secure", "Customer PII is hashed or dropped at staging. A dealer sees only its own rows, in its packet and "
      "in the semantic model\u2019s row-level security.", "semantic.html"),
@@ -710,17 +719,23 @@ def page_start(nav: Sequence[tuple[str, str]], groups: dict[str, str], pages: Se
     what = ("<p>This is the reporting site of a <strong>vehicle service contract (VSC) data platform</strong>: "
             "an admin system, a daily dealer feed, a warehouse, accounting-grade facts, regulatory filings and "
             "per-dealer packets, rebuilt every day by one command.</p>"
-            "<p>The menu groups the reports by who uses them. Every chart has a <em>Show data</em> table, "
-            "every tile has an <em>i</em> button with its definition, and the button at the top right switches "
-            "between light and dark mode.</p>"
+            "<p>The menu groups the reports by who uses them. Every chart has a <em>Show the numbers</em> "
+            "table, every headline number says what it means in plain words, and words with a dotted underline "
+            f'link to the <a href="{guides.GLOSSARY}">glossary</a>. New to how the data gets here? Read '
+            f'<a href="{guides.FLOW}">how the data flows</a>. The button at the top right switches between '
+            "dark and light.</p>"
             '<p class="synthetic"><strong>All data is synthetic.</strong> A seeded generator invents every dealer, '
             "contract, claim and customer. No real company\u2019s data is used.</p>")
-    kpis = [Kpi("Report pages", num(len(built) + 1), "every page in the menu tree, including this one"),
-            Kpi("Report sections", num(len(sections)), ", ".join(g for g, _ in sections)),
+    # one count for the whole site, the same number the build log prints (report pages + guides + role pages)
+    reports_n, guides_n, roles_n = len(built) + 1, len(guides.GUIDE_NAV), len(guides.ROLES)
+    kpis = [Kpi("Site pages", num(reports_n + guides_n + roles_n),
+                f"{reports_n} report pages (this one included), {guides_n} guides and {roles_n} role start pages"),
+            Kpi("Menu sections", num(len(sections)), ", ".join(g for g, _ in sections)),
             Kpi("Dealer packets", num(packets), "one filtered packet per reportable dealer"),
             Kpi("Data", "Synthetic", "generated from a fixed seed; no real customers or companies")]
     return Page(START, "Start here",
-                "A two-minute guide to this site: what it is, where to click first, and what it proves.", kpis, [
+                "Pick who you are and get the three or four pages you need. Or take the two-minute tour below.",
+                kpis, [
         Section("What this is", "", html=what, wide=True),
         Section("Take the tour", "Six stops, in this order. Use the menu to come back here at any time.",
                 html=f'<ol class="tour">{steps}</ol>'),
@@ -728,7 +743,7 @@ def page_start(nav: Sequence[tuple[str, str]], groups: dict[str, str], pages: Se
                 html=f'<ul class="proofs">{proofs}</ul>'),
         Section("Every section", "Each report in the menu, in one line.",
                 html=f'<div class="directory">{dirs}</div>', wide=True),
-    ])
+    ], hero=guides.role_picker())
 
 
 def build_pages(d: ReportData) -> list[Page]:
@@ -790,8 +805,23 @@ def spark_svg(values: Sequence[float]) -> Markup:
     return Markup(charts.sparkline(values))
 
 
+def attach_explanations(page: Page, cat: explain.Catalog) -> Page:
+    """Metric ids from reports/content/tile_metric_map.csv (by label) and the status word from seed thresholds."""
+    for k in page.kpis:
+        k.metric_id = k.metric_id or cat.resolve("tile", k.label)
+        if not k.status and k.metric_id:
+            k.status = cat.status(k.metric_id, k.raw)
+    for s in page.sections:
+        s.metric_id = s.metric_id or cat.resolve("section", s.title)
+    return page
+
+
+STATIC_ASSETS = ("site.css", "site.js", "fip-wordmark.svg", "fip-mark.svg", "favicon.svg", "favicon.ico")
+
+
 def render_site(d: ReportData, out: Path, con=None, publish_dir: Path | None = None,
-                plugins: Sequence[tuple[str, ModuleType]] | None = None) -> list[Path]:
+                plugins: Sequence[tuple[str, ModuleType]] | None = None,
+                seeds: Path = explain.SEEDS) -> list[Path]:
     env = Environment(loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape(["html", "j2"]),
                       trim_blocks=True, lstrip_blocks=True)
     tpl = env.get_template("page.html.j2")
@@ -799,27 +829,48 @@ def render_site(d: ReportData, out: Path, con=None, publish_dir: Path | None = N
         shutil.rmtree(out)
     (out / "assets").mkdir(parents=True)
     (out / "dealers").mkdir()
-    shutil.copy(HERE / "static" / "site.css", out / "assets" / "site.css")
-    shutil.copy(HERE / "static" / "site.js", out / "assets" / "site.js")
+    for name in STATIC_ASSETS:
+        shutil.copy(HERE / "static" / name, out / "assets" / name)
     (out / "assets" / "plotly.min.js").write_text(plotly.offline.get_plotlyjs(), encoding="utf-8")
     packets = copy_dealer_packets(publish_dir, out)
+    cat = explain.load(seeds)
     extra, extra_nav = ([], [])
     if con is not None:
         extra, extra_nav = plugin_pages(con, out, discover_plugins() if plugins is None else plugins)
     nav = NAV + extra_nav
     groups = {h: NAV_AREA_OF[h] for h, _ in extra_nav if h in NAV_AREA_OF}
+    has_start = any(h == START for h, _ in nav)
+    if has_start:  # guide pages ride with the Start here page (docs/V3_DESIGN.md 10.3)
+        nav = nav + guides.GUIDE_NAV
+        groups.update({h: "Guides" for h, _ in guides.GUIDE_NAV})
     nav_top, nav_sections = group_nav(nav, groups)
     pages = build_pages(d) + extra
-    if any(h == START for h, _ in nav):
-        pages = [page_start(nav, groups, pages, packets), *pages]
+    for page in pages:
+        attach_explanations(page, cat)
+    if has_start:
+        built = {p.path for p in pages} | {guides.GLOSSARY, guides.FLOW, guides.DEFINITIONS}
+        guides.remember_titles(pages)
+        tiles: dict[str, Kpi] = {}  # first page wins: the overview's tile, not a filtered copy further down
+        for p in pages:
+            for k in p.kpis:
+                if k.metric_id:
+                    tiles.setdefault(k.metric_id, k)
+        pages = [attach_explanations(page_start(nav, groups, pages, packets), cat), *pages,
+                 guides.page_glossary(Page, Section, cat), guides.page_flow(Page, Section, built),
+                 guides.page_definitions(Page, Section),
+                 *guides.role_pages(Page, Section, built, tiles, cat, START)]
     written = []
     for page in pages:
         depth = page.path.count("/")
+        root = "../" * depth
         (out / page.path).parent.mkdir(parents=True, exist_ok=True)
         html = tpl.render(
-            page=page, root="../" * depth, nav_top=nav_top, nav_sections=nav_sections,
+            page=page, root=root, nav_top=nav_top, nav_sections=nav_sections,
             active=page.nav or page.path, as_of=d.as_of, start=START,
             last_month=month_label(d.last_month), chart=lambda s: Markup(s), sparkline=spark_svg,
+            # glossary links only when the glossary page is built (it rides with Start here)
+            gloss=cat.linker(root) if has_start and page.path != guides.GLOSSARY else (lambda t: t or ""),
+            explain=cat.explain, brand_assets=True,
         )
         path = out / page.path
         path.write_text(html, encoding="utf-8")

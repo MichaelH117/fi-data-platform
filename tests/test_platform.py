@@ -698,3 +698,25 @@ def test_demo_and_schedule_targets_in_both_runners():
     assert "tools/demo_history.py" in make and "tools\\demo_history.py" in ps1
     # the scheduled run lands before the 07:00 SLO deadline (reports/ops.py)
     assert "-At 6am" in ps1 and "0 6 * * 1-5" in make
+
+
+def test_packet_uses_the_fip_dark_theme_and_explains_every_headline_tile():
+    """V7: site tokens (black on brat green, no white on a program colour), the wordmark, and on each of the
+    eight headline tiles a status word, a "compared to" line and the three explain lines from the seed."""
+    per = pk.Periods(date(2026, 10, 21), date(2025, 10, 1), date(2026, 9, 1))
+    p = pk.Packet(1, "TST", "Test Program", "#1f3a5f", "#e8eef5", "k1", "D9", "Test Motors")
+    kpi = pd.DataFrame([{"contracts_written": 40, "contracts_cancelled": 4, "cancel_rate": 0.1, "loss_ratio": 0.9,
+                         "peer_loss_ratio": 0.5, "peer_scope": "all-state peers", "loss_ratio_peer_pct": 0.85,
+                         "contracts_in_force": 30, "pending_contracts": 1, "late_fees": 12.5}])
+    tables = {name: pd.DataFrame(columns=[c.key for c in spec.cols]) for name, spec in pk.TABLE_SPECS.items()}
+    tables["kpi"] = kpi
+    tables["pending_contracts"] = pd.DataFrame([{"contract_number": "X1", "days_pending": 95}])
+    tables["remittance_aging"] = pd.DataFrame([{"t12_remittances": 10, "t12_late_remittances": 2}])
+    page = pk._html(p, tables, per, pk.Bench(0.08, 40.0, 0.5), pk.explanations())
+    assert "--brand: #8ACE00" in page and "--ink-on-brand: #000000" in page and "F&amp;IP" in page
+    assert "--program: #1f3a5f" in page and not re.search(r"(?<![-\w])color:\s*#fff", page, re.I)
+    assert page.count("class='kpi-label'") == len(pk.KPI_COLS) == 8
+    assert page.count("status status-") == 8 and page.count("Compared to") == 8
+    for line in ("What this means", "Why it is shown this way", "Why your boss asks for this"):
+        assert page.count(line) == 8, line
+    assert "status-critical'" in page  # loss ratio 90% is above the seed's action line

@@ -3,7 +3,7 @@
   "name": "f741b93034bcb528b948",
   "displayName": "Experience",
   "displayOption": "FitToPage",
-  "height": 720,
+  "height": 848,
   "width": 1280,
   "objects": {
     "background": [
@@ -14,7 +14,7 @@
               "color": {
                 "expr": {
                   "Literal": {
-                    "Value": "'#f6f6f3'"
+                    "Value": "'#0B0D0C'"
                   }
                 }
               }
@@ -38,7 +38,7 @@
               "color": {
                 "expr": {
                   "Literal": {
-                    "Value": "'#f6f6f3'"
+                    "Value": "'#0B0D0C'"
                   }
                 }
               }

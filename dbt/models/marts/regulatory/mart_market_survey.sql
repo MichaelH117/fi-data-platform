@@ -14,6 +14,7 @@ select
     line_no as item_no,
     line_item as item,
     label as item_label,
+    form_question_no,
     basis,
     aggregation,
     value,

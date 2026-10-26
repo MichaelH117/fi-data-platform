@@ -1,0 +1,62 @@
+term_id,term,plain_definition,example,see_also
+vsc,VSC (vehicle service contract),"A contract that pays for covered repairs after the factory warranty, for a set number of months and miles.","A 60-month, 75,000-mile contract that pays for an engine repair.",ancillary|gap|obligor
+gap,GAP,Pays the difference between what a car is worth and what is still owed on the loan if the car is totaled or stolen.,"The car is worth $18,000, the loan is $22,000: GAP pays the $4,000 gap.",vsc|ancillary
+ancillary,Ancillary products,"Smaller add-on products sold in the finance office, such as tire and wheel, key replacement or dent repair.",A tire-and-wheel plan sold with a used car.,vsc|gap
+earned_vs_written,Earned vs written,Written is the money booked when a contract is sold. Earned is the part used up as coverage time passes.,"A $1,200, 36-month contract is $1,200 written on day one and about $400 earned after a year.",earned_premium|upr|earning_curve
+earned_premium,Earned premium,The part of the premium that has been used up by coverage time so far.,"After 6 of 24 months, about a quarter of the premium is earned.",earned_vs_written|loss_ratio
+loss_ratio,Loss ratio,Claims divided by the money set aside to pay them. Over 100% means claims cost more than was set aside.,$70 of claims on $100 of earned claims reserve is a 70% loss ratio.,claims_reserve|combined_ratio|earned_vs_written
+combined_ratio,Combined ratio,"Claims plus selling costs plus the admin fee, divided by earned premium. Over 100% means the book lost money.",$95 of all costs on $100 earned is 95%: a small profit.,loss_ratio|acquisition_cost|admin_fee
+cession,Cession,"Handing part of the risk, and the reserve that pays for it, to a reinsurance company, often one a dealer owns.",A dealer's own reinsurance company takes the claims risk on the contracts that dealer sells.,participation|reinsurance|profit_share
+reinsurance,Reinsurance company,A company that takes on part of the claims risk in return for the matching reserve; dealers often own one.,A dealer group sets up its own reinsurance company to share in the profit on its contracts.,cession|participation
+participation,Participation (dealer-owned company),"A way for a dealer to share in the risk and profit of its own contracts, through a company it owns.",A dealer-owned company receives a distribution when its loss ratio stays low.,cession|profit_share|seasoned
+funded_reserve,Funded reserve,"Money held in reserve to pay future claims, instead of backing the contracts with an insurance policy.",A state requires the provider to hold reserve equal to a share of what it collected.,clip|claims_reserve|obligor
+claims_reserve,Claims reserve,The part of each contract's dealer cost set aside to pay claims. Loss ratios on this site use it as the bottom half.,"Of a $1,000 dealer cost, $600 might go to the claims reserve.",funded_reserve|loss_ratio|coverage_cost
+clip,CLIP (contractual liability insurance policy),"An insurance policy that stands behind the obligor, so claims are paid even if the obligor cannot pay.","If the obligor fails, the CLIP insurer pays covered claims.",funded_reserve|obligor
+ibnr,IBNR (incurred but not reported),Money for claims that have already happened but have not been reported yet.,A car broke down last week but the shop has not called in the claim.,ultimate_losses|loss_ratio
+ultimate_losses,Ultimate losses,What a group of contracts is expected to cost in claims once every claim is in.,Reported losses plus IBNR plus claims still to come on active contracts.,ibnr|upr
+upr,UPR (unearned premium reserve),Premium collected for coverage time that has not happened yet.,"Halfway through a contract, about half the premium is still unearned.",earned_vs_written
+rule_of_78,Rule of 78,A way to split premium over a contract term that counts the early months more heavily than a straight line.,"Used for some cancel refunds; the reverse form earns slowly, to match claims that come late.",earning_curve|earned_vs_written
+earning_curve,Earning curve,The rule that says how fast premium counts as earned over the contract term.,Straight-line earns the same each month; a slow curve earns more near the end.,rule_of_78
+remit,Remit (remittance),The dealer sending the money for the contracts it sold to the administrator.,"A dealer remits $12,000 for last week's contracts; 30 days or more after entry is late.",late_fee|pending
+late_fee,Late fee,"A fee billed to a dealer that remits late, as a set share of the late amount.","A $10,000 late remittance at 1.5% is a $150 late fee.",remit
+chargeback,Chargeback,"Money taken back from a dealer or agent when a contract cancels, for the part not yet earned.",A contract cancels after 6 months; the dealer gives back its share of the unearned part.,cancel_rate|commission_advance
+obligor,Obligor,The company legally on the hook to pay claims on a contract.,The provider is the obligor; a CLIP insurer stands behind it.,producer_vs_provider|clip
+producer_vs_provider,Producer vs provider,The producer sells the contract (the dealer or agent). The provider issues it and is often the obligor.,A dealer is the producer; the warranty company is the provider.,obligor
+in_force,In force,"A contract that is active today: sold, paid for and not yet expired or cancelled.",A 48-month contract sold two years ago and never cancelled is in force.,pending|cancel_rate
+pending,Pending contract,A contract that was sold but is not finished: paperwork or payment is still missing.,"The co-buyer has not signed yet, so the contract cannot become active.",in_force|remit
+cancel_rate,Cancel rate,"The share of contracts that were cancelled. By sale group, it follows contracts sold together over time.","Of 1,000 contracts sold in a quarter, 150 cancelled so far: 15%.",chargeback|reinstatement
+reinstatement,Reinstatement,A cancelled contract that is turned back on.,A customer cancels by mistake and the contract is reinstated a week later.,cancel_rate
+coverage_cost,Dealer cost (coverage cost),"What the dealer owes the administrator for a contract, before the dealer adds its markup.","The customer pays $2,000, the dealer cost is $1,200, the markup is $800.",dealer_markup|claims_reserve|admin_fee
+dealer_markup,Dealer markup,Retail price minus dealer cost: what the store keeps.,"Retail $2,000 minus dealer cost $1,200 is an $800 markup.",coverage_cost
+admin_fee,Admin fee,The administrator's fee for running the contracts and handling claims.,A set dollar amount out of each contract's dealer cost.,coverage_cost|combined_ratio
+acquisition_cost,Selling costs (acquisition cost),"Commission, insurer fee and premium tax: what it costs to sell a contract.",Agent commission plus the insurer fee plus state premium tax.,combined_ratio|commission_advance
+profit_share,Profit share,The part of the underwriting profit paid back to a dealer that shares in the risk.,A dealer-owned company with low claims receives a yearly distribution.,participation|seasoned
+seasoned,Seasoned,Old enough to judge: a dealer-owned company must run a set time before any distribution.,"No distribution in the first years, because claims come late.",profit_share|participation
+commission_advance,Commission advance,Commission paid to an agent before it is earned; it is worked off as the contracts earn.,"An agent gets $5,000 up front and earns it back over the contract terms.",chargeback
+case_reserve,Case reserve,Money held for one open claim until it is paid.,"A shop quotes $3,000 for a repair; $3,000 is held until payment.",ibnr|loss_ratio
+incurred,Incurred claims,Claims paid plus money held for open claims.,"$50,000 paid plus $10,000 held is $60,000 incurred.",case_reserve|loss_ratio
+frequency,Claim frequency,How many claims each contract makes per year of coverage.,"300 claims on 1,000 contract-years is 0.3 claims a year.",severity
+severity,Claim severity,The average amount paid on a paid claim.,"$600,000 paid on 500 paid claims is $1,200 per claim.",frequency
+denial,Denied claim,A claim not paid because the repair was not covered by the contract.,A worn-out part the contract excludes.,frequency
+early_claim,Early claim,"A claim soon after the contract starts, which can mean a problem existed at sale.",A transmission claim 20 days after the contract began.,frequency
+deductible,Deductible,The part of a repair the customer pays before the contract pays the rest.,A $100 deductible on a $900 repair: the contract pays $800.,severity
+surcharge,Surcharge,"An extra charge for a vehicle trait that raises risk, such as diesel, four-wheel drive or commercial use.",A commercial-use truck carries a surcharge on its contract.,rate_card
+rate_card,Rate card,"The price list: dealer cost by term, miles, vehicle class and coverage level.","36 months, 36,000 miles, class 2, top coverage: one price.",surcharge
+vin,VIN (vehicle identification number),The 17-character number that identifies one vehicle.,Shown masked on this site so it cannot be traced.,chassis_vin
+rv,RV (recreational vehicle),A motorhome or camper. It has two vehicle numbers: the coach and the chassis it is built on.,A motorhome built on a truck chassis.,chassis_vin|vin
+chassis_vin,Chassis VIN,The vehicle number of the truck frame an RV is built on; claims on the engine need it.,The coach has one number and the chassis has another.,rv|vin
+form_code,Form code,The code of the approved contract form a contract was sold on.,A state checks every contract was sold on a form it approved.,in_force
+co_buyer,Co-buyer,A second buyer on the vehicle loan; one old source column labelled lienholder actually holds the co-buyer.,A spouse who co-signed the loan.,pending
+tenant,Partner program (tenant),A partner program that sells under its own brand; each sees only its own dealers.,"Three partner programs share the platform, each walled off.",dealer_packet
+dealer_packet,Dealer packet,"A set of reports filtered to one dealer, so it never sees another dealer's numbers.","Production, pending contracts and payments for one store.",tenant
+t12,T12 (trailing 12 months),The last 12 complete months added together.,"In November, T12 covers last November through this October.",itd|ytd
+itd,ITD (inception to date),Everything since the start of the program.,"All contracts ever sold, up to today.",t12|ytd
+ytd,YTD (year to date),From January 1 to today.,"In May, YTD covers January to May.",t12|itd
+posting_period,Accounting month (posting period),The month a transaction is booked in the ledger. Closed months are never changed.,A late claim payment is booked in the first open month.,loss_month
+loss_month,Breakdown month (loss month),"The month the car broke down, used for claim trends.",A breakdown in March reported in May counts in March.,posting_period|ibnr
+sale_cohort,Sale group (cohort),"Contracts sold in the same period, followed together over time.",Everything sold in the first quarter of a year.,cancel_rate
+exposure,Contract-year,One contract active for one year; the fair way to compare claim counts.,Two contracts active six months each make one contract-year.,frequency
+diagnostics_gate,Safety check (gate),An automatic check that stops reports publishing when the data looks wrong.,"If claims stop matching contracts, nothing new is published.",reconciliation
+reconciliation,Reconciliation (tie-out),Proving counts and dollars match from the source system to the reports.,"20,000 contracts in the source, 20,000 in the reports.",diagnostics_gate
+slo,SLO (service level objective),"A promise about service, such as reports ready before 7 in the morning.",Reports ready by 7 on 19 of 20 business days is 95%.,diagnostics_gate
+run_off,Run-off,A company that sells no new contracts but still pays claims on the old ones until they end.,A dealer-owned company closed to new business last year.,participation

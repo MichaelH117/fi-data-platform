@@ -3,11 +3,11 @@
   "name": "46c6641be486f091a3d8",
   "position": {
     "x": 24,
-    "y": 244,
+    "y": 364,
     "width": 816,
-    "height": 464,
-    "z": 11000,
-    "tabOrder": 11000
+    "height": 460,
+    "z": 13000,
+    "tabOrder": 13000
   },
   "visual": {
     "visualType": "tableEx",
@@ -204,7 +204,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#fcfcfb'"
+                      "Value": "'#16191A'"
                     }
                   }
                 }
@@ -235,7 +235,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#d9d8d0'"
+                      "Value": "'#3F5811'"
                     }
                   }
                 }
@@ -244,7 +244,7 @@
             "radius": {
               "expr": {
                 "Literal": {
-                  "Value": "10D"
+                  "Value": "0D"
                 }
               }
             }
@@ -320,7 +320,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#0b0b0b'"
+                      "Value": "'#E8ECE4'"
                     }
                   }
                 }
@@ -337,6 +337,51 @@
               "expr": {
                 "Literal": {
                   "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'One row per value of the View by pick. Ratios are rebuilt from additive measures, so the total row is a true ratio and is the same in every view.'"
+                }
+              }
+            },
+            "titleWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#C5CCBF'"
+                    }
+                  }
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
                 }
               }
             }
@@ -411,7 +456,7 @@
                           },
                           "Value": {
                             "Literal": {
-                              "Value": "'#f8dede'"
+                              "Value": "'#402829'"
                             }
                           }
                         },
@@ -438,7 +483,7 @@
                           },
                           "Value": {
                             "Literal": {
-                              "Value": "'#fdf0d2'"
+                              "Value": "'#3E3320'"
                             }
                           }
                         }
@@ -469,7 +514,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#52514e'"
+                      "Value": "'#C5CCBF'"
                     }
                   }
                 }
@@ -493,7 +538,7 @@
                 "color": {
                   "expr": {
                     "Literal": {
-                      "Value": "'#e1e0d9'"
+                      "Value": "'#252828'"
                     }
                   }
                 }

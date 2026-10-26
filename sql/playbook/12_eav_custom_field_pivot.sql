@@ -27,5 +27,6 @@ select v."fxContractId",
        5 - count(distinct f."FieldName") as missing_fields
 from admin_eav.contract_field v
 join admin_eav.field_definition f on f."FieldId" = v."fxFieldId"
+where f."FieldName" in ('Coach Make', 'Coach Model', 'Chassis Make', 'Chassis VIN', 'Model Year')  -- RV fields only; add-on contracts carry just "Parent Contract Number"
 group by 1
 order by 1;

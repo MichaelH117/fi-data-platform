@@ -11,6 +11,7 @@ with p as (
            count(distinct f."FieldName") as fields_present
     from admin_eav.contract_field v
     join admin_eav.field_definition f on f."FieldId" = v."fxFieldId"
+    where f."FieldName" in ('Coach Make', 'Coach Model', 'Chassis Make', 'Chassis VIN', 'Model Year')  -- the RV fields only (add-ons carry a parent-contract field)
     group by 1
 )
 select count(*) filter (where chassis_make is not null) as contracts_with_chassis_make,

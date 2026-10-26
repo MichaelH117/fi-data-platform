@@ -476,13 +476,15 @@ def test_rv_custom_fields_are_an_eav_store(src: Path) -> None:
     db = src / "admin_core.db"
     defs = _read(db, "select distinct field_id, field_name, data_type from custom_field_def")
     assert set(defs["field_id"]) == {fid for fid, _, _ in cf.FIELD_DEFS}
-    eav = _read(db, "select v.contract_id, v.field_id, v.value_text, c.class_code, c.chassis_vin, c.vehicle_year "
-                    "from contract_custom_field v join contract c using (contract_id)")
+    eav = _read(db, "select v.contract_id, v.field_id, v.value_text, c.class_code, c.chassis_vin, c.vehicle_year, "
+                    "c.contract_number from contract_custom_field v join contract c using (contract_id)")
+    eav = eav[eav["field_id"] != cf.FIELD_ID["Parent Contract Number"]]  # V7 add-on link: tested below
     assert len(eav) and (eav["class_code"] == cf.RV_CLASS).all()  # only specialty (RV) contracts carry fields
     rv = _read(db, "select contract_id, chassis_vin from contract where class_code = 'RV'")
     assert set(eav["contract_id"]) == set(rv["contract_id"])
     vin = eav[eav["field_id"] == cf.FIELD_ID["Chassis VIN"]]
-    assert (vin["value_text"] == vin["chassis_vin"]).all()
+    ok = cf.chassis_vin_case(vin) == "valid"  # V7 edit 27: the other cases are typed badly on purpose
+    assert ok.mean() > 0.8 and (vin.loc[ok, "value_text"] == vin.loc[ok, "chassis_vin"]).all()
     blank = set(rv.loc[rv["chassis_vin"].isna(), "contract_id"])  # a blank chassis VIN is a MISSING row
     assert not blank & set(vin["contract_id"])
     yr = eav[eav["field_id"] == cf.FIELD_ID["Model Year"]]
@@ -532,7 +534,8 @@ def test_v6_contract_documents_one_live_contract_document_per_contract(src: Path
     assert d.loc[year < FORM_CODE_FROM, "form_code"].isna().all()
     assert live.loc[year[live.index] >= FORM_CODE_FROM, "form_code"].notna().all()
     assert d["document_name"].str.match(r"^[A-Z]+_(STD|CXL|OTH) - \d{4}\.\d - [A-Z]+$").all()
-    cx = _read(db, "select count(*) n from cancellation").iloc[0, 0]
+    # a reversal row (V7 edit 23) is a back-office correction: no customer cancel document
+    cx = _read(db, "select count(*) n from cancellation where reverses_cancel_id is null").iloc[0, 0]
     assert (d["document_type"] == "CANCEL").sum() == cx
 
 
@@ -582,3 +585,97 @@ def test_v6_reference_columns_runoff_and_product_names(src: Path) -> None:
     c = _read(db, "select entered_date, finalized_at, in_service_date, is_esigned, claim_grace_days from contract")
     assert c["finalized_at"].notna().all() and (c["in_service_date"] <= c["entered_date"]).all()
     assert set(c["is_esigned"]) == {0, 1} and c["claim_grace_days"].notna().all()
+
+
+# ---------------------------------------------------------------------- V7 source-side edits
+def test_v7_disbursement_group_depends_on_program_setup(src: Path) -> None:
+    """Edit 21: every line carries its group; one type lands in 2+ groups across setups; the legacy fixed
+    type-to-group lookup is the default setup only, so it is wrong for the participating ones."""
+    from legacy.build import LEGACY_DISB_GROUP
+
+    d = _read(src / "admin_core.db", """select d.disbursement_type, d.disbursement_group, d.amount, t.txn_type
+                                         from disbursement d join "transaction" t using (txn_id)""")
+    assert d["disbursement_group"].notna().all() and set(d["disbursement_group"]) <= set(cat.DISBURSEMENT_GROUPS)
+    assert (d.groupby("disbursement_type")["disbursement_group"].nunique() >= 2).sum() >= 3
+    wrong = d["disbursement_group"] != d["disbursement_type"].map(LEGACY_DISB_GROUP)
+    assert 0.02 < wrong.mean() < 0.5
+    sale = d[d["txn_type"] == "SALE"]
+    split = sale.groupby("disbursement_type")["amount"].sum().sum()
+    assert abs(sale.groupby("disbursement_group")["amount"].sum().sum() - split) < 0.01  # groups re-add to the split
+
+
+def test_v7_cancel_reason_vocabulary_per_source_and_admin_corrections(src: Path) -> None:
+    """Edit 41: each source/tenant types its own labels; override-coded admin corrections exist everywhere."""
+    core = _read(src / "admin_core.db", "select tenant_id, reason from cancellation")
+    leg = _read(src / "legacy_admin.db", "select cancel_reason as reason from cancellations")
+    known = {v for vocab in cat.CANCEL_REASON_VOCAB.values() for v in vocab.values()}
+    known |= {v for labels in cat.ADMIN_CORRECTION_REASONS.values() for v in labels}
+    assert set(core["reason"]) <= known and set(leg["reason"]) <= known
+    t1 = set(core.loc[core["tenant_id"] == 1, "reason"])
+    other = set(core.loc[core["tenant_id"] != 1, "reason"])
+    assert t1 and other and not (t1 & other) and not (t1 & set(leg["reason"]))
+
+    def override(r: pd.Series) -> pd.Series:  # the crosswalk's normalisation: "X- a" == "X -a" == "X - A"
+        return r.str.upper().str.replace(r"\s*-\s*", " - ", regex=True).str.match(r"^[XZ] - ")
+
+    for frame in (core, leg):
+        assert 0.005 < override(frame["reason"]).mean() < 0.08
+
+
+def test_v7_cancel_reversal_rows_net_to_zero(src: Path) -> None:
+    """Edit 23: an offsetting cancel row undoes a cancel; the pair nets to zero, money included."""
+    db = src / "admin_core.db"
+    pair = _read(db, """select o.contract_id, o.cancel_date o_day, r.cancel_date r_day,
+                               o.customer_refund o_ref, r.customer_refund r_ref, c.status
+                        from cancellation r join cancellation o on o.cancel_id = r.reverses_cancel_id
+                        join contract c on c.contract_id = r.contract_id""")
+    assert len(pair) >= 1
+    assert (pair["o_ref"] > 0).all() and ((pair["o_ref"] + pair["r_ref"]).abs() < 0.005).all()
+    assert (pair["o_day"] == pair["r_day"]).all() and (pair["status"] != "CANCELLED").all()
+    ids = ",".join(map(str, pair["contract_id"]))
+    net = _read(db, f"""select t.contract_id, sum(d.amount) amt from disbursement d join "transaction" t using (txn_id)
+                        where t.txn_type = 'CANCEL' and t.contract_id in ({ids}) group by 1""")
+    assert (net["amt"].abs() < 0.01).all()
+
+
+def test_v7_parent_contract_links(src: Path) -> None:
+    """Edit 26: add-ons point to their VSC with a text field; some links are junk or point to no contract."""
+    from generator import custom_fields as cf
+
+    db = src / "admin_core.db"
+    link = _read(db, f"""select v.value_text, c.contract_number from contract_custom_field v join contract c
+                         using (contract_id) where v.field_id = {cf.FIELD_ID["Parent Contract Number"]}""")
+    numbers = set(_read(db, "select contract_number from contract")["contract_number"])
+    assert len(link) and not link["contract_number"].str.startswith("VSC").any()
+    assert 0.7 < link["value_text"].isin(numbers).mean() < 0.98  # mostly clean; the rest junk or orphans
+    assert link["value_text"].str.startswith("VSC").mean() > 0.8
+
+
+def test_v7_chassis_vin_cases() -> None:
+    """Edit 27: every chassis-VIN case is generated (pure function, so a synthetic book is enough)."""
+    from generator import custom_fields as cf
+
+    n = 2000
+    rv = pd.DataFrame({"contract_id": range(1, n + 1), "contract_number": [f"RV-{k:08d}" for k in range(1, n + 1)],
+                       "chassis_vin": [None if k % 40 == 0 else f"1FC{k:014d}" for k in range(1, n + 1)]})
+    case = cf.chassis_vin_case(rv)
+    assert set(case) == {"valid", "missing", "placeholder", "bad_length", "lowercase", "duplicate_across_contracts"}
+    v = cf.chassis_vin_values(rv)
+    assert v[case == "missing"].isna().all() and v[case != "missing"].notna().all()
+    assert (v[case == "bad_length"].str.len() < 17).all()
+    assert (v[case == "lowercase"] == rv.loc[case == "lowercase", "chassis_vin"].str.lower()).all()
+    dup = v[case == "duplicate_across_contracts"]
+    assert dup.isin(set(rv["chassis_vin"].dropna())).all()
+    assert (dup != rv.loc[dup.index, "chassis_vin"]).all()
+
+
+def test_v7_bundle_names_and_tenant_local_company_ids(src: Path) -> None:
+    """Edits 50 + 45: bundle names appear under the bundle subtype and under single-product subtypes;
+    each tenant's admin instance numbers itself company 1."""
+    db = src / "admin_core.db"
+    p = _read(db, """select p.product_name, s.subcategory_code from product p
+                     join product_subcategory s using (subcategory_id)""")
+    b = p[p["product_name"].str.contains(r"Bundle|Pkg")]
+    assert {"BNDL", "TW", "APP"} <= set(b["subcategory_code"])
+    a = _read(db, "select tenant_id, admin_company_id from administrator")
+    assert a["admin_company_id"].nunique() == 1 and a["tenant_id"].is_unique and len(a) >= 2

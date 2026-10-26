@@ -3,7 +3,7 @@
   "name": "0f8d62cc0491e15bf8b6",
   "displayName": "Executive overview",
   "displayOption": "FitToPage",
-  "height": 720,
+  "height": 848,
   "width": 1280,
   "objects": {
     "background": [
@@ -14,7 +14,7 @@
               "color": {
                 "expr": {
                   "Literal": {
-                    "Value": "'#f6f6f3'"
+                    "Value": "'#0B0D0C'"
                   }
                 }
               }
@@ -38,7 +38,7 @@
               "color": {
                 "expr": {
                   "Literal": {
-                    "Value": "'#f6f6f3'"
+                    "Value": "'#0B0D0C'"
                   }
                 }
               }

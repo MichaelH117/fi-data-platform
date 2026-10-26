@@ -58,6 +58,14 @@ Plug-ins read **marts only** (`core`, `finance`, `claims`, `dealer`, `regulatory
    and `program_type` carry it. Product names change every plan year and a "- DNU" twin reuses a
    live code, so pages group by code or family. Who backs a contract is `dim_obligor.obligor_kind`:
    `internal_provider` (the provider's own obligors) or `dealer_owned` (a dealer-owned obligor entity).
+8. **Same signs, same blanks, same warnings on every page** (V7 edit 22). One macro per rule in
+   `dbt/macros/display_rules.sql`; the site helpers and the Power BI format strings follow the same rules:
+   - a ratio with no denominator is **blank, never 0** (`ratio_or_blank`; the tile says "Not enough data yet");
+   - the month that holds the as-of date is marked **"in progress"** (`is_in_progress_month`);
+   - a book younger than 12 months (var `young_book_months`) shows a **"young book"** note, because its
+     ratios have not had time to settle (`is_young_book`);
+   - claims money is stored positive and **shown negative in parentheses** everywhere
+     (`claims_display_amount`; Power BI format `#,##0.00;(#,##0.00)`).
 
 ## Pages
 

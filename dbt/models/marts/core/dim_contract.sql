@@ -12,6 +12,23 @@ cancels as (
     select contract_key, cancel_date
     from {{ ref('int_cancellations_conformed') }}
     where is_effective_cancel
+),
+
+-- V7 edit 26: an add-on (ancillary / tech) contract points to the service contract it was sold
+-- with through the free-text 'Parent Contract Number' custom field. Matched on the contract number
+-- within the same tenant after trimming, upper-casing and removing inner spaces (so a lower-case or
+-- padded entry still resolves); anything else (digits only, N/A, free text, a number that names no
+-- reportable contract) gives no key and is counted by diag_parent_contract_link.
+parents as (
+    select
+        {{ contract_key("'admin_core'", 'f.contract_id') }} as contract_key,
+        p.contract_key as parent_contract_key
+    from {{ ref('stg_admin_core__contract_custom_field') }} as f
+    inner join c as p
+        on p.source_system = 'admin_core'
+        and p.tenant_id = f.tenant_id
+        and upper(replace(trim(p.contract_number), ' ', '')) = upper(replace(trim(f.parent_contract_ref), ' ', ''))
+    where f.parent_contract_ref is not null
 )
 
 select
@@ -46,6 +63,7 @@ select
     coalesce(md5('insurer|' || cast(c.insurer_id as varchar)), '-1') as insurer_key,
     c.customer_key,
     c.deal_id,
+    pc.parent_contract_key,
     x.cancel_date,
     {{ date_key('x.cancel_date') }} as cancel_date_key,
     x.cancel_date is not null as is_cancelled,
@@ -61,6 +79,7 @@ left join {{ ref('dim_dealer') }} as d on d.dealer_key = dm.dealer_key and d.dea
 left join {{ ref('dim_agent') }} as a on a.agent_id = c.agent_id
 left join {{ ref('dim_product') }} as p on p.plan_id = c.plan_id and p.program_id = c.program_id
 left join cancels as x using (contract_key)
+left join parents as pc on pc.contract_key = c.contract_key and pc.parent_contract_key <> c.contract_key
 
 union all by name
 

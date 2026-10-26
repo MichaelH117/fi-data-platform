@@ -12,6 +12,7 @@ import re
 import time
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import pytest
 
@@ -281,7 +282,8 @@ def test_eav_lives_in_a_separate_database(built):
     admin, con = built["admin"], built["con"]
     pivot = admin.execute("""select "fxContractId", max(case when "fxFieldId" = 101 then "Value" end),
                                     max(case when "fxFieldId" = 105 then "Value" end)
-                             from admin_eav.contract_field group by 1""").fetchall()
+                             from admin_eav.contract_field where "fxFieldId" between 101 and 105
+                             group by 1""").fetchall()
     assert pivot and all(make and year for _, make, year in pivot)
     assert _one(admin, "select count(*) from pg_catalog.pg_namespace where nspname = 'legacy_ops'")[0] == 0
     assert _one(con, "select count(*) from pg_catalog.pg_namespace where nspname = 'admin_eav'")[0] == 0
@@ -308,3 +310,73 @@ def test_semantic_spec_columns_exist_in_the_built_views(built):
                 where n.nspname = %s and c.relname = %s and a.attnum > 0""", (m.schema, t.source)).fetchall()}
             missing = {c for c, _ in t.columns} - have
             assert not missing, f"{m.schema}.{t.source}: {missing}"
+
+
+# ---------------------------------------------------------------------- offline: V7 source-side legacy bugs
+def _tiny_wh(con, tables: dict[str, pd.DataFrame]) -> None:
+    """A throwaway in-memory 'wh' with raw_admin_core tables, enough for single staging steps."""
+    con.execute("attach ':memory:' as wh")
+    con.execute("create schema wh.raw_admin_core")
+    for name, df in tables.items():
+        frame = df.assign(_source_version=1, _is_deleted=False)  # noqa: F841 - DuckDB replacement scan
+        con.execute(f"create table wh.raw_admin_core.{name} as select * from frame")
+
+
+def test_v7_legacy_fee_bucket_lookup_ignores_program_setup():
+    from generator import catalog as cat
+
+    # edit 21: one fixed type -> group map, so every setup that overrides a type is booked to the wrong bucket
+    assert lb.LEGACY_DISB_GROUP == cat.DISBURSEMENT_GROUP_DEFAULT
+    wrong = [(st, k) for st, o in cat.DISBURSEMENT_GROUP_OVERRIDES.items() for k, g in o.items()
+             if lb.LEGACY_DISB_GROUP[k] != g]
+    assert wrong
+    assert '"DisbursementGroup"' in dict(lb.staging_sql())["t_disbursement"]
+
+
+def test_v7_type_drift_and_tenant_local_ids_in_ddl():
+    drift = (DDL_DIR / "45_type_drift.sql").read_text(encoding="utf-8")
+    assert "45_type_drift.sql" in lb.DDL_FILES
+    assert lb.DDL_FILES.index("45_type_drift.sql") > lb.DDL_FILES.index("20_legacy_finance.sql")
+    for needle in ("::money", "::character(12)", "::double precision", "::bigint", '"Dealer Number"',
+                   "numeric(14, 2)"):
+        assert needle in drift, needle
+    tb = (DDL_DIR / "40_tenant_b.sql").read_text(encoding="utf-8")
+    assert 'update tenant_b.tbl_contract set "fxAdminCompanyId" = 1' in tb  # edit 45: same id, two companies
+
+
+def test_v7_custom_field_extract_drops_pending_and_maps_make_into_vin():
+    from generator import custom_fields as cf
+
+    contracts = pd.DataFrame({
+        "contract_id": [1, 2, 3], "tenant_id": 1, "contract_number": ["RV-0000101", "RV-0000102", "RV-0000103"],
+        "class_code": "RV", "status": ["PENDING", "INFORCE", "INFORCE"],
+        "vehicle_make": ["Roadhaven", "Roadhaven", "Coachline"],
+        "vehicle_model": ["Class C 24", "Class A 36", "Voyager 30"],
+        "chassis_vin": ["1FDXE45S0XHA00001", "1FDXE45S0XHA00002", "1FDXE45S0XHA00003"],
+        "vehicle_year": [2022, 2023, 2024], "created_at": pd.Timestamp("2026-01-05 10:00")})
+    eav = cf.contract_values(contracts)
+    defs = cf.field_defs([1], "2018-12-01 09:00:00")
+    con = duckdb.connect()
+    _tiny_wh(con, {"contract": contracts, "contract_custom_field": eav, "custom_field_def": defs})
+    lb._eav(con)
+    before = con.execute('select count(*) from t_contract_field where "fxContractId" = 1').fetchone()[0]
+    lb._eav_extract_bugs(con)
+    rows = dict(((c, f), v) for c, f, v in con.execute(
+        'select "fxContractId", "fxFieldId", "Value" from t_contract_field').fetchall())
+    vin, make = cf.FIELD_ID["Chassis VIN"], cf.FIELD_ID["Chassis Make"]
+    assert before > 0 and not any(c == 1 for c, _ in rows)  # PENDING: nothing reaches the old extract
+    assert rows[(2, vin)] == rows[(2, make)]  # Class A: the chassis make lands in the VIN field
+    assert rows[(3, vin)] != rows[(3, make)]
+    # the modern path keeps every value as typed
+    assert con.execute("select count(*) from wh.raw_admin_core.contract_custom_field "
+                       "where contract_id = 1").fetchone()[0] == before
+
+
+def test_v7_surcharges_exported_as_a_delimited_list_in_keyed_order():
+    sur = pd.DataFrame({"surcharge_id": [1, 2, 3, 4], "tenant_id": 1, "contract_id": [10, 10, 11, 11],
+                        "surcharge_code": ["DIESEL", "4X4", "4X4", "DIESEL"], "amount": 1.0})
+    con = duckdb.connect()
+    _tiny_wh(con, {"contract_surcharge": sur})
+    got = dict(con.execute(dict(lb.staging_sql())["s_surcharge_list"]).fetchall())
+    assert got == {10: "DIESEL, 4X4", 11: "4X4, DIESEL"}  # same set, two spellings
+    assert '"Surcharges"' in dict(lb.staging_sql())["t_contract"]

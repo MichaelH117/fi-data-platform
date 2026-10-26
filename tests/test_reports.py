@@ -54,9 +54,11 @@ def test_render_site_builds_sidebar_start_page_and_kpi_disclosure(tmp_path, monk
     out = tmp_path / "site"
     written = rb.render_site(d, out, con=object(), plugins=[
         ("regulatory", _plugin("regulatory/index.html", "Regulatory")),
-        ("custom", _plugin("custom.html", "Custom", area_group="Dealers"))])
+        ("custom", _plugin("custom.html", "Custom", area_group="Dealers"))], seeds=tmp_path / "no-seeds")
     names = {p.relative_to(out).as_posix() for p in written}
-    assert {"start.html", "index.html", "regulatory/index.html", "custom.html"} == names
+    guide_pages = {"glossary.html", "how-data-flows.html", "definitions.html",
+                   *(f"roles/{r}.html" for r in ("dealer", "finance", "compliance", "executive"))}
+    assert {"start.html", "index.html", "regulatory/index.html", "custom.html"} | guide_pages == names
     assert broken_links(out) == []
 
     index = (out / "index.html").read_text(encoding="utf-8")
@@ -64,10 +66,11 @@ def test_render_site_builds_sidebar_start_page_and_kpi_disclosure(tmp_path, monk
     assert side.index("Start here") < side.index("Executive") < side.index("Regulatory") < side.index("Dealers")
     assert 'href="custom.html"' in side.split("Dealers")[1]  # NAV_GROUP on a plug-in wins
     assert 'aria-controls="sidebar"' in index and 'aria-expanded="false"' in index
-    # long text lives in an expandable <details>, readable without hover; status stays visible
-    assert '<details class="kpi-info">' in index and "incurred / earned claims reserve</p>" in index
-    assert "On track" in index and 'class="spark"' in index
-    assert index.count('<details class="kpi-info">') == 1  # a tile without a definition gets no "i"
+    # every line is printed on the tile (no hover, no click); status is a word plus a shape
+    assert '<p class="kpi-sub">incurred / earned claims reserve</p>' in index
+    assert "On track" in index and 'class="spark"' in index and 'class="status-icon"' in index
+    assert index.count('<p class="kpi-sub">') == 1  # a tile without a sub line gets none
+    assert "<details class=\"kpi-info\">" not in index and "title=" not in index.split("<main", 1)[1]
     assert 'href="start.html"' in index and "New here?" in index
 
     start = (out / "start.html").read_text(encoding="utf-8")

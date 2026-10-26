@@ -42,6 +42,8 @@ seeds:
         subcategory_code: varchar
         category_code: varchar
         tier_rank: integer
+        is_bundle: boolean
+        external_product_line: varchar
     columns:
       - name: product_code
         data_tests: [unique, not_null]
@@ -49,6 +51,19 @@ seeds:
         data_tests: [unique, not_null]
       - name: legacy_product_code
         data_tests: [unique]
+      - name: is_bundle
+        description: V7 edit 50. The product is a bundle of add-ons (dim_product also flags any product named as a bundle).
+        data_tests: [not_null]
+      - name: external_product_line
+        description: >
+          V7 edit 50. The line used in external (buyer, filing) reporting: VSC (limited warranty
+          excluded), GAP, TIRE_WHEEL, PREPAID_MAINTENANCE or ANCILLARY_OTHER. A limited warranty is
+          not a VSC; it reports under ANCILLARY_OTHER.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [VSC, GAP, TIRE_WHEEL, PREPAID_MAINTENANCE, ANCILLARY_OTHER]
   - name: agent_territory_hierarchy
     description: >
       Agent territory -> district -> region (National is the top level). Read by dim_agent for the
@@ -62,4 +77,105 @@ seeds:
       - name: territory
         data_tests: [unique, not_null]
       - name: region
+        data_tests: [not_null]
+  - name: cancel_reason_crosswalk
+    description: >
+      V7 edit 41. Each source system's cancel-reason vocabulary -> one reason_group, and whether the
+      cancel is an administrative correction (a data-entry fix, not a customer cancel). Matching is
+      on the normalized reason (trimmed, upper case, single spaces, a space before every hyphen):
+      match_type exact compares the whole text, prefix compares the start (override-coded reasons
+      such as "Z - ..." or "X- ..."). Read once, by int_cancellations_conformed; the test
+      core_cancel_reason_mapped fails on any reason this seed does not map.
+    config:
+      column_types:
+        source_system: varchar
+        source_reason: varchar
+        match_type: varchar
+        reason_group: varchar
+        is_admin_correction: boolean
+        note: varchar
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [source_system, source_reason]
+    columns:
+      - name: source_system
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [admin_core, legacy_admin]
+      - name: source_reason
+        data_tests: [not_null]
+      - name: match_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [exact, prefix]
+      - name: reason_group
+        data_tests: [not_null]
+      - name: is_admin_correction
+        data_tests: [not_null]
+  - name: metric_explanations
+    description: >
+      Plain-English text for every metric and every site tile or chart (docs/V3_DESIGN.md section 10.2):
+      what it means, why it is shown this way, why a manager asks for it, which way is good, what it is
+      compared to, and the watch / alert thresholds the status word comes from. One source for the site
+      (reports/explain.py), the semantic model's measure descriptions and the Power BI page subtitles.
+      tests/test_explanations.py fails when a metric or a rendered tile has no row. Owner: Reporting Manager.
+    config:
+      column_types:
+        metric_id: varchar
+        plain_name: varchar
+        what_it_means: varchar
+        why_shown_this_way: varchar
+        why_your_boss_asks: varchar
+        good_direction: varchar
+        compare_to: varchar
+        audience_roles: varchar
+        decision_it_drives: varchar
+        watch_threshold: double
+        alert_threshold: double
+    columns:
+      - name: metric_id
+        data_tests: [unique, not_null]
+      - name: plain_name
+        data_tests: [not_null]
+      - name: what_it_means
+        data_tests: [not_null]
+      - name: why_shown_this_way
+        data_tests: [not_null]
+      - name: why_your_boss_asks
+        data_tests: [not_null]
+      - name: good_direction
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [up, down, band]
+      - name: compare_to
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [prior_year, target, peer_avg, prior_month]
+      - name: audience_roles
+        data_tests: [not_null]
+  - name: glossary_terms
+    description: >
+      Plain-English glossary for the site's glossary page and the automatic first-use links
+      (docs/V3_DESIGN.md section 10.2). see_also is a pipe list of other term_ids. Owner: Reporting Manager.
+    config:
+      column_types:
+        term_id: varchar
+        term: varchar
+        plain_definition: varchar
+        example: varchar
+        see_also: varchar
+    columns:
+      - name: term_id
+        data_tests: [unique, not_null]
+      - name: term
+        data_tests: [unique, not_null]
+      - name: plain_definition
         data_tests: [not_null]

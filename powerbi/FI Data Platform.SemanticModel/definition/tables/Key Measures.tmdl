@@ -1,7 +1,9 @@
 /// Every measure is generated from dbt/models/metrics.yml (annotation dbt_metric).
 table 'Key Measures'
 
-	/// Reserve premium booked in the sale month.
+	/// The money taken in for contracts sold in the period, before any of it counts as earned.
+	/// Why your boss asks: Shows how much business came in; leaders use it to set dealer targets and size the reserve.
+	/// Definition: Reserve premium booked in the sale month.
 	measure 'Written Premium' = SUM('Contract Month'[Written Premium])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Premium
@@ -9,7 +11,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Pro-rata earned reserve premium.
+	/// The part of the premium used up as coverage time passes; a 36-month contract earns a slice each month.
+	/// Why your boss asks: It is the bottom half of the loss ratio, so it decides whether a book looks profitable.
+	/// Definition: Pro-rata earned reserve premium.
 	measure 'Earned Premium' = SUM('Contract Month'[Earned Premium])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Premium
@@ -17,7 +21,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Paid + case reserve on open claims, by loss month.
+	/// Claims already paid plus money held for claims that are filed but not paid yet.
+	/// Why your boss asks: Partners who share the risk ask for it to see whether their book makes money.
+	/// Definition: Paid + case reserve on open claims, by loss month.
 	measure 'Incurred Claims (accident month)' = SUM('Contract Month'[Incurred Claims])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -25,7 +31,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Incurred claims divided by EARNED premium (never written). Not comparable with the loss ratio on claims reserve.
+	/// For every $1 of premium earned, how many cents went to claims.
+	/// Why your boss asks: Decides whether a dealer's program is renewed, re-priced or re-trained.
+	/// Definition: Incurred claims divided by EARNED premium (never written). Not comparable with the loss ratio on claims reserve.
 	measure 'Loss Ratio (on earned premium)' = DIVIDE([Incurred Claims (accident month)], [Earned Premium])
 		formatString: 0.0%
 		displayFolder: Ratios
@@ -33,7 +41,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = true
 
-	/// Non-denied claims per earned contract-year, accident-month basis (claims page tile).
+	/// How many claims each contract makes per year of coverage.
+	/// Why your boss asks: A rise means prices may be too low or cars are riskier; it drives re-pricing.
+	/// Definition: Non-denied claims per earned contract-year, accident-month basis (claims page tile).
 	measure 'Claim Frequency' = DIVIDE([Claim Count (accident month)], [Exposure Years])
 		formatString: #,0.00
 		displayFolder: Ratios
@@ -41,7 +51,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = true
 
-	/// Non-denied claims, by loss month.
+	/// The number of claims accepted for review, leaving out denied ones.
+	/// Why your boss asks: Claims managers plan adjuster staffing from it.
+	/// Definition: Non-denied claims, by loss month.
 	measure 'Claim Count (accident month)' = SUM('Contract Month'[Claim Count])
 		formatString: #,0
 		displayFolder: Claims
@@ -49,7 +61,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Earned contract-years (days in force / 365.25).
+	/// Coverage time counted in contract-years; one contract active all year counts as 1.
+	/// Why your boss asks: Lets leaders compare claim rates fairly between big and small dealers.
+	/// Definition: Earned contract-years (days in force / 365.25).
 	measure 'Exposure Years' = SUM('Contract Month'[Exposure Years])
 		formatString: #,0.00
 		displayFolder: Exposure
@@ -57,7 +71,9 @@ table 'Key Measures'
 		annotation metric_owner = Data Scientist
 		annotation certified = false
 
-	/// Contracts sold in the posting period (sales only; amendments add 0), from core.fct_gross_premium.
+	/// Contracts sold in the accounting month; a change to an old contract adds nothing.
+	/// Why your boss asks: The monthly production check for each dealer and territory.
+	/// Definition: Contracts sold in the posting period (sales only; amendments add 0), from core.fct_gross_premium.
 	measure 'Contracts Written' = SUM('Gross Premium'[Contracts Written])
 		formatString: #,0
 		displayFolder: Sales
@@ -65,7 +81,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Coverage cost (dealer cost) written in the posting period. The executive overview shows it as Written coverage cost.
+	/// What dealers owe the administrator for the contracts they sold this period.
+	/// Why your boss asks: It is the cash that must arrive to fund fees, insurance and the claims reserve.
+	/// Definition: Coverage cost (dealer cost) written in the posting period. The executive overview shows it as Written coverage cost.
 	measure 'Gross Coverage Cost' = SUM('Gross Premium'[Coverage Cost])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Sales
@@ -73,7 +91,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Gross consideration on the retail basis.
+	/// What customers paid the dealer for the contracts sold.
+	/// Why your boss asks: Compared with dealer cost to see what the store earns on each sale.
+	/// Definition: Gross consideration on the retail basis.
 	measure 'Gross Retail Price' = SUM('Gross Premium'[Retail Price])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Sales
@@ -81,7 +101,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Gross purchase price
+	/// The contract price entered by the dealer for contracts sold in the period.
+	/// Why your boss asks: Dealer groups compare what each store charges to set pricing guidance.
+	/// Definition: Gross purchase price
 	measure 'Gross Purchase Price' = SUM('Gross Premium'[Purchase Price])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Sales
@@ -89,7 +111,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Average coverage cost per contract written
+	/// The average dealer cost per contract sold.
+	/// Why your boss asks: Product managers use it in pricing reviews.
+	/// Definition: Average coverage cost per contract written
 	measure 'Average Coverage Cost' = DIVIDE([Gross Coverage Cost], [Contracts Written])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Sales
@@ -97,7 +121,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Retail price minus coverage cost on business written in the posting period.
+	/// Retail price minus dealer cost: what the store keeps on contracts it sold.
+	/// Why your boss asks: Dealer groups compare markup across stores to set a pricing policy.
+	/// Definition: Retail price minus coverage cost on business written in the posting period.
 	measure 'Dealer Markup Written' = [Gross Retail Price] - [Gross Coverage Cost]
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Sales
@@ -105,7 +131,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Contracts in force at month end (a balance: it never sums across months).
+	/// Contracts active right now, counted at month end.
+	/// Why your boss asks: States and buyers ask for the size of the active book; it backs every yearly filing.
+	/// Definition: Contracts in force at month end (a balance: it never sums across months).
 	measure 'Contracts In Force' =
 			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
 			VAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)
@@ -117,7 +145,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Unearned reserve premium at month end (a balance, so it never sums across months).
+	/// Premium collected for coverage time that has not happened yet; part is owed back if contracts cancel.
+	/// Why your boss asks: Finance checks it against the reserve held; buyers use it to value the book.
+	/// Definition: Unearned reserve premium at month end (a balance, so it never sums across months).
 	measure 'Unearned Premium Balance' =
 			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
 			VAR _period = CALCULATE(MAX('Contract Month'[Posting Period Key]), 'Contract Month'[Posting Period Key] <= _cap)
@@ -129,7 +159,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Cancellations
+	/// Cancel transactions posted in the month.
+	/// Why your boss asks: Plans refund cash and cancel-desk workload.
+	/// Definition: Cancellations
 	measure Cancellations = COUNTROWS('Cancellation')
 		formatString: #,0
 		displayFolder: Cancellations
@@ -137,7 +169,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Cancels not later reinstated.
+	/// Cancels that were not later reversed by a reinstatement.
+	/// Why your boss asks: It is the true cancel count behind cancel rates and refunds.
+	/// Definition: Cancels not later reinstated.
 	measure 'Effective Cancellations' = CALCULATE(COUNTROWS('Cancellation'), 'Cancellation'[Is Effective Cancel] = TRUE())
 		formatString: #,0
 		displayFolder: Cancellations
@@ -145,7 +179,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Customer refunds
+	/// Money paid back to customers when their contract cancelled.
+	/// Why your boss asks: Finance plans cash from it and checks refunds follow each contract's refund rule.
+	/// Definition: Customer refunds
 	measure 'Customer Refunds' = SUM('Cancellation'[Customer Refund])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Cancellations
@@ -153,7 +189,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Cancel fees
+	/// The fee kept when a customer cancels, as the contract allows.
+	/// Why your boss asks: Part of program income; checked on dealer statements.
+	/// Definition: Cancel fees
 	measure 'Cancel Fees' = SUM('Cancellation'[Cancel Fee])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Cancellations
@@ -161,7 +199,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Dealer portion of the refund (chargeback).
+	/// Money taken back from the dealer on a cancelled contract, for the part not yet earned.
+	/// Why your boss asks: Settles what each dealer owes back on the monthly statement.
+	/// Definition: Dealer portion of the refund (chargeback).
 	measure 'Dealer Chargebacks' = SUM('Cancellation'[Dealer Portion])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Cancellations
@@ -169,7 +209,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Coverage cost refunds
+	/// The part of dealer cost returned when contracts cancel.
+	/// Why your boss asks: It explains part of the gap between two reserve reports.
+	/// Definition: Coverage cost refunds
 	measure 'Coverage Cost Refunds' = SUM('Cancellation'[Coverage Cost Refund])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Cancellations
@@ -177,7 +219,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Effective cancel rate (effective cancels / contracts written, same period)
+	/// Cancels that stuck this period divided by contracts written in the same period.
+	/// Why your boss asks: An early warning for a dealer whose customers cancel quickly.
+	/// Definition: Effective cancel rate (effective cancels / contracts written, same period)
 	measure 'Effective Cancel Rate' = DIVIDE([Effective Cancellations], [Contracts Written])
 		formatString: 0.0%
 		displayFolder: Cancellations
@@ -185,7 +229,29 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Net coverage cost (gross - coverage cost refunds)
+	/// Cancels that stuck, leaving out cancels that only fixed a data-entry mistake.
+	/// Why your boss asks: Bids and partners ask how the cancel rate is worked out; this is the cleaner count.
+	/// Definition: Effective cancels that are not administrative corrections (cancel_reason_crosswalk).
+	measure 'Effective Cancellations Excl Admin' = CALCULATE(COUNTROWS('Cancellation'), 'Cancellation'[Is Effective Cancel Excl Admin] = TRUE())
+		formatString: #,0
+		displayFolder: Cancellations
+		annotation dbt_metric = effective_cancellations_excl_admin
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Customer cancels this period divided by contracts written, without data-entry fixes.
+	/// Why your boss asks: A buyer may ask for both methods; it shows how sticky the book really is.
+	/// Definition: Effective cancels that are not data-entry corrections / contracts written, same period. A cancel coded as an administrative correction in seeds/core/cancel_reason_crosswalk.csv is a fix, not a customer cancel.
+	measure 'Cancel Rate Excl Admin' = DIVIDE([Effective Cancellations Excl Admin], [Contracts Written])
+		formatString: 0.0%
+		displayFolder: Cancellations
+		annotation dbt_metric = cancel_rate_excl_admin
+		annotation metric_owner = Financial Analyst II
+		annotation certified = false
+
+	/// Dealer cost written minus dealer cost refunded on cancels.
+	/// Why your boss asks: The real income base for the period; it ties to the books.
+	/// Definition: Net coverage cost (gross - coverage cost refunds)
 	measure 'Net Coverage Cost' = [Gross Coverage Cost] - [Coverage Cost Refunds]
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Sales
@@ -193,7 +259,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Reinstatements
+	/// Cancelled contracts that were turned back on.
+	/// Why your boss asks: They change dealer statements and refunds, so finance tracks them.
+	/// Definition: Reinstatements
 	measure Reinstatements = COUNTROWS('Reinstatement')
 		formatString: #,0
 		displayFolder: Cancellations
@@ -201,7 +269,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Reinstatement reversals
+	/// Reinstatements that were later reversed.
+	/// Why your boss asks: A data and settlement check: each one changes what a dealer is owed.
+	/// Definition: Reinstatement reversals
 	measure 'Reinstatement Reversals' = SUM('Reinstatement'[Reversal Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Cancellations
@@ -209,7 +279,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Claim dollars paid (always positive after conforming).
+	/// Claim dollars paid, counted in the accounting month they were booked.
+	/// Why your boss asks: Statements and state filings must use the booked figure.
+	/// Definition: Claim dollars paid (always positive after conforming).
 	measure 'Claims Paid' = SUM('Claim Payment Line'[Paid Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -217,7 +289,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Paid plus change in case reserve (as posted).
+	/// Claims paid plus the change in money held for open claims, by accounting month.
+	/// Why your boss asks: It is the top half of the booked loss ratio on partner statements.
+	/// Definition: Paid plus change in case reserve (as posted).
 	measure 'Claims Incurred' = SUM('Claim Payment Line'[Incurred Change])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -225,7 +299,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Change in outstanding case reserve.
+	/// How much the money held for open claims went up or down this month.
+	/// Why your boss asks: A big jump means large claims are open; finance checks the reserve is enough.
+	/// Definition: Change in outstanding case reserve.
 	measure 'Claims Reserve Change' = SUM('Claim Payment Line'[Pending Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -233,7 +309,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims with posted activity
+	/// Claims that had any payment or reserve change booked this month.
+	/// Why your boss asks: Claims managers use it for adjuster workload.
+	/// Definition: Claims with posted activity
 	measure 'Claims With Activity' = DISTINCTCOUNT('Claim Payment Line'[Claim Key])
 		formatString: #,0
 		displayFolder: Claims
@@ -241,7 +319,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Average claim process days
+	/// Average days from a claim's first entry to its booked payment.
+	/// Why your boss asks: It is the service promise to dealers and customers; it drives staffing.
+	/// Definition: Average claim process days
 	measure 'Average Claim Process Days' = AVERAGE('Claim Payment Line'[Process Days])
 		formatString: #,0.00
 		displayFolder: Claims
@@ -249,7 +329,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims reported (both systems).
+	/// New claims reported in the month.
+	/// Why your boss asks: Plans staffing and warns early of a rise in breakdowns.
+	/// Definition: Claims reported (both systems).
 	measure 'Claims Opened' = CALCULATE(COUNTROWS('Claim Summary'), USERELATIONSHIP('Claim Summary'[Reported Month], 'Posting Period'[Period Start]))
 		formatString: #,0
 		displayFolder: Claims
@@ -257,7 +339,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims reported, one row per claim from both admin systems, by loss month.
+	/// Claims counted by the month the car broke down, from both admin systems.
+	/// Why your boss asks: It is the base for the denial rate and the early-claim checks.
+	/// Definition: Claims reported, one row per claim from both admin systems, by loss month.
 	measure 'Claims Reported (loss month)' = COUNTROWS('Claim Summary')
 		formatString: #,0
 		displayFolder: Claims
@@ -265,7 +349,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Claims denied (loss month)
+	/// Claims not paid because the repair was not covered.
+	/// Why your boss asks: States ask for denied claims on the yearly renewal; a spike triggers a review.
+	/// Definition: Claims denied (loss month)
 	measure 'Claims Denied' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "denied")
 		formatString: #,0
 		displayFolder: Claims
@@ -273,7 +359,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Paid claims (loss month)
+	/// Claims closed with a payment, counted by breakdown month.
+	/// Why your boss asks: Used to track repair cost per claim over time.
+	/// Definition: Paid claims (loss month)
 	measure 'Paid Claim Count' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "paid")
 		formatString: #,0
 		displayFolder: Claims
@@ -281,7 +369,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claim dollars paid on paid claims (loss month)
+	/// Total paid on claims that were paid, by breakdown month.
+	/// Why your boss asks: Used to track repair cost per claim over time.
+	/// Definition: Claim dollars paid on paid claims (loss month)
 	measure 'Paid On Paid Claims' = CALCULATE(SUM('Claim Summary'[Paid Amount]), 'Claim Summary'[Status Group] = "paid")
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -289,7 +379,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims open as of the as-of date.
+	/// Claims not yet closed on the report date.
+	/// Why your boss asks: The daily adjuster workload.
+	/// Definition: Claims open as of the as-of date.
 	measure 'Open Claims' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Status Group] = "open")
 		formatString: #,0
 		displayFolder: Claims
@@ -297,7 +389,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days).
+	/// Open claims that were reported more than 30 days ago.
+	/// Why your boss asks: Old open claims mean unhappy customers; managers assign follow-ups from it.
+	/// Definition: Open claims reported more than 30 days before the as-of date (seed open_aging_threshold_days).
 	measure 'Open Claims Aged 30 Plus' = CALCULATE(COUNTROWS('Claim Summary'), 'Claim Summary'[Is Aged Open] = TRUE())
 		formatString: #,0
 		displayFolder: Claims
@@ -305,7 +399,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Average days from reported to closed, closed claims only.
+	/// Average days from a claim being reported to being closed.
+	/// Why your boss asks: It is the service promise; it drives staffing and dealer satisfaction.
+	/// Definition: Average days from reported to closed, closed claims only.
 	measure 'Average Turnaround Days' = AVERAGE('Claim Summary'[Turnaround Days])
 		formatString: #,0.00
 		displayFolder: Claims
@@ -313,7 +409,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Collected deductibles (admin core status history)
+	/// Deductibles customers paid on claims.
+	/// Why your boss asks: It lowers net claim cost; finance checks it against contract terms.
+	/// Definition: Collected deductibles (admin core status history)
 	measure 'Collected Deductibles' = SUM('Claim History'[Collected Deductible])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Claims
@@ -321,7 +419,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Same definition as the claims KPI page and mart_claims_kpi.denial_rate.
+	/// Of all reported claims, the share that was denied.
+	/// Why your boss asks: Too high draws complaints and state attention; too low can mean loose checks.
+	/// Definition: Same definition as the claims KPI page and mart_claims_kpi.denial_rate.
 	measure 'Denial Rate' = DIVIDE([Claims Denied], [Claims Reported (loss month)])
 		formatString: 0.0%
 		displayFolder: Ratios
@@ -329,7 +429,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Numerator and denominator are the same population (paid claims). Same as mart_claims_kpi.claim_severity.
+	/// Paid dollars divided by paid claims; the same claims are on top and bottom.
+	/// Why your boss asks: Tracks repair cost inflation; it drives rate reviews.
+	/// Definition: Numerator and denominator are the same population (paid claims). Same as mart_claims_kpi.claim_severity.
 	measure 'Paid Claim Severity' = DIVIDE([Paid On Paid Claims], [Paid Claim Count])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Ratios
@@ -337,7 +439,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Ledger view, claims incurred as posted / earned claims reserve. Not comparable with the loss ratio on earned premium (the accident-month actuarial view).
+	/// For every $1 set aside to pay claims, how much was paid or is owed on claims.
+	/// Why your boss asks: Decides whether a dealer's reinsurance company can take a distribution.
+	/// Definition: Ledger view, claims incurred as posted / earned claims reserve. Not comparable with the loss ratio on earned premium (the accident-month actuarial view).
 	measure 'Loss Ratio (on claims reserve)' = DIVIDE([Claims Incurred], [Earned Reserve])
 		formatString: 0.0%
 		displayFolder: Ratios
@@ -345,7 +449,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = true
 
-	/// Earned claims reserve / net claims reserve written (all postings). The Experience page gauge; finance.mart_experience.earned_pct on the same basis.
+	/// How much of the claims reserve has been earned so far, as a share of all reserve written.
+	/// Why your boss asks: A low earned % means a young book whose loss ratio will still rise; partners ask before deciding.
+	/// Definition: Earned claims reserve / net claims reserve written (all postings). The Experience page gauge; finance.mart_experience.earned_pct on the same basis.
 	measure 'Earned Pct' = DIVIDE([Earned Reserve], [Disbursed Claims Reserve])
 		formatString: 0.0%
 		displayFolder: Ratios
@@ -353,7 +459,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Effective cancellations / contracts written. The Experience page gauge; finance.mart_experience.cancel_pct counts the same contracts by entered-month cohort.
+	/// Share of contracts written that cancelled and stayed cancelled.
+	/// Why your boss asks: Part of every experience review with a dealer or partner.
+	/// Definition: Effective cancellations / contracts written. The Experience page gauge; finance.mart_experience.cancel_pct counts the same contracts by entered-month cohort.
 	measure 'Cancel Pct' = DIVIDE([Effective Cancellations], [Contracts Written])
 		formatString: 0.0%
 		displayFolder: Ratios
@@ -361,7 +469,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Remitted cash
+	/// Money dealers sent to pay for the contracts they sold.
+	/// Why your boss asks: It funds the reserve; finance ties it to the bank.
+	/// Definition: Remitted cash
 	measure 'Remitted Cash' = SUM('Cash Transaction'[Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Remittance
@@ -369,7 +479,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Remittances
+	/// Payments received from dealers.
+	/// Why your boss asks: Billing workload, and the base for the late rate.
+	/// Definition: Remittances
 	measure Remittances = COUNTROWS('Cash Transaction')
 		formatString: #,0
 		displayFolder: Remittance
@@ -377,7 +489,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Late remittances
+	/// Dealer payments that arrived more than 30 days after the contract was entered.
+	/// Why your boss asks: Late money means the reserve is funded late; it triggers late fees and calls.
+	/// Definition: Late remittances
 	measure 'Late Remittances' = CALCULATE(COUNTROWS('Cash Transaction'), 'Cash Transaction'[Is Late] = TRUE())
 		formatString: #,0
 		displayFolder: Remittance
@@ -385,7 +499,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Late fees
+	/// Fees billed to dealers for paying late, a set share of the late amount.
+	/// Why your boss asks: Program income and a nudge to pay on time; billed on the dealer statement.
+	/// Definition: Late fees
 	measure 'Late Fees' = SUM('Cash Transaction'[Late Fee])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Remittance
@@ -393,7 +509,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Average remit age (days)
+	/// Average days from contract entry to the dealer's money arriving.
+	/// Why your boss asks: Shows which dealers to call about payment habits.
+	/// Definition: Average remit age (days)
 	measure 'Average Remit Age Days' = AVERAGE('Cash Transaction'[Remit Age Days])
 		formatString: #,0.00
 		displayFolder: Remittance
@@ -401,7 +519,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Late remittance rate (late / all remittances)
+	/// Of all dealer payments, the share that arrived late.
+	/// Why your boss asks: Over half late puts a dealer on watch and starts collection calls.
+	/// Definition: Late remittance rate (late / all remittances)
 	measure 'Late Remittance Rate' = DIVIDE([Late Remittances], [Remittances])
 		formatString: 0.0%
 		displayFolder: Remittance
@@ -409,7 +529,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Disbursed amount
+	/// Dealer cost divided into its parts: admin fee, insurer fee, tax, commission and reserves.
+	/// Why your boss asks: Each part goes to a different party, so every settlement needs it right.
+	/// Definition: Disbursed amount
 	measure 'Disbursed Amount' = SUM('Disbursement'[Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Disbursements
@@ -417,7 +539,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Claims reserve disbursed
+	/// The part of dealer cost put aside to pay future claims.
+	/// Why your boss asks: It is the money behind the contracts; states and partners check it.
+	/// Definition: Claims reserve disbursed
 	measure 'Disbursed Claims Reserve' = SUM('Disbursement'[Reserve Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Disbursements
@@ -425,7 +549,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Profit-share reserve disbursed
+	/// The part of dealer cost held for the dealer's later share of profit.
+	/// Why your boss asks: Sizes what may be paid back to dealers later.
+	/// Definition: Profit-share reserve disbursed
 	measure 'Disbursed Profit Share Reserve' = SUM('Disbursement'[Profit Share Reserve])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Disbursements
@@ -433,7 +559,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// All earned cost-split buckets in the posting period. The executive overview and the P&L call it Earned premium; it is the combined-ratio denominator.
+	/// All parts of dealer cost that have been earned in the period, as coverage time passed.
+	/// Why your boss asks: It is the bottom half of the combined ratio on the profit and loss statement.
+	/// Definition: All earned cost-split buckets in the posting period. The executive overview and the P&L call it Earned premium; it is the combined-ratio denominator.
 	measure 'Earned Disbursement Amount' = SUM('Earned Disbursement'[Earned Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Disbursements
@@ -441,7 +569,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = true
 
-	/// Earned claims reserve in the posting period, the denominator of the posted loss ratio.
+	/// The part of the claims reserve earned this period as coverage time passes.
+	/// Why your boss asks: It is the bottom half of the loss ratio on partner statements.
+	/// Definition: Earned claims reserve in the posting period, the denominator of the posted loss ratio.
 	measure 'Earned Reserve' = SUM('Earned Disbursement'[Earned Reserve])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Disbursements
@@ -449,7 +579,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = true
 
-	/// Earned admin fee
+	/// The administrator's fee, counted as it is earned over the contract term.
+	/// Why your boss asks: The administrator's own income line.
+	/// Definition: Earned admin fee
 	measure 'Earned Admin Fee' = CALCULATE(SUM('Earned Disbursement'[Earned Amount]), 'Earned Disbursement'[Disbursement Type] = "ADMIN_FEE")
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Disbursements
@@ -457,7 +589,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Earned acquisition cost (commission + insurer fee + premium tax)
+	/// Commission, insurer fee and premium tax, counted as they are earned.
+	/// Why your boss asks: Part of the combined ratio: the cost of selling the book.
+	/// Definition: Earned acquisition cost (commission + insurer fee + premium tax)
 	measure 'Earned Acquisition Cost' = CALCULATE(SUM('Earned Disbursement'[Earned Amount]), 'Earned Disbursement'[Disbursement Type] IN {"COMMISSION", "INSURER_FEE", "PREMIUM_TAX"})
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Disbursements
@@ -465,7 +599,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Same as finance.mart_pnl_by_product.combined_ratio and the executive overview. Above 100% the book lost money.
+	/// Claims plus selling costs plus the admin fee, divided by earned premium; over 100% the book lost money.
+	/// Why your boss asks: Decides whether a product or program is priced right overall.
+	/// Definition: Same as finance.mart_pnl_by_product.combined_ratio and the executive overview. Above 100% the book lost money.
 	measure 'Combined Ratio' = DIVIDE(([Claims Incurred] + [Earned Acquisition Cost] + [Earned Admin Fee]), [Earned Disbursement Amount])
 		formatString: 0.0%
 		displayFolder: Ratios
@@ -473,7 +609,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = true
 
-	/// Claims reported (dealer scorecard)
+	/// Claims reported on one dealer's contracts.
+	/// Why your boss asks: It is the base for that dealer's early-claim check.
+	/// Definition: Claims reported (dealer scorecard)
 	measure 'Scorecard Claims Reported' = SUM('Dealer Scorecard'[Claims Reported])
 		formatString: #,0
 		displayFolder: Dealer Scorecard
@@ -481,7 +619,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Claims within the headline early-claim window (seed early_claim_headline_days).
+	/// Claims where the car broke down soon after the contract started.
+	/// Why your boss asks: Too many can mean cars were sold with problems already; it triggers a dealer review.
+	/// Definition: Claims within the headline early-claim window (seed early_claim_headline_days).
 	measure 'Early Claims' = SUM('Dealer Scorecard'[Early Claims])
 		formatString: #,0
 		displayFolder: Dealer Scorecard
@@ -489,7 +629,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Early claims / claims reported, headline early-claim window (seed early_claim_headline_days).
+	/// Of all reported claims, the share that came soon after the start date.
+	/// Why your boss asks: A high share can mean problem cars or a waiting period not enforced; it starts a review.
+	/// Definition: Early claims / claims reported, headline early-claim window (seed early_claim_headline_days).
 	measure 'Early Claim Rate' = DIVIDE([Early Claims], [Scorecard Claims Reported])
 		formatString: 0.0%
 		displayFolder: Dealer Scorecard
@@ -497,7 +639,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Dealers on any scorecard watch (loss ratio, late remittance or early claims) at month end.
+	/// Dealers that break at least one watch rule: high loss ratio, late payment or early claims.
+	/// Why your boss asks: It is this month's call list for dealer relations.
+	/// Definition: Dealers on any scorecard watch (loss ratio, late remittance or early claims) at month end.
 	measure 'Dealers On Watch' =
 			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
 			VAR _period = CALCULATE(MAX('Dealer Scorecard'[Month Key]), 'Dealer Scorecard'[Month Key] <= _cap)
@@ -509,7 +653,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Dealers whose T12 loss ratio (on earned claims reserve) is above the scorecard watch threshold, with at least the seed minimum T12 earned claims reserve. The executive overview tile and the dealer scorecard use this one rule.
+	/// Dealers whose 12-month loss ratio is over the watch line, among dealers with enough volume.
+	/// Why your boss asks: Decides which dealers to re-price, retrain or review with their reinsurance company.
+	/// Definition: Dealers whose T12 loss ratio (on earned claims reserve) is above the scorecard watch threshold, with at least the seed minimum T12 earned claims reserve. The executive overview tile and the dealer scorecard use this one rule.
 	measure 'Dealers on Loss-Ratio Watch' =
 			VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
 			VAR _period = CALCULATE(MAX('Dealer Scorecard'[Month Key]), 'Dealer Scorecard'[Month Key] <= _cap)
@@ -521,7 +667,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = true
 
-	/// Contracts written in the month (entered-month cohort).
+	/// Contracts one dealer wrote in the months shown.
+	/// Why your boss asks: The production check for each dealer.
+	/// Definition: Contracts written in the month (entered-month cohort).
 	measure 'Scorecard Contracts Written' = SUM('Dealer Scorecard'[Contracts Written])
 		formatString: #,0
 		displayFolder: Dealer Scorecard
@@ -529,7 +677,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Of the contracts written in the month, those since cancelled (sale cohort).
+	/// Of one dealer's contracts written in the months shown, how many have cancelled since.
+	/// Why your boss asks: The top half of the dealer's cancel rate.
+	/// Definition: Of the contracts written in the month, those since cancelled (sale cohort).
 	measure 'Scorecard Contracts Cancelled' = SUM('Dealer Scorecard'[Contracts Cancelled])
 		formatString: #,0
 		displayFolder: Dealer Scorecard
@@ -537,7 +687,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Earned claims reserve by earned month (the scorecard loss-ratio denominator).
+	/// The claims reserve one dealer's contracts earned in the months shown.
+	/// Why your boss asks: The bottom half of the dealer's loss ratio; small totals are not judged.
+	/// Definition: Earned claims reserve by earned month (the scorecard loss-ratio denominator).
 	measure 'Scorecard Earned Claims Reserve' = SUM('Dealer Scorecard'[Earned Claims Reserve])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Dealer Scorecard
@@ -545,7 +697,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Incurred claims by loss month.
+	/// Claims paid and held on one dealer's contracts, by breakdown month.
+	/// Why your boss asks: The top half of the dealer's loss ratio.
+	/// Definition: Incurred claims by loss month.
 	measure 'Scorecard Incurred Claims' = SUM('Dealer Scorecard'[Incurred Claims])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Dealer Scorecard
@@ -553,7 +707,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Remittances (dealer scorecard)
+	/// Payments one dealer sent in the months shown.
+	/// Why your boss asks: The bottom half of the dealer's late payment rate.
+	/// Definition: Remittances (dealer scorecard)
 	measure 'Scorecard Remittances' = SUM('Dealer Scorecard'[Remittances])
 		formatString: #,0
 		displayFolder: Dealer Scorecard
@@ -561,7 +717,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Late remittances (dealer scorecard)
+	/// Payments from one dealer that arrived late.
+	/// Why your boss asks: The top half of the dealer's late payment rate.
+	/// Definition: Late remittances (dealer scorecard)
 	measure 'Scorecard Late Remittances' = SUM('Dealer Scorecard'[Late Remittances])
 		formatString: #,0
 		displayFolder: Dealer Scorecard
@@ -569,7 +727,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Days past the late threshold, summed over late remittances.
+	/// All the days late added up across one dealer's late payments.
+	/// Why your boss asks: Shows how late, not just how often, a dealer pays.
+	/// Definition: Days past the late threshold, summed over late remittances.
 	measure 'Scorecard Days Late Total' = SUM('Dealer Scorecard'[Days Late Total])
 		formatString: #,0
 		displayFolder: Dealer Scorecard
@@ -577,7 +737,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Incurred claims (loss month) / earned claims reserve (earned month). With the T12M calculation item this is the watch rule's T12 loss ratio, per dealer or rolled up.
+	/// For one dealer, claims divided by the claims reserve its contracts earned.
+	/// Why your boss asks: Decides whether the dealer's reinsurance company can take a distribution, or needs a review.
+	/// Definition: Incurred claims (loss month) / earned claims reserve (earned month). With the T12M calculation item this is the watch rule's T12 loss ratio, per dealer or rolled up.
 	measure 'Scorecard Loss Ratio (on claims reserve)' = DIVIDE([Scorecard Incurred Claims], [Scorecard Earned Claims Reserve])
 		formatString: 0.0%
 		displayFolder: Dealer Scorecard
@@ -585,7 +747,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Of the contracts written in the months in context, the share since cancelled (sale-cohort basis, as metric cancel_rate).
+	/// Of one dealer's contracts written in the months shown, the share since cancelled.
+	/// Why your boss asks: High cancels mean chargebacks and lost income; it drives retraining.
+	/// Definition: Of the contracts written in the months in context, the share since cancelled (sale-cohort basis, as metric cancel_rate).
 	measure 'Scorecard Cancel Rate' = DIVIDE([Scorecard Contracts Cancelled], [Scorecard Contracts Written])
 		formatString: 0.0%
 		displayFolder: Dealer Scorecard
@@ -593,7 +757,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Late remittance rate (dealer scorecard)
+	/// Of one dealer's payments, the share that arrived late.
+	/// Why your boss asks: Over half late puts the dealer on watch.
+	/// Definition: Late remittance rate (dealer scorecard)
 	measure 'Scorecard Late Remit Rate' = DIVIDE([Scorecard Late Remittances], [Scorecard Remittances])
 		formatString: 0.0%
 		displayFolder: Dealer Scorecard
@@ -601,7 +767,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Average days late (dealer scorecard, late remittances only)
+	/// For late payments only, the average number of days late.
+	/// Why your boss asks: Separates a dealer that is a few days late from one that is months late.
+	/// Definition: Average days late (dealer scorecard, late remittances only)
 	measure 'Scorecard Average Days Late' = DIVIDE([Scorecard Days Late Total], [Scorecard Late Remittances])
 		formatString: #,0.00
 		displayFolder: Dealer Scorecard
@@ -609,7 +777,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// The dealer's rank among peers on the trailing-12 loss ratio at the last closed month. A rank, so it shows for one dealer only (blank on totals).
+	/// Where this dealer's loss ratio sits among peers; a high number means worse than most.
+	/// Why your boss asks: Lets a dealer see how it compares without seeing other dealers' numbers.
+	/// Definition: The dealer's rank among peers on the trailing-12 loss ratio at the last closed month. A rank, so it shows for one dealer only (blank on totals).
 	measure 'Loss-Ratio Peer Percentile' =
 			IF(HASONEVALUE('Dealer Scorecard'[Dealer Key]),
 			    VAR _cap = MAX('Reporting Date'[Last Closed Period Key])
@@ -622,7 +792,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (dealer & claims)
 		annotation certified = false
 
-	/// Funded-reserve filing: required reserve on the state's default basis.
+	/// The reserve the state's formula says the company must hold.
+	/// Why your boss asks: Decides whether the state filing is accepted, so the company can keep selling there.
+	/// Definition: Funded-reserve filing: required reserve on the state's default basis.
 	measure 'Calculated Reserve' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Calculated Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Calculated Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Filings
@@ -630,7 +802,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (regulatory)
 		annotation certified = true
 
-	/// Current reserve held (funded-reserve filing)
+	/// The reserve the company actually holds for contracts in that state.
+	/// Why your boss asks: If it is below the required reserve, money must be moved before filing.
+	/// Definition: Current reserve held (funded-reserve filing)
 	measure 'Current Reserve Held' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Current Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Current Reserve]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Filings
@@ -638,7 +812,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (regulatory)
 		annotation certified = false
 
-	/// Funded-reserve filing: calculated reserve minus current reserve held, when positive.
+	/// How much the reserve held falls short of what the state requires; 0 is the goal.
+	/// Why your boss asks: A shortfall must be funded before the filing is sent.
+	/// Definition: Funded-reserve filing: calculated reserve minus current reserve held, when positive.
 	measure 'Reserve Shortfall' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Reserve Shortfall]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Reserve Shortfall]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Filings
@@ -646,7 +822,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (regulatory)
 		annotation certified = true
 
-	/// Funded-reserve filing: complaints received (slice Scope and Period Label, never sum across windows).
+	/// Customer complaints received in the filing period.
+	/// Why your boss asks: States ask for it on the yearly renewal.
+	/// Definition: Funded-reserve filing: complaints received (slice Scope and Period Label, never sum across windows).
 	measure 'Complaints Received' = IF(HASONEVALUE('Funded Reserve Filing'[Scope]), CALCULATE(SUM('Funded Reserve Filing'[Complaints Received]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), CALCULATE(CALCULATE(SUM('Funded Reserve Filing'[Complaints Received]), 'Funded Reserve Filing'[Is Default Basis] = TRUE()), 'Funded Reserve Filing'[Scope] = "ITD"))
 		formatString: #,0
 		displayFolder: Filings
@@ -654,7 +832,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (regulatory)
 		annotation certified = true
 
-	/// One filed line. Blank unless one report, line item, scope and basis are in context; across several windows it is blank, except a LAST line (in force), which shows the latest window.
+	/// One numbered answer on a state form, such as contracts in force at year end.
+	/// Why your boss asks: Every line must be right for the filing to be accepted.
+	/// Definition: One filed line. Blank unless one report, line item, scope and basis are in context; across several windows it is blank, except a LAST line (in force), which shows the latest window.
 	measure 'Filing Line Value' =
 			IF(HASONEVALUE('Regulatory Line Value'[Report ID]) && HASONEVALUE('Regulatory Line Value'[Line Item]) && HASONEVALUE('Regulatory Line Value'[Scope]) && HASONEVALUE('Regulatory Line Value'[Basis]),
 			    IF(HASONEVALUE('Regulatory Line Value'[Window ID]), SUM('Regulatory Line Value'[Value]),
@@ -669,7 +849,9 @@ table 'Key Measures'
 		annotation metric_owner = Senior Data Analyst (regulatory)
 		annotation certified = false
 
-	/// Commissions
+	/// Commission paid to agents for contracts sold.
+	/// Why your boss asks: Agent payouts and the cost of selling.
+	/// Definition: Commissions
 	measure Commissions = SUM('Commission'[Amount])
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Commissions
@@ -677,7 +859,9 @@ table 'Key Measures'
 		annotation metric_owner = Financial Analyst II
 		annotation certified = false
 
-	/// Commission advances
+	/// Commission paid to an agent before it is earned; it is worked off as contracts earn.
+	/// Why your boss asks: Finance tracks how much could be owed back if contracts cancel.
+	/// Definition: Commission advances
 	measure 'Commission Advances' = CALCULATE(SUM('Commission'[Amount]), 'Commission'[Is Advance] = TRUE())
 		formatString: \$#,0;(\$#,0);\$#,0
 		displayFolder: Commissions

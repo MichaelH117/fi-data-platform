@@ -71,7 +71,8 @@ def shortfall_cause(basis: str, shortfall: float) -> str:
     return f"Funding gap on the coverage-cost basis the reserve is funded on. Expected action: {TOP_UP}."
 
 
-def index_page(d: RegulatoryData, files: dict[str, str], inforce: pd.DataFrame | None = None) -> Page:
+def index_page(d: RegulatoryData, files: dict[str, str], inforce: pd.DataFrame | None = None,
+               has_profile: bool = False) -> Page:
     m = d.methods
     filed = sorted(d.summary.state.unique())
     skipped = m.loc[~m.has_requirement, "state"].tolist()
@@ -151,7 +152,9 @@ def index_page(d: RegulatoryData, files: dict[str, str], inforce: pd.DataFrame |
                 "Which statuses count, ITD versus period scope and coverage-cost versus retail basis are seed "
                 "tables, tested by dbt, not spreadsheet comments.",
                 cols=["Rule tables"], rows=[[link("Report definitions, status sets and state methods",
-                                                 "regulatory/report-definitions.html")]], table_open=True),
+                                                 "regulatory/report-definitions.html")]]
+                + ([[link("In-force profile: why each status counts or not", INFORCE_PROFILE)]] if has_profile else []),
+                table_open=True),
     ]
     return Page(INDEX, "Regulatory filings",
                 f"State funded-reserve / provider renewal filings and state market surveys, as of {d.as_of:%B %d, %Y}.",
@@ -208,16 +211,16 @@ def filing_page(d: RegulatoryData, state: str, workbook: str) -> Page:
         sections.append(Section(
             f"Section 2 · Business activity · {provider}",
             "Counts do not depend on the basis. In force is a point-in-time count at the period end. "
-            "Lines 2.4 and 2.6 cover all in-scope contracts, so they pair as count and dollars.",
-            cols=["Line", "Item", "ITD", "Period", "Note"],
+            "Questions Q2.4 and Q2.6 cover all in-scope contracts, so they pair as count and dollars.",
+            cols=["Question", "Item", "ITD", "Period", "Note"],
             rows=[[no, label, fmt[i in COUNT_LINES](a[SUMMARY_COLUMN[i]]), fmt[i in COUNT_LINES](b[SUMMARY_COLUMN[i]]),
                    note(i)] for no, i, label in s2],
             wide=True, table_open=True))
         sections.append(Section(
             f"Section 3 · Computation · {provider}",
-            f"Both bases side by side; the state default is {BASIS[x.default_basis]}. Line 3.2 is the in-force "
-            "block only (a subset of line 2.6), so it is not comparable to the claim count on line 2.4.",
-            cols=["Line", "Item", f"ITD ({BASIS[x.default_basis]})", f"Period ({BASIS[x.default_basis]})",
+            f"Both bases side by side; the state default is {BASIS[x.default_basis]}. Question Q3.2 is the in-force "
+            "block only (a subset of Q2.6), so it is not comparable to the claim count on Q2.4.",
+            cols=["Question", "Item", f"ITD ({BASIS[x.default_basis]})", f"Period ({BASIS[x.default_basis]})",
                   f"ITD ({BASIS[other]})", f"Period ({BASIS[other]})", "Note"],
             rows=[[no, label] + [fmt[i in COUNT_LINES](r[SUMMARY_COLUMN[i]]) for r in (a, b, ao, bo)] + [note(i)]
                   for no, i, label in s3],
@@ -347,3 +350,61 @@ def inforce_page(d: RegulatoryData, state: str, rows: pd.DataFrame, workbook: st
                 f"Every in-scope service contract in force in {name} on {as_of:%B %d, %Y}: in-force statuses, "
                 "effective on or before the date, not expired or cancelled at that date.",
                 kpis, sections, nav=INDEX, crumb=CRUMB)
+
+
+# --------------------------------------------------------------------------- in-force profile (V7 edit 30)
+INFORCE_PROFILE = "regulatory/inforce-profile.html"
+
+
+def inforce_profile_page(prof: pd.DataFrame) -> Page:
+    """Why each status is or is not counted as in force, at the latest closed period end."""
+    end = pd.Timestamp(prof.period_end.max())
+    counted = int(prof.loc[prof.is_counted, "contracts"].sum())
+    member_not = prof[prof.in_force_set_member & ~prof.is_counted]
+    kpis = [
+        Kpi("Contracts counted as in force", num(counted), f"at {end:%b %d, %Y}, same rule as the filings"),
+        Kpi("Status counts, dates do not", num(int(member_not.contracts.sum())),
+            "an in-force status, but expired or cancelled by the period end"),
+        Kpi("Status never counts", num(int(prof.loc[~prof.in_force_set_member, "contracts"].sum())),
+            "pending, voided or denied"),
+    ]
+    by_status = (prof.groupby(["status", "in_force_set_member"])
+                 .apply(lambda g: pd.Series({"counted": int(g.loc[g.is_counted, "contracts"].sum()),
+                                             "not_counted": int(g.loc[~g.is_counted, "contracts"].sum()),
+                                             "expires_after": int(g.loc[g.expires_after_period_end,
+                                                                        "contracts"].sum())}),
+                        include_groups=False)
+                 .reset_index().sort_values(["in_force_set_member", "counted"], ascending=False))
+
+    def why(r) -> str:
+        if not r.in_force_set_member:
+            return "This status never counts: the contract was never live."
+        if r.not_counted and r.counted:
+            return "Counts only while the contract is live on the period end; the rest expired or cancelled before."
+        if r.not_counted:
+            return "An in-force status, but every one ended (expired or cancelled) by the period end."
+        return "Counts: live on the period end."
+
+    s1 = Section(
+        "Why each status is or is not counted",
+        "A contract counts as in force when its status is in the in-force status set AND it was live on the "
+        "period end (effective, not expired, not cancelled). Both halves are shown.",
+        cols=["Status", "In the in-force set?", "Counted", "Not counted", "Expires after the period end", "Why"],
+        rows=[[r.status.replace("_", " ").title(), "Yes" if r.in_force_set_member else "No", num(r.counted),
+               num(r.not_counted), num(r.expires_after), {"text": why(r), "cls": "text wrap"}]
+              for r in by_status.itertuples()],
+        wide=True, table_open=True)
+    years = (prof.groupby("entered_year")
+             .apply(lambda g: pd.Series({"counted": int(g.loc[g.is_counted, "contracts"].sum()),
+                                         "total": int(g.contracts.sum())}), include_groups=False)
+             .reset_index().sort_values("entered_year", ascending=False))
+    s2 = Section(
+        "Counted contracts by year sold",
+        "Older years count less because more of their contracts have expired.",
+        cols=["Year sold", "Contracts sold", "Counted as in force", "Share counted"],
+        rows=[[str(int(r.entered_year)), num(r.total), num(r.counted),
+               f"{r.counted / r.total:.1%}" if r.total else "Not enough data yet"] for r in years.itertuples()],
+        table_open=True)
+    return Page(INFORCE_PROFILE, "In-force profile",
+                f"Why each contract status is or is not counted as in force, at {end:%b %d, %Y}. The status set "
+                "comes from seed report_status_sets.", kpis, [s1, s2], nav=INDEX, crumb=CRUMB)

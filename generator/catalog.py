@@ -214,6 +214,52 @@ CANCEL_REASONS = {  # reason -> (weight, initiated_by)
     "Unwound Deal": (0.14, "DEALER"),
     "Dealer Error": (0.12, "DEALER"),
 }
+# V7 edit 41 (source side): every system types its own label for the same cancel reason. The
+# canonical names above are what tenant 1 types in Admin Core; the other Admin Core tenants and the
+# legacy admin system use their own lists. A small share of cancels fix a data-entry mistake and
+# carry an override-coded label ("Z - ...", "X- ..."): not a customer cancel. The crosswalk seed
+# (dbt/seeds/core/cancel_reason_crosswalk.csv) maps every label below; a new label needs a new row.
+CANCEL_REASON_VOCAB: dict[str, dict[str, str]] = {
+    "core_default": {r: r for r in CANCEL_REASONS},
+    "core_alt": {"Customer Request": "CUSTOMER CANCEL", "Payoff/Trade": "LOAN PAYOFF",
+                 "Total Loss": "VEHICLE TOTALED", "Repossession": "REPO", "Unwound Deal": "DEAL UNWIND",
+                 "Dealer Error": "DEALER ENTRY ERROR"},
+    "legacy": {"Customer Request": "cust request", "Payoff/Trade": "payoff", "Total Loss": "total loss",
+               "Repossession": "repo'd", "Unwound Deal": "unwind", "Dealer Error": "dlr error"},
+}
+ADMIN_CORRECTION_REASONS: dict[str, tuple[str, ...]] = {
+    "core_default": ("Z - Data Entry Correction", "Z - Wrong Product Entered"),
+    "core_alt": ("X- Duplicate Contract", "X -Entered On Wrong Contract"),
+    "legacy": ("Z-ADMIN FIX", "x- dup entry"),
+}
+ADMIN_CORRECTION_PCT = 3  # percent of cancels, chosen by a stable hash of the cancel's contract
+CANCEL_REVERSAL_RATE = 0.01  # V7 edit 23: share of (not reinstated) cancels undone by an offsetting row
+# V7 edit 21 (source side): a fee's bucket depends on the program setup (the dealer's participation
+# structure), so every disbursement line carries its group. Default = a non-participating setup;
+# the overrides are where the same disbursement type lands in another group.
+DISBURSEMENT_GROUPS = ("PREMIUM", "ADMIN", "PRODUCER", "TAX_AND_FEES", "DEALER_PARTICIPATION")
+DISBURSEMENT_GROUP_DEFAULT = {"CLAIMS_RESERVE": "PREMIUM", "ADMIN_FEE": "ADMIN", "INSURER_FEE": "PREMIUM",
+                              "PREMIUM_TAX": "TAX_AND_FEES", "COMMISSION": "PRODUCER",
+                              "PROFIT_SHARE_RESERVE": "ADMIN"}
+DISBURSEMENT_GROUP_OVERRIDES: dict[str, dict[str, str]] = {  # structure_type -> {type: group}
+    "PROFIT_SHARE": {"PROFIT_SHARE_RESERVE": "DEALER_PARTICIPATION"},
+    "CFC": {"CLAIMS_RESERVE": "DEALER_PARTICIPATION", "PROFIT_SHARE_RESERVE": "DEALER_PARTICIPATION",
+            "INSURER_FEE": "TAX_AND_FEES"},
+    "NCFC": {"CLAIMS_RESERVE": "DEALER_PARTICIPATION", "PROFIT_SHARE_RESERVE": "DEALER_PARTICIPATION",
+             "INSURER_FEE": "TAX_AND_FEES"},
+    "PORC": {"CLAIMS_RESERVE": "DEALER_PARTICIPATION", "PROFIT_SHARE_RESERVE": "DEALER_PARTICIPATION"},
+    "RETRO": {"CLAIMS_RESERVE": "DEALER_PARTICIPATION", "PROFIT_SHARE_RESERVE": "DEALER_PARTICIPATION"},
+    "DEALER_OWNED_OBLIGOR": {"CLAIMS_RESERVE": "DEALER_PARTICIPATION",
+                             "PROFIT_SHARE_RESERVE": "DEALER_PARTICIPATION", "PREMIUM_TAX": "PREMIUM"},
+}
+# V7 edit 50 (source side): bundles. Some product names say "Bundle" / "Pkg" although the product sits
+# under a single-product subtype; the bundle subtype itself is renamed per plan year. Keyed by
+# (subcategory code, plan year); the name keeps the "<name> <year> - <SUFFIX>" shape.
+BUNDLE_PRODUCT_NAMES: dict[tuple[str, int], str] = {
+    ("BNDL", 2023): "Ancillary Bundle", ("BNDL", 2024): "Protection Bundle", ("BNDL", 2025): "Elite Combo Pkg",
+    ("BNDL", 2026): "Elite Combo Pkg", ("TW", 2025): "Tire & Wheel + Key Bundle",
+    ("TW", 2026): "Tire & Wheel + Key Bundle", ("APP", 2026): "Appearance + Etch Bundle",
+}
 DENIED_REASONS = {  # reason -> category
     "PRE_EXISTING_CONDITION": "ELIGIBILITY",
     "COMPONENT_NOT_COVERED": "COVERAGE",

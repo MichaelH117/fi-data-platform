@@ -85,6 +85,10 @@ table 'Contract Vehicle'
 		dataType: string
 		sourceColumn: CUSTOM_CHASSIS_VIN_HASH
 
+	column 'Custom Chassis VIN Shape'
+		dataType: string
+		sourceColumn: CUSTOM_CHASSIS_VIN_SHAPE
+
 	column 'Custom Model Year'
 		dataType: int64
 		summarizeBy: none

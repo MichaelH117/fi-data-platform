@@ -27,6 +27,8 @@ vars:
   period_close_business_day: 5
   # Default earning method for fct_earned_disbursement: pro_rata | r78.
   earning_method: pro_rata
+  # V7 edit 22 (macros/display_rules.sql): a book younger than this many months shows a "young book" note.
+  young_book_months: 12
   # A claim reported more than this many days after the loss counts as "late reported".
   late_report_days: 90
   # Trailing-12 loss ratio above this flags a dealer for review.

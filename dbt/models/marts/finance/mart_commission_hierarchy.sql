@@ -8,6 +8,11 @@
 --   over_under        contracts - target (Over(+) / Under(-)); NULL when there is no target
 --   commission        fct_commission posted in the period (paid, advances, chargebacks), so a level's
 --                     commission sums to the commission ledger
+-- V7 edit 28: every row carries its commission period (posting_period_key + commission_period_label),
+-- the latest posting period in the ledger (as_of_period_key) and when the commission data was last
+-- posted (data_as_of_ts), so the page header can say "Commission period <month>, data as of <ts>".
+-- Contracts or commission with no district land in an explicit UNASSIGNED node (is_unassigned),
+-- counted by diagnostic diag_commission_unassigned, never left blank.
 -- Every month from the first activity to the latest posting period is kept for each node that has a
 -- target, so a month with no sales still shows how far under target it was.
 with agent_node as (
@@ -58,6 +63,10 @@ paid as (
 
 as_of as (
     select max(posting_period_key) as as_of_period from {{ ref('fct_transaction') }}
+),
+
+stamp as (
+    select max(posted_at) as data_as_of_ts from {{ ref('fct_commission') }}
 ),
 
 first_period as (
@@ -117,7 +126,11 @@ select
     l.parent_node,
     coalesce(l.product_type, 'UNKNOWN') as product_type,
     l.posting_period_key,
+    strftime(p.period_start, '%b %Y') as commission_period_label,
     p.is_closed,
+    a.as_of_period as as_of_period_key,
+    st.data_as_of_ts,
+    l.node = 'UNASSIGNED' as is_unassigned,
     l.contracts,
     l.target_contracts,
     l.contracts - l.target_contracts as over_under_contracts,
@@ -125,3 +138,5 @@ select
     {{ audit_columns() }}
 from levels as l
 left join {{ ref('dim_posting_period') }} as p using (posting_period_key)
+cross join as_of as a
+cross join stamp as st

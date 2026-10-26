@@ -25,6 +25,20 @@ select
         when d.disbursement_type = 'PREMIUM_TAX' then 'TAX'
         else 'OTHER'
     end as incentive_group,
+    -- V7 edit 21: the line's own group (set by the program setup) when the source stores one; else
+    -- the default bucket of a non-participating setup. That default is the fixed type -> group lookup
+    -- the old reports used for every line, which is wrong for participating setups.
+    upper(coalesce(d.source_disbursement_group,
+        case d.disbursement_type
+            when 'CLAIMS_RESERVE' then 'PREMIUM'
+            when 'INSURER_FEE' then 'PREMIUM'
+            when 'ADMIN_FEE' then 'ADMIN'
+            when 'PROFIT_SHARE_RESERVE' then 'ADMIN'
+            when 'PREMIUM_TAX' then 'TAX_AND_FEES'
+            when 'COMMISSION' then 'PRODUCER'
+            else 'OTHER'
+        end)) as disbursement_group,
+    d.source_disbursement_group is not null as is_group_from_line,
     d.posted_at,
     {{ date_key('d.posted_at') }} as posted_date_key,
     d.posting_period_key,

@@ -20,6 +20,9 @@ EXPECTED = {
     "diag_product_dim_match_rate", "diag_contract_key_bridge_coverage", "diag_claim_contract_coverage",
     "diag_fan_out_guard", "diag_claim_sign", "diag_no_demo_rows", "diag_freshness", "diag_posting_period_integrity",
     "diag_form_code_coverage", "diag_cobuyer_feed_gap",
+    # V7 (docs/V3_DESIGN.md 10.4): edits 23, 26, 24, 27 + 44, 28, 29.
+    "diag_cancel_reversals", "diag_parent_contract_link", "diag_agent_of_record",
+    "diag_custom_field_layer_gap", "diag_commission_unassigned", "diag_filing_entity_true_zero",
 }
 
 

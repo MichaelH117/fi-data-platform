@@ -1,4 +1,6 @@
--- Grain: one cancellation (both systems; reinstated ones included and flagged).
+-- Grain: one cancellation (both systems; reinstated and reversed ones included and flagged).
+-- V7: reason_group / is_admin_correction (edit 41, cancel_reason_crosswalk) and is_reversed /
+-- is_reversal_row (edit 23, an offsetting cancel row in the source).
 -- Posts in the period of its CANCEL transaction (period lock applies); cancel_date stays the true date.
 with cancel_txn as (
     select contract_key, posting_period_key, posted_at, source_txn_id, source_system
@@ -20,6 +22,8 @@ select
     {{ period_start_date('coalesce(t.posting_period_key, ' ~ posting_period_key('x.cancel_date', 'pp') ~ ')') }} as posting_period_start_date,
     x.initiated_by,
     x.reason,
+    x.reason_group,
+    x.is_admin_correction,
     x.method,
     x.odometer,
     x.contract_age_days,
@@ -33,6 +37,9 @@ select
     x.admin_withheld_claims,
     x.is_reinstated,
     x.is_effective_cancel,
+    x.is_effective_cancel and not x.is_admin_correction as is_effective_cancel_excl_admin,
+    x.is_reversed,
+    x.is_reversal_row,
     x.is_amount_sign_fixed,
     {{ audit_columns() }}
 from {{ ref('int_cancellations_conformed') }} as x

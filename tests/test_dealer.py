@@ -22,6 +22,7 @@ import reports.dealer as dealer_report
 from reports.__main__ import broken_links
 from reports.build import HERE as REPORTS_DIR
 from reports.build import Page, discover_plugins
+from reports.dealer import v7 as dealer_v7
 from reports.dealer import watch as dealer_watch
 from reports.dealer.excel import clean, write_workbook
 
@@ -449,7 +450,10 @@ def test_real_plugins_build(tmp_path):
         pages = dealer_report.build(con, tmp_path) + claims_report.build(con, tmp_path)
     render(pages, tmp_path)
     assert broken_links(tmp_path) == []
-    assert len(pages) == 8
+    # hub + 6 dealer reports + claims page, plus each V7 page (docs/V3_DESIGN.md 10.4) whose mart is built
+    v7 = {r[0] for r in dealer_v7.REPORTS}
+    assert len([p for p in pages if p.path not in v7]) == 8
+    assert {p.path for p in pages} & v7 in (set(), v7)
 
 
 @needs_marts

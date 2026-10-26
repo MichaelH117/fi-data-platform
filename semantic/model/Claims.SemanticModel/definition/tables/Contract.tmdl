@@ -143,6 +143,11 @@ table Contract
 		isHidden
 		sourceColumn: DEAL_ID
 
+	column 'Parent Contract Key'
+		dataType: string
+		isHidden
+		sourceColumn: PARENT_CONTRACT_KEY
+
 	column 'Cancel Date'
 		dataType: dateTime
 		formatString: yyyy-mm-dd

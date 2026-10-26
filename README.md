@@ -1,19 +1,29 @@
-# F&I Data Platform
+# F&IP
 
-**One person plus a team of AI agents can run the whole data department of an F&I (finance and insurance)
-product administrator.** The book covers the products a dealer sells in the finance office: vehicle service
-contracts (VSC), GAP, ancillary protection and prepaid maintenance. VSC is the largest line and the deepest
-model here, but it is one product among several. This repo is that department in a box: an operational admin system, a daily dealer feed, a
-Snowflake-shaped warehouse, accounting-grade facts, a Power BI-ready semantic model, state regulatory filings,
-dealer statements and per-dealer packets. All of it is rebuilt every day by one command, and it refuses to
-publish a number that does not reconcile.
+![F&IP](docs/img/fip-banner.svg)
+
+**F&I Data Platform.** The reporting platform of an F&I (finance and insurance) product administrator: it takes
+the contracts dealers sell in the finance office (vehicle service contracts, GAP, ancillary protection and
+prepaid maintenance), checks them, and turns them into the reports dealers, finance, compliance and executives
+use. That means an operational admin system, a daily dealer feed, a Snowflake-shaped warehouse,
+accounting-grade facts, a Power BI-ready semantic model, state reserve filings, dealer statements and
+per-dealer packets. One command rebuilds all of it every day, and it refuses to publish a number that does
+not reconcile. Every tile and chart on the site explains itself in three plain-English lines.
+
+**Measured against a rebuilt legacy warehouse** (same synthetic rows, same server; details in
+[Legacy vs better](#how-it-was-and-how-we-fixed-it)): on ten everyday business questions the legacy side
+got all ten wrong, slow or only half done. It lost 51% of one dealer's in-force book to duplicate dealer ids,
+dropped 9,614 of 59,985 contracts through a stale product table, reported paid claims as -$18,883 instead of
+$6,187,028, and timed out at 60 seconds on a vehicle lookup the modern key join answers in 32 ms.
 
 - **Reliable.** `python -m pipeline.run` rebuilds everything from an empty folder in about 10 minutes, on a laptop,
   with no Docker, no servers and no paid accounts. Each step fails fast, and every run is logged.
-- **Reconciled.** Row counts and dollar totals are tied out from source to raw to marts on every run. Ten
+- **Reconciled.** Row counts and dollar totals are tied out from source to raw to marts on every run. Sixteen
   diagnostics gates **block publishing** when one breaks: product-dimension match rate, contract key-bridge
   coverage, claim-to-contract coverage, fan-out guard, claim sign, no demo rows, freshness, posting-period
-  integrity, form-code coverage and the co-buyer feed join (`diag_*` in [pipeline/diagnostics.py](pipeline/diagnostics.py)).
+  integrity, form-code coverage, the co-buyer feed join, cancel reversals, parent-contract links, agent of
+  record, the custom-field layer gap, unassigned commission and filing-entity true zeros (`diag_*` in
+  [pipeline/diagnostics.py](pipeline/diagnostics.py)).
 - **Secure.** PII is hashed or dropped at staging. The raw-data portal returns customer initials and masked
   VINs only (no e-mail, phone or ZIP); full contact data is an opt-in scope for a dealer's admin login, and every
   export is written to an access log. A dealer can only see its own rows, and a partner program only
@@ -26,16 +36,25 @@ publish a number that does not reconcile.
 
 ## See it without running it
 
-The report site is build output (`site/` is not committed), so here are four of its pages from a real local run
-on synthetic data. Run `python -m pipeline.run` and open `site/start.html` (a six-stop guided tour) or
-`site/index.html` for the rest; CI also keeps the built
-site as the `pipeline-output` artifact. `python tools/screenshots.py` re-takes these images after a run.
+The report site is build output (`site/` is not committed), so here are six of its pages from a real local run
+on synthetic data. Run `python -m pipeline.run` and open `site/start.html` (pick your role, or take the six-stop
+guided tour) or `site/index.html` for the rest; CI also keeps the built site as the `pipeline-output` artifact.
+`python tools/screenshots.py` re-takes these images after a run.
+
+**Start here**: pick your role (dealer, finance, compliance or executive) and land on the few pages you need.
+
+![Start here: role picker](docs/img/start-here.png)
+
+**How the data flows**: five steps from the dealer's desk to the report, with what can go wrong at each step
+and the safety check that stops it.
+
+![How the data flows](docs/img/how-data-flows.png)
 
 **Executive overview**: T12 premium, loss and combined ratio, in-force book, from the same P&L mart as Finance.
 
 ![Executive overview](docs/img/executive-overview.png)
 
-**Operations**: the 7 AM SLO, the eight diagnostics gates and the source-to-raw-to-mart reconciliation. The
+**Operations**: the 7 AM SLO, the sixteen diagnostics gates and the source-to-raw-to-mart reconciliation. The
 first reconciliation row is the legacy in-force book that is not converted yet; it is a documented exclusion,
 not a hidden break (item 1 on the [roadmap](docs/ROADMAP.md)).
 
@@ -46,7 +65,8 @@ workbook.
 
 ![Texas funded-reserve filing](docs/img/funded-reserve-filing.png)
 
-**A per-dealer packet**, filtered to one dealer and branded for its partner program.
+**A per-dealer packet**, filtered to one dealer, in the F&IP theme with a thin stripe in its program's colour.
+Every headline number has a status word, what it is compared with, and three plain-English lines.
 
 ![Dealer packet](docs/img/dealer-packet.png)
 
@@ -91,15 +111,15 @@ modern star schema (`python -m legacy demo`). Measured on synthetic data at abou
 
 | Pain point (legacy) | Measured on the legacy side | Modern answer | Root-cause fix |
 |---|---|---|---|
-| Duplicate dealer ids (active, inactive copy, prefixed) | one dealer id finds 233 of 474 in-force contracts | 476 | dealer master + crosswalk |
+| Duplicate dealer ids (active, inactive copy, prefixed) | one dealer id finds 230 of 467 in-force contracts | 473 | dealer master + crosswalk |
 | Stale product dim, inner-joined | 50,371 of 59,985 contracts kept; latest plan year shows as 2025 | 59,749; 2026 | full dim + unknown member (-1) + build test |
 | Claim sign negative in one layer, positive in another | paid claims net to -$18,883 over 24 months | $6,187,028 | sign fixed once in staging |
 | "Producer" means dealer in one layer, provider in another | provider's book = 0 contracts | 9,936 | `producer_role` on `dim_producer` |
-| Test/API contracts, demo dealers, fan-out on a shared dealer number | filing pulls 36,501 rows (1,178 doubled, 32 test, 127 demo) | 35,283 | scope rules applied once |
-| Union-spine contract "dim" | 893 ms per provider lookup, 3.4M spine rows read | 13 ms | one contract dim table with a key |
-| Text-normalized VIN joins, no keys | correlated lookup timed out at 60 s; exact join loses 21% | 100% on the key | enforced PK/FK, VIN normalized once |
-| Tenant B as a mirror schema | copied query errors; mirror lags (7,384 vs 7,453 in force) | one table + RLS | tenant column + row-level security |
-| Sentinel date in the earnings series | 2019 loss ratio 49.24% vs 48.88% with the dropped rows | no sentinel rows | NULL + flag in staging, date index |
+| Test/API contracts, demo dealers, fan-out on a shared dealer number | filing pulls 36,383 rows (1,174 doubled, 32 test, 127 demo) | 35,175 | scope rules applied once |
+| Union-spine contract "dim" | 962 ms for a provider-scoped lookup of 6,135 contracts (22x slower) | 45 ms | one contract dim table with a key |
+| Text-normalized VIN joins, no keys | correlated lookup timed out at 60 s; exact join loses 21% (8,897 of 41,537) | 100% on the key | enforced PK/FK, VIN normalized once |
+| Tenant B as a mirror schema | copied query errors; mirror lags (7,364 vs 7,433 in force) | one table + RLS | tenant column + row-level security |
+| Sentinel date in the earnings series | 2019 loss ratio 49.25% vs 48.89% with the dropped rows | no sentinel rows | NULL + flag in staging, date index |
 | EAV custom fields in another database | one-query join impossible; two steps + export | one query | pivoted to typed columns |
 | Backups, empty shells, personal schemas | 22 registry findings | 0 | schema registry + CI clutter check |
 | Workspace sprawl: generation copies, test copies in prod, a workspace per client, a model per report, person-owned items | not a query (BI-service structure) | one certified model, three staged workspaces | deployment pipeline only, group-owned items, endorsement + labels |
@@ -208,13 +228,13 @@ admin rights, no Windows service, no Docker.
 2. **Start the server.** `powershell -ExecutionPolicy Bypass -File tools\pg.ps1 start` (`status`, `stop`,
    `psql` also work). It listens on `127.0.0.1:5432` only. Start it again after a reboot.
 3. **Load the warehouse.** `pip install -r requirements-postgres.txt`, then
-   `python -m pipeline.run --postgres`. After every gate passes, `python -m warehouse.postgres sync` copies 107
-   tables (about 12.9M rows) into the `vsc_analytics` database in one transaction, adds keys, indexes and
+   `python -m pipeline.run --postgres`. After every gate passes, `python -m warehouse.postgres sync` copies 140
+   tables (about 13.2M rows) into the `vsc_analytics` database in one transaction, adds keys, indexes and
    row-level security, and ties out row counts and dollar totals against DuckDB before it commits. A mismatch
    rolls everything back. `python -m warehouse.postgres reconcile` re-checks at any time.
 4. **Open the report.** Double-click `powerbi\FI Data Platform.pbip` and click **Refresh now**. Sign in on the
    **Database** tab as `bi_reader` (password `PG_BI_READER_PASSWORD` in `.env`); if Desktop asks, connect
-   without encryption (the server is local only). The first refresh loads about 13M rows and takes a few
+   without encryption (the server is local only). The first refresh loads about 13.2M rows and takes a few
    minutes. Pages: executive overview, dealer scorecard, claims and IBNR, regulatory funded reserve, finance.
 5. **Test dealer security.** Modeling > View as > Other user, enter a `user_login` from
    `core.dim_user_dealer_access` and tick Dealer User: every page narrows to that user's dealers.
@@ -264,7 +284,7 @@ actuarial, semantic, publish, reports. Steps after the gates never run when a ga
 | Operational source | Admin Core and legacy system in SQLite | SQL Server with change tracking |
 | Intake | Daily dealer-feed landing folder with manifest checksums; CRM call-center export and paginated admin API extract, each with a data contract and quarantine. CRM contacts feed `core.fct_call_center_contact` and claim contact rates; the admin-API roster is checked against `dim_dealer` by a reconciliation gate test; both are tied out in `audit.reconciliation` | Partner SFTP, CRM exports and admin API pulls |
 | Warehouse | DuckDB, one schema per layer | Snowflake `RAW` / `ANALYTICS` databases, see [warehouse/snowflake/](warehouse/snowflake/) |
-| Transform | dbt Core (160+ models, 4 snapshots, 21 seeds, 650+ data tests; counts from `dbt/target/manifest.json`) | the same project on the dbt `snowflake` target |
+| Transform | dbt Core (170+ models, 4 snapshots, 26 seeds, 740+ data tests; counts from `dbt/target/manifest.json`) | the same project on the dbt `snowflake` target |
 | Orchestration | `python -m pipeline.run` | Airflow DAG calling the same steps ([pipeline/airflow/](pipeline/airflow/)) |
 | BI | Static HTML + Excel site, TMDL model spec; opt-in: PostgreSQL copy of the marts + a Power BI project (PBIP) that opens and refreshes in Desktop | Power BI semantic models with dynamic RLS on Snowflake |
 
@@ -292,9 +312,10 @@ Details: [ARCHITECTURE](docs/ARCHITECTURE.md), [DATA_MODEL](docs/DATA_MODEL.md),
   example postmortem, intake form, release process and data dictionary. Access is set out in
   [ACCESS_MATRIX](docs/ACCESS_MATRIX.md).
 
-## The team of agents
+## How it was built
 
-The platform was built by AI agents, each playing one role on a real data department's org chart. Each role owns
+A note on the build process: the code was written with AI coding agents, each assigned one role on a
+typical data department's org chart and reviewed against the design contract. Each role owns
 its files (see section 3 of the [design contract](docs/V3_DESIGN.md)), works on its own warehouse copy, and
 reports back what it built, how it checked it, and what is still open.
 
@@ -318,7 +339,7 @@ reports back what it built, how it checked it, and what is still open.
 | Check | Command |
 |---|---|
 | Full run, gates included | `python -m pipeline.run` |
-| Python tests (500+ pytest tests, including injected gate failures) | `python -m pytest -q` |
+| Python tests (750+ pytest tests, including injected gate failures) | `python -m pytest -q` |
 | Lint | `python -m ruff check .` |
 | Semantic model in sync (both targets) | `python -m semantic --check`, `python -m semantic --target postgres --check` |
 | Power BI project in sync and valid | `python -m powerbi --check --validate` |
@@ -337,14 +358,14 @@ The top items:
    (`.\tasks.ps1 demo` fills a demo history; `.\tasks.ps1 schedule` starts the real one).
 3. **No live UAT-to-prod promotion check yet.** `tools/env_diff.py` works, but no `data/env/env_diff.json` exists
    until a UAT build is diffed against prod.
-4. **Two definitions still to merge**: remittance late fees (dealer vs finance marts) and the combined ratio
-   ([METRICS](docs/METRICS.md#open-governance-items)).
+4. **One definition still to merge**: remittance late fees (dealer vs finance marts); the combined ratio now has
+   one formula, the P&L's ([METRICS](docs/METRICS.md#open-governance-items)).
 5. Several V1 pages still read the retired `gold` / `silver` schema names through compatibility views.
 6. The Snowflake scripts, the dbt `snowflake` target and the Airflow DAG are written but not executed here.
    Running them needs accounts or Docker. The Postgres target is real but opt-in: a local server, a
    reconciled copy of the marts and a Power BI model pointed at it ([warehouse/postgres](warehouse/postgres/README.md)).
-7. The full run takes about 10 minutes against a 5-minute goal; dbt (about 4 minutes) and generate plus ingest
-   (about 2 minutes) are the largest steps.
+7. The full run takes about 10 minutes (595 s on the last verified run) against a 5-minute goal; dbt (about
+   4 minutes) and generate plus ingest (about 2 minutes) are the largest steps.
 
 ## Author
 

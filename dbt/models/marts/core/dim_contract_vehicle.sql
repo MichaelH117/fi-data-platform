@@ -16,6 +16,7 @@ custom as (
         coach_model,
         chassis_make,
         chassis_vin_hash as custom_chassis_vin_hash,
+        chassis_vin_shape as custom_chassis_vin_shape,
         model_year as custom_model_year,
         invalid_value_count
     from {{ ref('stg_admin_core__contract_custom_field') }}
@@ -42,6 +43,7 @@ select
     x.coach_model,
     x.chassis_make,
     x.custom_chassis_vin_hash,
+    x.custom_chassis_vin_shape,
     x.custom_model_year,
     x.contract_key is not null as has_custom_fields,
     coalesce(x.invalid_value_count, 0) as custom_field_invalid_count,

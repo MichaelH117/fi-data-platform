@@ -16,7 +16,12 @@ with core as (
         d.account_holder_id,
         d.amount,
         coalesce(d.is_refundable, 0) = 1 as is_refundable,
-        coalesce(d.is_renewable, 0) = 1 as is_renewable
+        coalesce(d.is_renewable, 0) = 1 as is_renewable,
+        -- V7 edit 21: the bucket is set by the program setup on each line (the same type can land in
+        -- different groups on different programs). Column contract with the generator:
+        -- raw admin_core.disbursement.disbursement_group (text); NULL until it lands.
+        {{ column_or(ref('stg_admin_core__disbursement'), 'disbursement_group', 'cast(null as varchar)', 'd') }}
+            as source_disbursement_group
     from {{ ref('stg_admin_core__disbursement') }} as d
     inner join {{ ref('int_transactions_posted') }} as t
         on t.source_system = 'admin_core' and t.source_txn_id = cast(d.txn_id as varchar)
@@ -77,7 +82,9 @@ legacy as (
         cast(null as bigint) as account_holder_id,
         amount,
         true as is_refundable,
-        false as is_renewable
+        false as is_renewable,
+        -- legacy has no line-level group (its fixed type -> group lookup is the documented bug)
+        cast(null as varchar) as source_disbursement_group
     from legacy_long
 )
 

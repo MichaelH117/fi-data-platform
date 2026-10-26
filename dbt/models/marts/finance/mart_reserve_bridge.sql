@@ -16,6 +16,10 @@
 --   residual                   net_written_effective - (1 + 2 + 3 + 4 + 5); must be 0.00
 --                              (test assert_reserve_bridge_closes, which also ties step 1 to the New
 --                              Reserves mart and the entered-month total to the Experience mart)
+-- V7 edit 23: a cancel the source later reversed (fct_cancellation.is_reversed / is_reversal_row) is
+-- not a cancel: its contract stays on the books, and the cancel + reversal pair nets to zero inside
+-- other_adjustments. reversed_cancel_reserve shows that pair's net (should be 0.00) and
+-- contracts_cancel_reversed how many contracts it touched, so the step is visible, never hidden.
 -- Contract counts walk the same way: contracts_gross - contracts_cancelled = contracts_net.
 with as_of as (
     select max(posting_period_key) as as_of_period_key
@@ -30,12 +34,21 @@ cancels as (
     where x.is_effective_cancel and x.posting_period_key <= a.as_of_period_key
 ),
 
+reversed as (
+    select distinct x.contract_key
+    from {{ ref('fct_cancellation') }} as x
+    cross join as_of as a
+    where (x.is_reversed or x.is_reversal_row) and x.posting_period_key <= a.as_of_period_key
+),
+
 per_contract as (
     select
         d.contract_key,
         coalesce(sum(d.amount) filter (
             where d.disbursement_type = 'CLAIMS_RESERVE' and d.txn_type = 'SALE'), 0) as sale_reserve,
-        coalesce(sum(d.amount) filter (where d.disbursement_type = 'CLAIMS_RESERVE'), 0) as net_reserve
+        coalesce(sum(d.amount) filter (where d.disbursement_type = 'CLAIMS_RESERVE'), 0) as net_reserve,
+        coalesce(sum(d.amount) filter (
+            where d.disbursement_type = 'CLAIMS_RESERVE' and d.txn_type = 'CANCEL'), 0) as cancel_reserve
     from {{ ref('fct_disbursement') }} as d
     cross join as_of as a
     where d.posting_period_key <= a.as_of_period_key and d.contract_key::varchar <> '-1'
@@ -51,10 +64,13 @@ contracts as (
         cast(date_trunc('month', k.effective_date) as date) as effective_month,
         c.sale_reserve,
         c.net_reserve,
-        x.contract_key is not null as is_cancelled
+        x.contract_key is not null as is_cancelled,
+        rv.contract_key is not null and x.contract_key is null as is_cancel_reversed,
+        c.cancel_reserve
     from per_contract as c
     inner join {{ ref('dim_contract') }} as k using (contract_key)
     left join cancels as x using (contract_key)
+    left join reversed as rv using (contract_key)
 ),
 
 entered as (
@@ -68,6 +84,8 @@ entered as (
         sum(net_reserve) as net_written_entered,
         count(*) as contracts_gross,
         count(*) filter (where is_cancelled) as contracts_cancelled,
+        count(*) filter (where is_cancel_reversed) as contracts_cancel_reversed,
+        coalesce(sum(cancel_reserve) filter (where is_cancel_reversed), 0) as reversed_cancel_reserve,
         coalesce(sum(net_reserve) filter (where effective_month <> entered_month), 0) as timing_out
     from contracts
     group by 1, 2
@@ -102,7 +120,9 @@ steps as (
         -coalesce(e.timing_out, 0) as timing_out,
         coalesce(f.net_written_effective, 0) as net_written_effective,
         coalesce(e.contracts_gross, 0) as contracts_gross,
-        coalesce(e.contracts_cancelled, 0) as contracts_cancelled
+        coalesce(e.contracts_cancelled, 0) as contracts_cancelled,
+        coalesce(e.contracts_cancel_reversed, 0) as contracts_cancel_reversed,
+        coalesce(e.reversed_cancel_reserve, 0) as reversed_cancel_reserve
     from months as m
     left join entered as e using (tenant_key, month_start)
     left join effective as f using (tenant_key, month_start)
@@ -125,6 +145,8 @@ select
     s.contracts_gross,
     s.contracts_cancelled,
     s.contracts_gross - s.contracts_cancelled as contracts_net,
+    s.contracts_cancel_reversed,
+    round(s.reversed_cancel_reserve, 2) as reversed_cancel_reserve,
     {{ audit_columns() }}
 from steps as s
 cross join as_of as a

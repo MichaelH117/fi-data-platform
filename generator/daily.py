@@ -320,7 +320,9 @@ def append_day(core_path: Path, legacy_path: Path, landing_dir: Path, intake_dir
                                "join claim c on c.claim_id = l.claim_id group by 1", conn).set_index("contract_id")
             cx = pd.DataFrame({
                 "contract_id": cx_con["contract_id"].values, "cancel_date": str(day), "processed_at": at(len(cx_con)),
-                "initiated_by": by, "reason": reason,
+                "initiated_by": by,
+                "reason": lc.source_reason(reason, cx_con["contract_id"].values, "admin_core",
+                                           cx_con["tenant_id"].values),
                 "method": lc.cancel_method(age, cx_con["subcat"].to_numpy(), by, rng),
                 "odometer": (cx_con["odometer"].to_numpy() + age * lc.miles_per_day(cx_con)).astype(int),
                 "withheld": np.where(rng.random(len(cx_con)) < 0.3,
@@ -343,7 +345,8 @@ def append_day(core_path: Path, legacy_path: Path, landing_dir: Path, intake_dir
                 "contract_age_days": age, "method": method, "withheld": 0.0}))
             ts = at(len(lx))
             rows = lg.cancel_rows(pd.DataFrame({
-                "legacy_contract_id": lx["legacy_contract_id"].values, "cancel_date": str(day), "reason": reason,
+                "legacy_contract_id": lx["legacy_contract_id"].values, "cancel_date": str(day),
+                "reason": lc.source_reason(reason, lx["legacy_contract_id"].values, "legacy"),
                 "method": method, "odometer": (lx["odometer"].to_numpy() + age * lc.miles_per_day(lx)).astype(int),
                 "customer_refund": terms["customer_refund"].values, "cancel_fee": terms["cancel_fee"].values,
                 "processed_at": ts}), state["next_legacy_cancel"])

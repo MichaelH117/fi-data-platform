@@ -1,0 +1,82 @@
+# "How the data flows" page (docs/V3_DESIGN.md section 10.3). Copy owned by the Reporting Manager; the
+# Front-end Developer renders the five steps (with the reduced-motion-safe step animation). Each gate name
+# links to its row on ops.html. Plain words only; every acronym is in glossary_terms.csv.
+title: How the data flows
+lede: >
+  Every number on this site makes the same five-step trip, every day. At each step something can go wrong.
+  Here is what, and how the platform stops it before it reaches you.
+steps:
+  - id: sell
+    name: A dealer sells a contract
+    plain: >
+      In the finance office, a customer buys a service contract, GAP or another add-on with their car.
+      The dealer enters it and later sends the money.
+    can_go_wrong:
+      - The contract is entered with a missing co-buyer, a wrong price or a missing surcharge.
+      - The dealer's daily file arrives late, twice, or with broken rows.
+    how_we_stop_it:
+      - Each daily file is checked against an agreed format; bad rows are held aside, never dropped.
+      - A surcharge check flags contracts priced without the extra charge their vehicle needs.
+    gates: [diag_cobuyer_feed_gap]
+  - id: admin
+    name: The admin system records it
+    plain: >
+      The administrator's system holds the contract, its payments, any cancel and every claim.
+      Older contracts still live in the old system.
+    can_go_wrong:
+      - The same dealer exists under three ids, so its book looks smaller than it is.
+      - Test contracts and demo dealers sit next to real ones.
+      - A follow-on contract points at a parent contract that does not exist.
+      - A contract is credited to a different agent than the one its dealer belongs to.
+    how_we_stop_it:
+      - Every dealer id is merged into one dealer, with a crosswalk from each old id.
+      - Test and demo rows are removed once, in one place, and a check proves none are left.
+      - A check lists every parent link that finds no contract.
+      - A check proves each contract's agent matches its dealer's agent of record.
+    gates: [diag_no_demo_rows, diag_contract_key_bridge_coverage, diag_parent_contract_link, diag_agent_of_record]
+  - id: warehouse
+    name: The warehouse cleans and joins it
+    plain: >
+      Every night the data is copied into the warehouse, cleaned once, and joined into tables built for
+      reporting. Nothing is fixed by hand in a spreadsheet.
+    can_go_wrong:
+      - A new product is missing from the product list, so its contracts silently drop out.
+      - Claim amounts are negative in one source and positive in another.
+      - A join repeats a contract, so it is counted twice.
+      - A cancel that was reversed and redone is counted as two cancels.
+    how_we_stop_it:
+      - Contracts are never dropped for a missing product; a check stops the run if too many land on unknown.
+      - Claim signs are fixed once, and a check proves every claim is positive.
+      - A check proves every contract-level table has exactly one row per contract.
+      - A check proves each contract keeps one cancel after reversals are netted out.
+    gates: [diag_product_dim_match_rate, diag_claim_sign, diag_fan_out_guard, diag_claim_contract_coverage,
+            diag_cancel_reversals, diag_custom_field_layer_gap]
+  - id: checks
+    name: Safety checks decide whether to publish
+    plain: >
+      Before anything is published, every safety check runs and every total is tied back to the source.
+      If any check fails, yesterday's reports stay up and nothing new goes out.
+    can_go_wrong:
+      - A source stops sending data, so today's numbers would really be last week's.
+      - A late transaction would change a month that is already closed.
+      - Counts or dollars stop matching between the source and the reports.
+    how_we_stop_it:
+      - A freshness check stops the run when a source is stale.
+      - Closed months are locked; a late item is booked in the first open month.
+      - Row counts and dollars are tied from source to reports on every run.
+    gates: [diag_freshness, diag_posting_period_integrity, diag_form_code_coverage, diag_commission_unassigned,
+            diag_filing_entity_true_zero]
+  - id: reports
+    name: Reports reach the people who need them
+    plain: >
+      The site, the Excel workbooks, each dealer's own packet and the Power BI report are built from the
+      same checked tables, so one number means the same thing everywhere.
+    can_go_wrong:
+      - A dealer sees another dealer's numbers.
+      - Two reports show different totals for the same thing.
+      - A peer comparison lets someone work out one dealer's private numbers.
+    how_we_stop_it:
+      - One access map limits every report, packet and download to the reader's own dealers.
+      - Every measure is built from one definition; a test fails if a report invents its own.
+      - Small peer groups are hidden so no single dealer can be identified.
+    gates: []

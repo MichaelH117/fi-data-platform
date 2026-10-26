@@ -21,3 +21,9 @@
 {% macro proper_case_exceptions_map() -%}
     select map(list(lower(token)), list(replacement)) as exceptions from {{ ref('proper_case_exceptions') }}
 {%- endmacro %}
+
+{#- V7 edit 41: cancel reason as the crosswalk matches it: trimmed, upper case, single spaces,
+    and every hyphen written " - " (so "X- Dup", "X -Dup" and "x - dup" are one reason). -#}
+{% macro cancel_reason_norm(col) -%}
+    nullif(regexp_replace(regexp_replace(upper(trim({{ col }})), '\s*-\s*', ' - ', 'g'), '\s+', ' ', 'g'), '')
+{%- endmacro %}

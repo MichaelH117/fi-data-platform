@@ -146,7 +146,7 @@ def _write_filing(path: Path, state: str, state_name: str, summary: pd.DataFrame
         ws.append([_cell(ws, f"Provider: {provider}", BOLD)])
         ws.append([_cell(ws, "Section 2: Business activity", BOLD)])
         # the per-line note sits in column G in both sections, so notes line up down the sheet
-        ws.append(_header(ws, ["Line", "Item", "ITD", "Period", "", "", "Note"]))
+        ws.append(_header(ws, ["Question", "Item", "ITD", "Period", "", "", "Note"]))
         for no, item, label in s2:
             col = SUMMARY_COLUMN[item]
             fmt = COUNT if item in COUNT_LINES else MONEY
@@ -154,7 +154,7 @@ def _write_filing(path: Path, state: str, state_name: str, summary: pd.DataFrame
                        _cell(ws, float(per[col]), fmt=fmt), _cell(ws, None), _cell(ws, None),
                        _cell(ws, notes.get(item, ""), align=WRAP)])
         ws.append([_cell(ws, "Section 3: Computation", BOLD)])
-        ws.append(_header(ws, ["Line", "Item", f"ITD ({nice[default]})", f"Period ({nice[default]})",
+        ws.append(_header(ws, ["Question", "Item", f"ITD ({nice[default]})", f"Period ({nice[default]})",
                                f"ITD ({nice[other]})", f"Period ({nice[other]})", "Note"]))
         for no, item, label in s3:
             col = SUMMARY_COLUMN[item]

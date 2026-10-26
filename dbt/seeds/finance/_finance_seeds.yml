@@ -88,3 +88,17 @@ seeds:
         data_tests:
           - expression_is_true:
               arguments: {expression: "monthly_target_contracts >= 0"}
+
+  - name: cancel_mileage_bands
+    description: >
+      V7 edit 36: bands of miles left on a cancelled contract (term miles - (odometer at cancel -
+      odometer at sale)). is_near_limit marks the bands the near-limit section counts. Bands do not
+      overlap and cover every whole number of miles.
+    config:
+      column_types: {band_id: varchar, band_label: varchar, min_miles_remaining: integer,
+                     max_miles_remaining: integer, sort_order: integer, is_near_limit: boolean, notes: varchar}
+    columns:
+      - name: band_id
+        data_tests: [unique, not_null]
+      - name: sort_order
+        data_tests: [unique, not_null]
