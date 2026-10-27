@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import reports.build as rb
-from reports import charts
+from reports import charts, guides
 from reports.__main__ import broken_links
 
 
@@ -57,7 +57,7 @@ def test_render_site_builds_sidebar_start_page_and_kpi_disclosure(tmp_path, monk
         ("custom", _plugin("custom.html", "Custom", area_group="Dealers"))], seeds=tmp_path / "no-seeds")
     names = {p.relative_to(out).as_posix() for p in written}
     guide_pages = {"glossary.html", "how-data-flows.html", "definitions.html",
-                   *(f"roles/{r}.html" for r in ("dealer", "finance", "compliance", "executive"))}
+                   *(guides.role_path(r) for r in guides.ROLES)}
     assert {"start.html", "index.html", "regulatory/index.html", "custom.html"} | guide_pages == names
     assert broken_links(out) == []
 

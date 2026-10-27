@@ -29,7 +29,9 @@ TEXT_COLS = ("what_it_means", "why_shown_this_way", "why_your_boss_asks")
 MAX_LINE = 160
 DIRECTIONS = {"up", "down", "band"}
 COMPARE = {"prior_year", "target", "peer_avg", "prior_month"}
-ROLES = {"dealer", "finance", "compliance", "executive"}
+AUDIENCES = {"dealer", "finance", "compliance", "executive"}  # audience_roles tags in the explanation seed
+HUBS = {"accounting", "finance", "legal", "compliance", "dealer", "claims", "customer-service", "data-bi",
+        "executive"}  # department hubs in reports/content/role_pages.yml
 REQUIRED_TERMS = {"vsc", "gap", "ancillary", "earned_vs_written", "loss_ratio", "cession", "funded_reserve",
                   "clip", "ibnr", "rule_of_78", "remit", "chargeback", "obligor", "producer_vs_provider", "in_force"}
 KINDS = {"Kpi": "tile", "Section": "section", "chart_section": "section"}
@@ -137,7 +139,7 @@ def test_explanation_rows_are_complete_and_short(explanations):
         assert r["good_direction"] in DIRECTIONS, (mid, r["good_direction"])
         assert r["compare_to"] in COMPARE, (mid, r["compare_to"])
         roles = set(r["audience_roles"].split("|"))
-        assert roles and roles <= ROLES, (mid, roles)
+        assert roles and roles <= AUDIENCES, (mid, roles)
         assert r["decision_it_drives"].strip(), mid
         for col in ("watch_threshold", "alert_threshold"):
             if r[col]:
@@ -164,19 +166,39 @@ def test_glossary_has_the_required_terms_and_valid_links(glossary):
 
 
 def test_role_pages_and_data_flow_copy_point_at_real_things(explanations):
-    """reports/content/ copy: role tiles have explanations, linked pages exist as report pages, gates are real."""
-    roles = yaml.safe_load((ROOT / "reports" / "content" / "role_pages.yml").read_text(encoding="utf-8"))["roles"]
-    assert {r["id"] for r in roles} == ROLES
-    from reports import guides  # the site builds role pages from this YAML only (no second list in code)
+    """reports/content/ copy: each department hub has questions, 3-6 answering pages, real glossary terms, tiles
+    the seed tags for its audience, an owner and a runbook section that exists; gates in the flow are real."""
+    doc = yaml.safe_load((ROOT / "reports" / "content" / "role_pages.yml").read_text(encoding="utf-8"))
+    roles = doc["roles"]
+    assert {r["id"] for r in roles} == HUBS
+    from reports import guides  # the site builds the hubs from this YAML only (no second list in code)
 
     assert [r.key for r in guides.ROLES] == [r["id"] for r in roles]
     assert [len(r.links) for r in guides.ROLES] == [len(r["pages"]) for r in roles]
     assert "Role(\"" not in (ROOT / "reports" / "guides.py").read_text(encoding="utf-8")
+    from reports import explain
+    assert not hasattr(explain, "ROLES"), "hub ids live in role_pages.yml only"
+    glossary = {g["term_id"] for g in _csv(ROOT / "dbt" / "seeds" / "core" / "glossary_terms.csv")}
+    runbook = (ROOT / doc["runbook"]).read_text(encoding="utf-8")
+    headings = {h.strip().strip("`") for h in re.findall(r"^#{2,3}\s+(.+)$", runbook, flags=re.M)}
+    bands = {b["id"] for b in doc["bands"]}
     for r in roles:
-        assert 3 <= len(r["pages"]) <= 4, r["id"]
-        assert 3 <= len(r["tiles"]) <= 4 and set(r["tiles"]) <= set(explanations), r["id"]
+        rid = r["id"]
+        assert r["band"] in bands and r["audience"] in AUDIENCES, rid
+        assert 3 <= len(r["pages"]) <= 6, rid
+        assert 3 <= len(r["tiles"]) <= 4 and set(r["tiles"]) <= set(explanations), rid
+        tagged = {m for m, e in explanations.items() if r["audience"] in e["audience_roles"].split("|")}
+        assert set(r["tiles"]) <= tagged, (rid, sorted(set(r["tiles"]) - tagged))
+        hrefs = {p["href"] for p in r["pages"]}
         for p in r["pages"]:
-            assert p["why"].strip() and len(p["why"]) <= MAX_LINE, (r["id"], p["href"])
+            assert p["why"].strip() and len(p["why"]) <= MAX_LINE, (rid, p["href"])
+        assert 3 <= len(r["questions"]) <= 6, rid
+        for q in r["questions"]:
+            assert q["ask"].strip().endswith("?") and len(q["why"]) <= MAX_LINE, (rid, q["ask"])
+            assert q["page"] in hrefs, (rid, q["ask"], "answer must be one of the hub's pages")
+        assert r["terms"] and set(r["terms"]) <= glossary, (rid, sorted(set(r["terms"]) - glossary))
+        w = r["if_wrong"]
+        assert w["owner"].strip() and w["check"].strip() and any(h.startswith(w["runbook"]) for h in headings), (rid, w)
     flow = yaml.safe_load((ROOT / "reports" / "content" / "data_flow.yml").read_text(encoding="utf-8"))["steps"]
     assert len(flow) == 5
     src = (ROOT / "pipeline" / "diagnostics.py").read_text(encoding="utf-8")

@@ -25,12 +25,12 @@ IMG_DIR = REPO_ROOT / "docs" / "img"
 
 # (output file, page under site/, window width x height). Heights crop each page to its key section.
 SHOTS: list[tuple[str, str, str]] = [
-    ("start-here.png", "start.html", "1400,1000"),
-    ("how-data-flows.png", "how-data-flows.html", "1400,1000"),
-    ("executive-overview.png", "index.html", "1400,1100"),
-    ("funded-reserve-filing.png", "regulatory/funded-reserve-tx.html", "1400,1250"),
-    ("dealer-packet.png", "dealers/PVA/D1001/index.html", "1400,1180"),
-    ("ops-gates-reconciliation.png", "ops.html", "1400,2180"),
+    ("start-here.png", "start.html", "1400,1330"),             # department grid + "Results at a glance"
+    ("department-hub.png", "roles/finance.html", "1400,1220"),  # one hub: KPI tiles, questions, pages
+    ("experience.png", "finance/experience.html", "1400,1900"),
+    ("legacy-vs-better.png", "legacy.html", "1400,1660"),       # includes infographic 6
+    ("how-data-flows.png", "how-data-flows.html", "1400,1640"),  # includes infographic 5 with this run's numbers
+    ("semantic-model.png", "semantic.html", "1400,1330"),       # no Power BI Desktop screenshot is committed
 ]
 
 BROWSER_CANDIDATES = [

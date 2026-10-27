@@ -22,7 +22,7 @@ SEEDS = Path(__file__).resolve().parents[1] / "dbt" / "seeds" / "core"
 TILE_MAP = Path(__file__).resolve().parent / "content" / "tile_metric_map.csv"  # label -> metric_id (RM-owned)
 EXPLANATIONS_CSV = "metric_explanations.csv"
 GLOSSARY_CSV = "glossary_terms.csv"
-ROLES = ("dealer", "finance", "compliance", "executive")
+AUDIENCES = ("dealer", "finance", "compliance", "executive")  # audience_roles tags in the seed (hubs: role_pages.yml)
 STATUS_WORDS = {"good": "On track", "warning": "Watch", "critical": "Needs action"}
 MAX_LINE = 160
 

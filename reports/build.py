@@ -20,7 +20,7 @@ import plotly.offline
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
-from reports import charts, explain, guides
+from reports import charts, explain, guides, infographics
 from reports.data import ReportData, ratio
 
 HERE = Path(__file__).resolve().parent
@@ -106,6 +106,9 @@ class Page:
     nav: str = ""
     crumb: str = ""  # back-link label for pages with a parent (``nav``); default "All dealers"
     hero: str = ""  # trusted shell-built markup shown under the title, before the tiles (Start here role picker)
+    proof: list[Kpi] = field(default_factory=list)  # "Results at a glance" tiles (reports/showcase.py)
+    proof_note: str = ""  # which run the proof tiles were computed from
+    proof_top: bool = False  # strip above the page's own tiles (Start here) or after its sections (overview)
 
 
 def link(text: str, href: str) -> dict:
@@ -693,7 +696,7 @@ def _first_sentence(text: str) -> str:
 
 
 def page_start(nav: Sequence[tuple[str, str]], groups: dict[str, str], pages: Sequence[Page],
-               packets: int) -> Page:
+               proof: Sequence[Kpi] = (), proof_note: str = "") -> Page:
     """The 'Start here' tour: what the site is, what to click, what it proves, and a link to every section."""
     from markupsafe import escape
 
@@ -726,16 +729,10 @@ def page_start(nav: Sequence[tuple[str, str]], groups: dict[str, str], pages: Se
             "dark and light.</p>"
             '<p class="synthetic"><strong>All data is synthetic.</strong> A seeded generator invents every dealer, '
             "contract, claim and customer. No real company\u2019s data is used.</p>")
-    # one count for the whole site, the same number the build log prints (report pages + guides + role pages)
-    reports_n, guides_n, roles_n = len(built) + 1, len(guides.GUIDE_NAV), len(guides.ROLES)
-    kpis = [Kpi("Site pages", num(reports_n + guides_n + roles_n),
-                f"{reports_n} report pages (this one included), {guides_n} guides and {roles_n} role start pages"),
-            Kpi("Menu sections", num(len(sections)), ", ".join(g for g, _ in sections)),
-            Kpi("Dealer packets", num(packets), "one filtered packet per reportable dealer"),
-            Kpi("Data", "Synthetic", "generated from a fixed seed; no real customers or companies")]
     return Page(START, "Start here",
-                "Pick who you are and get the three or four pages you need. Or take the two-minute tour below.",
-                kpis, [
+                "Pick your department to open its hub: the questions it asks, the pages that answer them "
+                "and who to ask. Or take the tour below.",
+                [], [
         Section("What this is", "", html=what, wide=True),
         Section("Take the tour", "Six stops, in this order. Use the menu to come back here at any time.",
                 html=f'<ol class="tour">{steps}</ol>'),
@@ -743,7 +740,7 @@ def page_start(nav: Sequence[tuple[str, str]], groups: dict[str, str], pages: Se
                 html=f'<ul class="proofs">{proofs}</ul>'),
         Section("Every section", "Each report in the menu, in one line.",
                 html=f'<div class="directory">{dirs}</div>', wide=True),
-    ], hero=guides.role_picker())
+    ], hero=guides.role_picker(), proof=list(proof), proof_note=proof_note, proof_top=True)
 
 
 def build_pages(d: ReportData) -> list[Page]:
@@ -821,7 +818,11 @@ STATIC_ASSETS = ("site.css", "site.js", "fip-wordmark.svg", "fip-mark.svg", "fav
 
 def render_site(d: ReportData, out: Path, con=None, publish_dir: Path | None = None,
                 plugins: Sequence[tuple[str, ModuleType]] | None = None,
-                seeds: Path = explain.SEEDS) -> list[Path]:
+                seeds: Path = explain.SEEDS, proof_root: Path | None = None,
+                proof_json: Path | None = None) -> list[Path]:
+    """Render every page into ``out``. With ``proof_root`` (the repo root; ``python -m reports`` passes it) the
+    Start here page and the overview get the "Results at a glance" tiles read from that root's run
+    artifacts, and ``proof_json`` receives the same numbers (docs/showcase_stats.json)."""
     env = Environment(loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape(["html", "j2"]),
                       trim_blocks=True, lstrip_blocks=True)
     tpl = env.get_template("page.html.j2")
@@ -831,6 +832,7 @@ def render_site(d: ReportData, out: Path, con=None, publish_dir: Path | None = N
     (out / "dealers").mkdir()
     for name in STATIC_ASSETS:
         shutil.copy(HERE / "static" / name, out / "assets" / name)
+    infographics.copy_to_site(out / "assets")  # the six textbook figures (SVG, both themes)
     (out / "assets" / "plotly.min.js").write_text(plotly.offline.get_plotlyjs(), encoding="utf-8")
     packets = copy_dealer_packets(publish_dir, out)
     cat = explain.load(seeds)
@@ -845,8 +847,22 @@ def render_site(d: ReportData, out: Path, con=None, publish_dir: Path | None = N
         groups.update({h: "Guides" for h, _ in guides.GUIDE_NAV})
     nav_top, nav_sections = group_nav(nav, groups)
     pages = build_pages(d) + extra
+    proof: list[Kpi] = []
+    proof_note = ""
+    if proof_root is not None:
+        from reports import showcase  # local: showcase imports Kpi from this module
+
+        stats = showcase.collect(proof_root, con=con, packets=packets)
+        proof, proof_note = showcase.tiles(stats), showcase.basis_line(stats)
+        if proof_json is not None:
+            showcase.write_json(stats, proof_json)
+        for page in pages:
+            if page.path == "index.html":
+                page.proof, page.proof_note = showcase.tiles(stats), proof_note
     for page in pages:
         attach_explanations(page, cat)
+        for k in page.proof:
+            k.metric_id = k.metric_id or cat.resolve("tile", k.label)
     if has_start:
         built = {p.path for p in pages} | {guides.GLOSSARY, guides.FLOW, guides.DEFINITIONS}
         guides.remember_titles(pages)
@@ -855,10 +871,10 @@ def render_site(d: ReportData, out: Path, con=None, publish_dir: Path | None = N
             for k in p.kpis:
                 if k.metric_id:
                     tiles.setdefault(k.metric_id, k)
-        pages = [attach_explanations(page_start(nav, groups, pages, packets), cat), *pages,
+        pages = [attach_explanations(page_start(nav, groups, pages, proof, proof_note), cat), *pages,
                  guides.page_glossary(Page, Section, cat), guides.page_flow(Page, Section, built),
                  guides.page_definitions(Page, Section),
-                 *guides.role_pages(Page, Section, built, tiles, cat, START)]
+                 *guides.role_pages(Page, Section, built, tiles, cat, START, out=out)]
     written = []
     for page in pages:
         depth = page.path.count("/")

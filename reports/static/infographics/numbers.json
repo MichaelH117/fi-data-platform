@@ -1,0 +1,287 @@
+{
+  "run_id": "20261026T183720Z",
+  "run_seconds": 594.67,
+  "finished_at": "2026-10-26T18:47:15+00:00",
+  "life": {
+    "status": {
+      "REINSTATEMENT_DENIED": 15,
+      "REINSTATEMENT_PENDING": 71,
+      "SUSPENDED": 147,
+      "DENIED": 113,
+      "REINSTATEMENT_SUSPENDED": 22,
+      "PENDING": 540,
+      "NO_STATUS": 1,
+      "CANCELLED": 8941,
+      "REINSTATEMENT_VOIDED": 22,
+      "VOIDED": 800,
+      "INFORCE": 35175,
+      "EXPIRED": 13902
+    },
+    "contracts": 59749,
+    "first": "2019-01-01",
+    "last": "2026-10-21",
+    "avg_term_months": 53.21756376782486,
+    "claims": 14177,
+    "claim_contracts": 10731,
+    "claims_paid": 12745338.029999973,
+    "claim_median_days": 549.0,
+    "remits": 38535,
+    "remit_median_days": 11.0,
+    "remit_late": 0.25226417542493834,
+    "source": "core.dim_contract (status today), gold.fct_claim, intermediate.int_remittance_lifecycle"
+  },
+  "dollar": {
+    "contracts": 38884,
+    "all_contracts": 59748,
+    "retail": 2191.2835870795184,
+    "coverage_cost": 1180.219791945295,
+    "parts": {
+      "dealer_markup": 1011.0637951342062,
+      "reserve_amount": 898.8538216232898,
+      "commission": 93.47520831190207,
+      "admin_fee": 72.83342763090216,
+      "insurer_fee": 50.57465332784683,
+      "profit_share_reserve": 42.145544439872864,
+      "premium_tax": 22.337136611459474
+    },
+    "max_tie_gap": 4.831690603168681e-13,
+    "source": "core.dim_contract_finance, average per contract over the 38,884 of 59,748 contracts whose seven-part split is complete (legacy-converted contracts carry fewer parts); on every one, customer price = markup + the six remitted parts, to the cent"
+  },
+  "earning": {
+    "earned_by_method": {
+      "pro_rata": 26606741.0,
+      "pro_rata_mileage": 26959337.0,
+      "rule_of_78s": 32917973.0,
+      "reverse_rule_of_78s": 20295508.0,
+      "selected": 25946833.0
+    },
+    "valuation_date": "2026-09-30",
+    "upr_selected": 19688605.512598872,
+    "earned_selected": 25946832.708396498,
+    "source": "formulas in actuarial/earning.py (pro rata k/n; Rule of 78s k(2n-k+1)/(n(n+1))); book totals from the actuarial step of run 20261026T183720Z and actuarial.run_summary"
+  },
+  "participation": {
+    "closed_period": 202609,
+    "groups": {
+      "kept": {
+        "entities": 15,
+        "written": 5110834.710000001,
+        "earned": 2844337.240005965,
+        "incurred": 1450222.28,
+        "ceding_fee": 0.0,
+        "uw": 1394114.960005965,
+        "ps_earned": 697057.4800029825,
+        "ps_paid": 566521.3740384304,
+        "ps_due": 130536.10596455209,
+        "period_end": "2026-09-30"
+      },
+      "ceded": {
+        "entities": 45,
+        "written": 12344763.190000001,
+        "earned": 7353809.079260031,
+        "incurred": 3534695.410000001,
+        "ceding_fee": 85577.0586207643,
+        "uw": 3733536.6106392653,
+        "ps_earned": 3245506.387563164,
+        "ps_paid": 2604546.5810692986,
+        "ps_due": 640959.8064938652,
+        "period_end": "2026-09-30"
+      }
+    },
+    "total": {
+      "entities": 60,
+      "written": 17455597.900000002,
+      "earned": 10198146.319265995,
+      "incurred": 4984917.690000001,
+      "ceding_fee": 85577.0586207643,
+      "uw": 5127651.57064523,
+      "ps_earned": 3942563.8675661464,
+      "ps_paid": 3171067.955107729,
+      "ps_due": 771495.9124584172,
+      "period_end": "2026-09-30"
+    },
+    "terms": [
+      {
+        "structure": "CFC",
+        "owns": true,
+        "share": 1.0,
+        "fee": 0.02,
+        "season": 12
+      },
+      {
+        "structure": "DEALER_OWNED_OBLIGOR",
+        "owns": true,
+        "share": 1.0,
+        "fee": 0.0,
+        "season": 12
+      },
+      {
+        "structure": "NCFC",
+        "owns": true,
+        "share": 1.0,
+        "fee": 0.02,
+        "season": 12
+      },
+      {
+        "structure": "PORC",
+        "owns": true,
+        "share": 1.0,
+        "fee": 0.015,
+        "season": 12
+      },
+      {
+        "structure": "PROFIT_SHARE",
+        "owns": false,
+        "share": 0.5,
+        "fee": 0.0,
+        "season": 24
+      },
+      {
+        "structure": "RETRO",
+        "owns": true,
+        "share": 0.5,
+        "fee": 0.0,
+        "season": 24
+      }
+    ],
+    "contracts": 24227,
+    "contracts_ceded": 23242,
+    "source": "finance.mart_cession_experience at the latest closed period (202609), seeds.participation_structure_terms, core.dim_participation_entity_program"
+  },
+  "flow": {
+    "feed_files": 9,
+    "feed_rejected_files": 2,
+    "feed_rejected_rows": 109,
+    "rows_loaded": 882098,
+    "rows_quarantined": 199,
+    "dbt_models": 175,
+    "dbt_tests_pass": 721,
+    "dbt_tests_warn": 1,
+    "dbt_tests_fail": 0,
+    "dbt_unit_pass": 2,
+    "diag_checks": 16,
+    "tie_outs": 36,
+    "calib_checks": 11,
+    "went_live": true,
+    "pages": 116,
+    "dealer_packets": 150,
+    "program_packets": 3,
+    "semantic_measures": 161,
+    "source": "data/runs/20261026T183720Z.log and data/runs/20261026T183720Z/dbt_build.json (dbt run_results); pages: data/runs/_site_build.json (2026-10-26T23:02:00Z)"
+  },
+  "legacy": {
+    "generated_at": "2026-10-26T19:04:06Z",
+    "rows": [
+      [
+        "Q01",
+        "In-force contracts and coverage cost for one dealer",
+        "in force contracts",
+        "230",
+        "473",
+        "57.2 ms",
+        "2.8 ms",
+        "lost"
+      ],
+      [
+        "Q02",
+        "Contracts by product type, latest plan year",
+        "contracts counted",
+        "50,371",
+        "59,749",
+        "34.3 ms",
+        "17.3 ms",
+        "lost"
+      ],
+      [
+        "Q03",
+        "Paid claims by month",
+        "paid claims appended layers",
+        "-18,883.27",
+        "6,187,027.54",
+        "10.4 ms",
+        "4.3 ms",
+        "sign"
+      ],
+      [
+        "Q04",
+        "Book for one provider entity",
+        "contracts",
+        "0",
+        "9,936",
+        "7.2 ms",
+        "1.2 ms",
+        "zeroed"
+      ],
+      [
+        "Q05",
+        "Loss ratio by entered year from earnings",
+        "loss ratio pct",
+        "49.25",
+        "49.53",
+        "116.2 ms",
+        "460.5 ms",
+        "skewed"
+      ],
+      [
+        "Q06",
+        "Reportable population for a compliance filing",
+        "filing rows",
+        "36,383",
+        "35,175",
+        "26.1 ms",
+        "15.8 ms",
+        "doubled"
+      ],
+      [
+        "Q07",
+        "Attributes for a provider-scoped population",
+        "contracts",
+        "6,135",
+        "9,936",
+        "961.9 ms",
+        "44.6 ms",
+        "slow"
+      ],
+      [
+        "Q08",
+        "Tenant B in-force count",
+        "in force contracts",
+        "7,364",
+        "7,433",
+        "1.0 ms + 3.8 ms",
+        "4.6 ms",
+        "stale"
+      ],
+      [
+        "Q09",
+        "RV chassis make/model per contract",
+        "contracts with chassis make",
+        "771",
+        "779",
+        "1.0 ms + 2.6 ms",
+        "26.7 ms",
+        "extra step"
+      ],
+      [
+        "Q10",
+        "Stock number match rate by VIN",
+        "match rate pct",
+        "78.58",
+        "100",
+        "timed out at 60 s + 50.6 ms",
+        "32.2 ms",
+        "lost"
+      ]
+    ],
+    "questions": 10,
+    "failed": 10,
+    "timeouts": 1,
+    "faster": 8,
+    "slower": [
+      "Q05",
+      "Q09"
+    ],
+    "source": "legacy benchmark measured 2026-10-26T19:04:06Z (data/legacy/legacy_benchmark.json = reports/legacy/benchmark_snapshot.json), same synthetic rows on one PostgreSQL 16 server"
+  },
+  "_manifest": "data/runs/20261026T183720Z.json"
+}

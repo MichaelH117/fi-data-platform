@@ -15,7 +15,7 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-from reports import charts
+from reports import charts, infographics
 from reports.build import Kpi, Page, Section, chart_section, link, money, num, pct
 from reports.finance import v6, v7
 
@@ -187,6 +187,32 @@ def _monthly(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # --------------------------------------------------------------------------- pages
+FINANCE_FIGURES = [
+    ("Where every dollar of a contract goes", "02-contract-dollar",
+     "Follow one average contract's price. The dealer keeps the markup; the rest goes to the administrator, "
+     "and most of that is set aside to pay future repair claims."),
+    ("Earned vs written premium", "03-earned-vs-written",
+     "Money is booked on the sale day but only counts as earned over time. Pro rata earns it evenly; the "
+     "Rule of 78s earns more early. The panel shows what each choice would mean for this book."),
+]
+CESSION_FIGURES = [
+    ("Who carries the risk", "04-dealer-participation",
+     "Two ways a dealer can participate. Either the claims money moves to the dealer's own company (the dealer "
+     "carries the risk), or it stays with the obligor and the dealer only shares the profit. The bars show how "
+     "the dealer's share is worked out."),
+]
+
+
+def _figures(page_path: str, figs: list[tuple[str, str, str]]) -> list[Section]:
+    """Textbook figures (reports/infographics.py) as wide sections; skipped when the SVG was never built."""
+    out = []
+    for title, stem, caption in figs:
+        html = infographics.figure(stem, page_path, caption)
+        if html:
+            out.append(Section(title, "", html=html, wide=True))
+    return out
+
+
 def page_index(d: dict) -> Page:
     ce, st, pnl, cm = d["cession"], d["statement"], d["pnl"], d["commission"]
     rb, ctl = d["remit_buckets"], d["controls"]
@@ -235,7 +261,8 @@ def page_index(d: dict) -> Page:
                 table_open=True)
     return Page("finance/index.html", "Finance",
                 f"Statements for the period ending {period_label(d['closed'])} (the latest closed period). "
-                "Closed periods are final and never restated.", kpis, [s])
+                "Closed periods are final and never restated.", kpis,
+                [s, *_figures("finance/index.html", FINANCE_FIGURES)])
 
 
 def page_cession(d: dict) -> Page:
@@ -292,7 +319,8 @@ def page_cession(d: dict) -> Page:
     ]
     return Page("finance/cession.html", "Cession / experience",
                 f"Inception-to-date experience of every dealer participation entity at {period_label(d['closed'])}.",
-                kpis, [s1, s2, s3, *v6.runoff_sections(d, STRUCTURE_LABEL)])
+                kpis, [*_figures("finance/cession.html", CESSION_FIGURES), s1, s2, s3,
+                       *v6.runoff_sections(d, STRUCTURE_LABEL)])
 
 
 def page_profit_share(d: dict) -> Page:

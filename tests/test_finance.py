@@ -910,6 +910,9 @@ def test_report_pages_and_workbook(mini, tmp_path):
     (tmp_path / "assets").mkdir()
     for name in ("site.css", "site.js", "plotly.min.js"):
         (tmp_path / "assets" / name).write_text("", encoding="utf-8")
+    from reports import infographics
+
+    infographics.copy_to_site(tmp_path / "assets")  # render_site copies the textbook figures the same way
     (tmp_path / "index.html").write_text("", encoding="utf-8")
     for p in pages:
         out = tmp_path / p.path

@@ -700,6 +700,7 @@ the owner of a dependent piece.
 | `how-data-flows.html` | five annotated steps: dealer sells -> admin system -> warehouse -> checks -> reports; per step "what can go wrong" and "how we stop it" (gate names link to Operations); CSS step animation that respects `prefers-reduced-motion` | FE / RM |
 | `definitions.html` | rendered from the `docs/METRICS.md` "Definitions decided" log (35 + 51): term, decision, owner role, date, what it replaced | FE / RM |
 Role pages pick 3-4 tiles by `audience_roles`; they compute no new numbers.
+Showcase round: the four role pages grew into nine department hubs (Accounting, Finance/FP&A, Legal, Compliance, Dealer operations, Claims, Customer service, Data/BI, Executive). `reports/content/role_pages.yml` is the only source: per hub the top questions (each linked to the page that answers it), 3-6 pages or Excel downloads, glossary terms, an owner role, the check page and the runbook section; `guides.py` holds no role list.
 
 ### 10.4 Edits 21-53 -> owner -> files
 | # | Edit | Owner | Files | Hands off |
@@ -774,9 +775,10 @@ Decisions taken while merging the V7 work; each one is additive to 10.1-10.6.
 | Legacy benchmark | Pain points 13 (type drift) and 14 (same id, two companies) are structure findings with no benchmark query; the DDL tests prove each failure. |
 | Column lock | `semantic/columns.lock.json` refreshed from the verified run, so `dim_tenant.admin_company_id` and the other V7 columns are locked. |
 
-**Verified run:** `20261026T183720Z`, from empty `data/` and `site/`: 595 s, dbt 929 nodes (175 models,
-26 seeds, 4 snapshots, 749 data tests; 1 warning, the known missing-chassis-VIN check), 16 of 16 gates,
-0 reconciliation breaks, 111 site pages with links ok. Postgres sync: 140 tables, 13.2M rows, 902 s.
+**Verified run:** `20261026T183720Z`, from empty `data/` and `site/`: 594.67 s, dbt build 928 of 929 nodes ok (175 models,
+26 seeds, 4 snapshots, 722 data tests, 2 unit tests; 1 warning, the known missing-chassis-VIN check, not a failure),
+16 of 16 diagnostics, 0 reconciliation breaks, 111 site pages with links ok. Postgres sync: 140 tables,
+13,175,252 rows, 902 s.
 
 ### 10.8 Fix round (V7 review)
 | Topic | Decision |

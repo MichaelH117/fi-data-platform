@@ -51,7 +51,14 @@ def build(con, out_dir: Path) -> list[Page]:
             Kpi("Legacy queries that hit their timeout", str(timeouts), "cancelled at the budget, never left running",
                 "warning" if timeouts else ""),
             Kpi("Pain points fixed in the foundation", str(len(entries)), "each with its fix and where it lives")]
+    from reports import infographics
+
+    glance = infographics.figure(
+        "06-legacy-vs-better", PATH,
+        "The whole benchmark on one page. Red marks say what the old warehouse got wrong; the modern answer and "
+        "time sit next to it. Two questions are slower on the modern side, and the page says so.")
     sections = [
+        *([Section("At a glance", "", html=glance, wide=True)] if glance else []),
         Section("The benchmark", "Each business question answered on the legacy database the way the old "
                 "warehouse forced it, and on the modern star schema. Same server, same synthetic raw rows.",
                 cols=["Q", "Business question", "Headline", "Legacy", "Modern", "Legacy time", "Modern time",

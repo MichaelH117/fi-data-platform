@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>F&amp;IP case study</title><style>
+@page { size: Letter; margin: 0.38in 0.45in; }
+:root { --brand:#8ACE00; --brand-ink:#3F6200; --ink-on-brand:#000; --text:#111410; --muted:#4A5245;
+  --line:rgba(60,90,0,.30); --bg:#FFFFFF; }
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0 auto; max-width: 7.5in; padding: 16px; color: var(--text); background: var(--bg);
+  font: 8.2pt/1.3 Inter,'Segoe UI',Arial,sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.mast { display:flex; align-items:center; gap:12px; border-bottom: 3px solid var(--brand); padding-bottom: 6px; }
+.mark { background: var(--brand); color: var(--ink-on-brand);
+  font: 800 20pt/1 'Barlow Condensed',Bahnschrift,sans-serif; padding: 5px 12px 4px;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%); }
+h1 { font: 700 17pt/1.1 'Barlow Condensed',Bahnschrift,sans-serif; margin: 0; }
+h1 + p { margin: 2px 0 0; color: var(--muted); font-size: 8pt; }
+h2 { font: 700 10.5pt/1.2 'Barlow Condensed',Bahnschrift,sans-serif; margin: 7px 0 2px; color: var(--brand-ink);
+  text-transform: uppercase; letter-spacing: .04em; }
+p { margin: 3px 0; }
+ul, ol { margin: 2px 0; padding-left: 16px; }
+li { margin: 1px 0; }
+code { font: 7.8pt Consolas,'JetBrains Mono',monospace; }
+strong { font-weight: 700; }
+table { width: 100%; border-collapse: collapse; margin: 3px 0; font-size: 7.6pt; }
+th { background: var(--brand); color: var(--ink-on-brand); text-align: left; padding: 3px 5px; font-weight: 700; }
+td { border-bottom: 1px solid var(--line); padding: 2px 5px; vertical-align: top; }
+td:first-child { white-space: nowrap; }
+td:nth-child(2) { white-space: nowrap; font-family: Consolas,'JetBrains Mono',monospace; }
+a { color: var(--brand-ink); }
+.cols { columns: 2; column-gap: 22px; }
+.cols h2 { break-after: avoid; } .cols li { break-inside: avoid; }
+.cols h2:first-child { margin-top: 7px; }
+.foot { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 4px; color: var(--muted); font-size: 7.5pt; }
+@media screen { body { padding: 32px 16px; } }
+@media print { body { padding: 0; } .foot { margin-top: 5px; } a { white-space: nowrap; } }
+@media screen and (prefers-color-scheme: dark) {
+  :root { --bg:#0B0D0C; --text:#E8ECE4; --muted:#9AA394; --brand-ink:#8ACE00; --line:rgba(138,206,0,.35); }
+}
+</style></head><body>
+<header class="mast"><div class="mark">F&amp;IP</div><div><h1>Case study: F&amp;IP, an F&amp;I data platform</h1>
+<p>Michael Hanson · portfolio project · all data synthetic · numbers from pipeline run <code>20261026T183720Z</code></p></div></header>
+<h2>The problem</h2>
+<p>A company that administers the protection products dealers sell in the finance office (vehicle service contracts, GAP, maintenance plans) lives on its reports. Dealers, finance, compliance and executives each need numbers they can trust, every morning. The usual warehouse grew one urgent request at a time: reports read the admin system directly, the same dealer exists under three ids, one layer stores claims negative and another positive, and nobody can say whether a report still matches the source until someone complains.</p>
+<h2>What I built</h2>
+<ul>
+<li><strong>The whole chain, end to end.</strong> A synthetic admin system, a daily dealer feed, CRM and admin-API intake with data contracts and quarantine, a layered dbt warehouse (raw, staging, intermediate, marts; 175 models built in the measured run), accounting-grade facts, state reserve filings, dealer statements and per-dealer packets.</li>
+<li><strong>Gates that block publishing.</strong> Sixteen diagnostics, a source-to-mart reconciliation and a publish gate. If one breaks, yesterday's reports stay up and nothing new goes out.</li>
+<li><strong>Reports people can read.</strong> A static report site with Excel downloads, nine department hubs, and a three-line plain-English explanation under every tile and chart.</li>
+<li><strong>A Power BI path.</strong> A semantic model generated from one metrics file, a Power BI project over a reconciled PostgreSQL copy of the marts, and dealer row-level security from one access map.</li>
+<li><strong>The old way, rebuilt on purpose.</strong> A legacy-style warehouse built from the same synthetic rows, so the same ten business questions can be measured both ways.</li>
+</ul>
+<h2>Measured results</h2>
+<table><thead><tr><th>Result</th><th>Value</th><th>What is behind it</th></tr></thead><tbody>
+<tr><td>Rows stored in the warehouse</td><td><strong>14.9M</strong></td><td>14,954,790 rows in 166 DuckDB tables and snapshots, all layers (11,320,528 in the marts reports read); 59 views not counted</td></tr>
+<tr><td>dbt build nodes passed</td><td><strong>928 of 929</strong></td><td>pipeline build: 175 models, 4 snapshots, 26 seeds, 722 data tests, 2 unit tests; 0 failed; 1 known data-quality warning (warn_rv_missing_chassis_vin, 30 rows); 11 of 11 gate tests after</td></tr>
+<tr><td>Python tests passed</td><td><strong>779</strong></td><td>0 failed, 2 skipped of 781 run; 2 slow end-to-end tests not in this record; recorded 2026-10-26</td></tr>
+<tr><td>Full rebuild time</td><td><strong>9 min 54 s</strong></td><td>10 of 10 steps ok, source data to published site, one command (594.67 s)</td></tr>
+<tr><td>Gate breaks</td><td><strong>0</strong></td><td>16 of 16 diagnostics passed; 36 of 37 reconciliation checks tied out, 1 documented waiver; 3 of 3 publish gates ok</td></tr>
+<tr><td>Legacy answers wrong</td><td><strong>10/10 → 0</strong></td><td>old warehouse wrong or failed on 10 of 10 business questions; new platform: 0 errors or timeouts</td></tr>
+<tr><td>Slow legacy query</td><td><strong>961.9 ms → 44.6 ms</strong></td><td>Q07 (Attributes for a provider-scoped population), the benchmark's slow query, legacy vs new, same server and rows; legacy Q10 timed out at 60 s (new: 32.2 ms)</td></tr>
+<tr><td>Dealer packets</td><td><strong>150</strong></td><td>one packet per reportable dealer, filtered to that dealer's rows only</td></tr>
+</tbody></table>
+<p>Five of the ten legacy-vs-modern questions, same synthetic rows, same server (benchmark of 2026-10-26):</p>
+<ul>
+<li>One dealer's in-force book: legacy 230 contracts, modern 473 (the dealer exists under several ids).</li>
+<li>Contracts by product, latest plan year: legacy counted 50,371, modern 59,749 (a stale product table, inner-joined).</li>
+<li>Paid claims: legacy -$18,883.27, modern $6,187,027.54 (claim signs differ between layers).</li>
+<li>Provider-scoped lookup (the slow-query case): legacy 961.9 ms, modern 44.6 ms (a union of every layer is rebuilt for each lookup).</li>
+<li>Vehicle match by VIN: the legacy lookup timed out at 60 s; its fallback join matched 78.58%. Modern: 100.00% in 32.2 ms on an enforced key.</li>
+</ul>
+<p>The modern side is slower on 2 of 10 questions (Q05 and Q09); there the fix is the right answer, not speed.</p>
+<div class="cols"><h2>How I would run it at a real company</h2>
+<ol>
+<li><strong>Weeks 1-2: listen and map.</strong> Read-only access to the admin system, an inventory of every report and who uses it, and one owner per metric definition. No dashboards yet.</li>
+<li><strong>Land and reconcile first.</strong> Copy sources untouched into raw, then tie row counts and dollars from source to raw to marts on every run. A report is only trusted once its numbers tie out.</li>
+<li><strong>Gates before go-live.</strong> The checks that matter most (match rates, fan-out, claim sign, demo rows, freshness) block publishing; every run is logged against a 7 AM target.</li>
+<li><strong>Dev, UAT, prod.</strong> Every change builds in UAT, is diffed against prod, and ships only when the change ticket explains every difference.</li>
+<li><strong>One definition, many audiences.</strong> Metrics live in one file that generates the Power BI models; each department gets a hub with its questions, its pages and who to ask when a number looks wrong.</li>
+<li><strong>Then scale the platform.</strong> The same dbt project already has Snowflake and Postgres targets, an Airflow DAG and row-level security scripts, written and ready for the company's accounts.</li>
+</ol>
+<h2>Honest notes</h2>
+<ul>
+<li><strong>Built with AI coding agents.</strong> I directed them: I wrote the design contract, gave each agent one role on a data team's org chart, and checked every report it returned against the tests and run artifacts before accepting it. The agents wrote most of the code; I decided what shipped.</li>
+<li>The pytest record behind the table had 0 failing of 781 collected tests, shown as is.</li>
+<li>The legacy in-force book at the 2023 cutover is not migrated; reconciliation reports it as a documented exclusion, not a pass. The Snowflake and Airflow pieces are written but not executed here.</li>
+<li>All data is synthetic. No real company's data, names or layouts are used.</li>
+</ul>
+<p>Code and README: <a href="https://github.com/MichaelH117/fi-data-platform">https://github.com/MichaelH117/fi-data-platform</a></p></div>
+<p class="foot">Generated by tools/showcase_assets.py from docs/showcase_stats.json and reports/legacy/benchmark_snapshot.json. Synthetic data.</p>
+</body></html>

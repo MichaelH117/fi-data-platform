@@ -11,6 +11,7 @@ doc and the page still render, with their run date, where no PostgreSQL server e
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,13 +69,22 @@ def n(v, digits: int = 0) -> str:
 
 
 def money(v) -> str:
-    return "n/a" if v is None else f"${float(v):,.0f}"
+    """Exact to the cent, sign before the symbol: never rounded up, never "$-"."""
+    if v is None:
+        return "n/a"
+    x = float(v)
+    return f"{'-' if x < 0 else ''}${abs(x):,.2f}"
+
+
+def _floor1(v: float) -> float:
+    return math.floor(v * 10) / 10
 
 
 def ms(v) -> str:
+    """One decimal, truncated: 961.9 ms stays 961.9 ms, never "962 ms"; 60,059 ms reads "60.0 s"."""
     if v is None:
         return "n/a"
-    return f"{v / 1000:,.1f} s" if v >= 1000 else f"{v:,.0f} ms"
+    return f"{_floor1(v / 1000):,.1f} s" if v >= 1000 else f"{_floor1(v):,.1f} ms"
 
 
 def timing(r: dict) -> str:
@@ -109,7 +119,7 @@ def _impact_1(r: Result) -> str:
     spine = next((x for x in leg.get("plan_top", []) if x.startswith("Append")), "")
     m = re.search(r"rows=(\d[\d,]*\d|\d)", spine)
     read = f" The plan appends {m.group(1)} spine rows to answer it." if m else ""
-    ratio = (f" ({leg['ms'] / mod['ms']:,.0f}x slower)" if leg.get("ms") and mod.get("ms")
+    ratio = (f" ({_floor1(leg['ms'] / mod['ms']):,.1f}x slower)" if leg.get("ms") and mod.get("ms")
              and not leg.get("timed_out") else "")
     who = "" if leg.get("timed_out") else f" of {n(r.val('q07', 'contracts'))} contracts"
     return (f"A provider-scoped lookup{who} took {timing(leg)} on the union-spine view against a "
@@ -128,7 +138,7 @@ def _impact_2(r: Result) -> str:
 def _impact_3(r: Result) -> str:
     one, allid = r.val("q01", "in_force_contracts"), r.val("q01", "in_force_all_identities")
     lost = (allid - one) if one is not None and allid is not None else None
-    share = f" ({100 * lost / allid:.0f}% of the book)" if lost is not None and allid else ""
+    share = f" ({_floor1(100 * lost / allid):.1f}% of the book)" if lost is not None and allid else ""
     return (f"Filtering dealer id 37 found {n(one)} in-force contracts; the same dealer under its "
             f"{n(r.val('q01', 'dealer_ids_for_one_dealer'))} ids holds {n(allid)}, so {n(lost)} were lost{share}. "
             f"Coverage cost shown: {money(r.val('q01', 'coverage_cost'))} vs "

@@ -252,9 +252,8 @@ def test_architecture_lists_every_source_step_and_recovery_command():
 
 
 # --------------------------------------------------------------------------- 9. visible output + roadmap
-README_IMAGES = ("start-here.png", "how-data-flows.png", "executive-overview.png",
-                 "ops-gates-reconciliation.png", "funded-reserve-filing.png",
-                 "dealer-packet.png")
+README_IMAGES = ("start-here.png", "department-hub.png", "experience.png", "legacy-vs-better.png",
+                 "how-data-flows.png", "semantic-model.png")
 
 
 def test_readme_shows_committed_screenshots_of_the_site():
@@ -348,3 +347,66 @@ def test_roadmap_in_force_figures_match_the_migration_mart():
     quoted = f"{abs(int(row_diff)):,}"
     assert quoted in roadmap and quoted in README, quoted
     assert f"${abs(float(amount_diff)) / 1e6:.1f}M" in roadmap, amount_diff
+
+
+# --------------------------------------------------------------------------- 10. showcase: hero, assets, case study
+def _png_size(path: Path) -> tuple[int, int]:
+    head = path.read_bytes()[:24]
+    assert head[:8] == b"\x89PNG\r\n\x1a\n", path
+    return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+
+
+def test_readme_hero_strip_and_badges_match_showcase_stats():
+    """The badges and "Results at a glance" are generated from docs/showcase_stats.json, never typed."""
+    from tools import showcase_assets as sa
+
+    stats = sa.load_stats()
+    assert sa.render_readme(README, stats) == README, "run python tools/showcase_assets.py readme"
+    hero = README.split("## See it without running it")[0]
+    assert hero.index("docs/img/banner.png") < hero.index("# F&IP") < hero.index("## Results at a glance")
+    for tid in sa.TILE_ORDER:
+        assert f"**{stats['tiles'][tid]['value']}**" in hero, tid
+    for badge in ("actions/workflows/ci.yml/badge.svg", "img.shields.io/badge/pytest-",
+                  "img.shields.io/badge/dbt%20build-", "Python-3.12", "PostgreSQL-16", "Power%20BI-",
+                  "license-MIT"):
+        assert badge in hero, badge
+    assert "docs/CASE_STUDY.md" in hero and "docs/img/walkthrough.gif" in hero
+    assert "$6,187,028" not in README  # $6,187,027.54 is truncated, never rounded up
+
+
+def test_showcase_images_exist_with_the_right_shape():
+    img = ROOT / "docs" / "img"
+    assert _png_size(img / "social-preview.png") == (1280, 640)
+    w, h = _png_size(img / "banner.png")
+    assert w >= 1200 and h < w
+    gif = img / "walkthrough.gif"
+    assert gif.read_bytes()[:6] in (b"GIF87a", b"GIF89a") and gif.stat().st_size < 8_000_000
+    infographics = sorted({p.name.rsplit("-", 1)[0] for p in (img / "infographics").glob("0*-dark.png")})
+    assert len(infographics) == 6, infographics
+    for name in infographics:
+        for theme in ("dark", "light"):
+            assert f"docs/img/infographics/{name}-{theme}.png" in README, (name, theme)
+            assert (img / "infographics" / f"{name}-{theme}.png").exists()
+
+
+def test_case_study_is_generated_from_the_measured_numbers():
+    from tools import showcase_assets as sa
+
+    md = sa.case_study_md(sa.load_stats(), sa.load_bench())
+    assert (ROOT / "docs" / "CASE_STUDY.md").read_text(encoding="utf-8") == md, \
+        "run python tools/showcase_assets.py case-study"
+    assert (ROOT / "docs" / "case_study.html").read_text(encoding="utf-8") == sa.case_study_html(md)
+    for heading in ("## The problem", "## What I built", "## Measured results",
+                    "## How I would run it at a real company",
+                    "## Honest notes"):
+        assert heading in md, heading
+    assert "AI coding agents" in md and "I directed them" in md
+    assert "synthetic" in md.lower()
+
+
+def test_markdown_subset_renders_lists_and_tables():
+    from tools.showcase_assets import md_to_html
+
+    out = md_to_html("# T\n\n- **a** `b`\n1. c\n\n| x | y |\n|---|---|\n| 1 | 2 |\n")
+    assert "<h1>T</h1>" in out and "<ul>\n<li><strong>a</strong> <code>b</code></li>\n</ul>" in out
+    assert "<ol>" in out and "<th>x</th>" in out and "<td>2</td>" in out

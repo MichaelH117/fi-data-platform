@@ -1,55 +1,206 @@
-# Role start pages (docs/V3_DESIGN.md section 10.3). Copy owned by the Reporting Manager; the Front-end
-# Developer renders it (start.html role buttons + roles/<id>.html). Each role lands on 3-4 existing pages and
-# 3-4 tiles picked by audience_roles in dbt/seeds/core/metric_explanations.csv. No page computes a new number.
+# Department hubs: the "command center" (docs/V3_DESIGN.md section 10.3, V7 showcase polish).
+# THE ONE SOURCE for the Start page "Who are you?" grid and every roles/<id>.html page. reports/guides.py reads
+# this file and nothing else; there is no second list of roles in code. Copy owned by the Reporting Manager.
+#
+# Per hub:
+#   id        page name (roles/<id>.html); keep existing ids stable, links point at them
+#   band      the row of the Start grid it sits in (bands are listed below, in order)
+#   button    "I'm a ..." / "I'm in ..." / "I'm an ..." (the start of the text becomes the small kicker)
+#   audience  which audience_roles tag in dbt/seeds/core/metric_explanations.csv refines the tiles
+#   tiles     3-4 metric ids, shown as KPI tiles already built for other pages (no new numbers)
+#   questions 3-6 questions the department asks most, each with why it asks (generic wording, no names)
+#   pages     3-6 pages or Excel downloads that answer them (a link to anything not built is dropped)
+#   terms     glossary term ids (dbt/seeds/core/glossary_terms.csv) the hub relies on
+#   if_wrong  who owns the numbers, the page that shows the check, and the runbook section to open
 # Rules: short sentences, no jargon a dealer would not use, every acronym is in glossary_terms.csv.
 intro: >
-  Pick the button that sounds like you. Each one opens the few pages your job needs, in the order most
-  people read them. Every number explains itself in three short lines under it.
+  Pick the department that sounds like you. Each hub lists the questions that team asks most, the pages that
+  answer them, the words they rely on, and who to ask when a number looks wrong.
+bands:
+  - id: money
+    name: Money and the books
+  - id: rules
+    name: Rules and filings
+  - id: field
+    name: Dealers, claims and customers
+  - id: platform
+    name: Data and leadership
+runbook: docs/operating-model/RUNBOOK.md
+correction_rule: >
+  A wrong published number is corrected and restated within 2 business days, with a change note
+  (docs/operating-model/SLA.md, service level 10).
 roles:
-  - id: dealer
-    button: "I'm a dealer or F&I manager"
-    title: For dealers and F&I managers
+  - id: accounting
+    band: money
+    button: "I'm in accounting"
+    title: Accounting hub
     lede: >
-      What your stores sold, what is still unfinished, whether payments are on time, and how claims are going.
-    tiles: [contracts_written, dlr_pending_contracts, late_remittances, claim_paid_amount]
+      Cash in, what each dealer and partner is owed, late fees, commissions, and whether every total ties out.
+    audience: finance
+    tiles: [remitted_cash, late_remittances, fin_control_breaks, fin_net_commission]
+    questions:
+      - ask: Does the monthly settlement statement match the partner's agreement?
+        why: Partners check which bucket each dollar lands in (admin fee, incentive, claims taken off) before they wire.
+        page: finance/remittance.html
+      - ask: What do we owe this dealer for this payment?
+        why: The incentive due is sales, minus cancels, plus fixes. It sets the payout.
+        page: dealer/incentive-statement.html
+      - ask: Which payments came in late, and what late fee applies?
+        why: Late money is billed a fee, and the bill has to show the days late behind it.
+        page: finance/remittance.html
+      - ask: Who earned which commission, and what was charged back?
+        why: Commission is paid on sales and taken back on cancels, per agent and per territory.
+        page: finance/commissions.html
+      - ask: Does every total tie back to the source?
+        why: The month cannot close while any control line is broken.
+        page: finance/controls.html
     pages:
-      - href: dealer/production.html
-        name: Production
-        why: What you sold this month and over the last 12, by product. Start here every month.
-      - href: dealer/pending.html
-        name: Pending contracts
-        why: Contracts you sold that are not finished. Until they are, your customer may not be covered.
+      - href: finance/remittance.html
+        name: Payments and partner settlement
+        why: Cash received, late fees, and the monthly statement each partner checks before paying.
       - href: dealer/incentive-statement.html
         name: Incentive statement
-        why: What you are owed for each payment you sent, section by section, and what is still waiting.
-      - href: claims/kpi.html
-        name: Claims
-        why: How often your customers claim and what repairs cost. It drives what you pay for coverage.
+        why: What each dealer is owed for each payment sent, section by section, and what is still waiting.
+      - href: finance/commissions.html
+        name: Commission statement
+        why: Commission paid and charged back by agent, tied to the profit and loss.
+      - href: finance/controls.html
+        name: Close controls
+        why: Every total tied to the source, the cost split checks and the reserve bridge.
+      - href: finance/profit-share.html
+        name: Profit-share statement
+        why: What each dealer-owned company is owed, paid and still holding.
+      - href: downloads/finance/finance_pack.xlsx
+        name: Finance pack (Excel)
+        why: The finance pages as one workbook, one tab per table, for the close file.
+    terms: [remit, late_fee, admin_fee, chargeback, commission_advance, profit_share, posting_period, reconciliation]
+    if_wrong:
+      owner: Financial Analyst I
+      check: finance/controls.html
+      check_name: Close controls
+      runbook: Reconciliation
   - id: finance
-    button: "I'm in accounting or finance"
-    title: For accounting and finance
+    band: money
+    button: "I'm in finance or FP&A"
+    title: Finance and FP&A hub
     lede: >
-      Profit by product, how the reserve moves, what each partner owes or is owed, and the payment register.
-    tiles: [fin_program_margin, posted_loss_ratio, remitted_cash, fin_control_breaks]
+      Profit by product, how the reserve moves, what is earned so far, and where losses will land.
+    audience: finance
+    tiles: [fin_program_margin, posted_loss_ratio, combined_ratio, fin_new_reserves]
+    questions:
+      - ask: Is each product making money after claims and costs?
+        why: The quarterly profit review decides whether a product is re-priced, pushed or dropped.
+        page: finance/pnl.html
+      - ask: Why do two reserve reports show different numbers?
+        why: One counts every contract written; the other takes off cancels and refunds. Partners need one figure.
+        page: finance/controls.html
+      - ask: How much of the money collected is earned so far?
+        why: Money is earned over a contract's life, not on the day it is sold. Plans use earned, not written.
+        page: actuarial.html
+      - ask: Where will losses land once every claim is in?
+        why: Claims not yet reported still cost money. The forecast sets prices and the reserve.
+        page: actuarial.html
+      - ask: Are the dealer-owned companies doing well enough to pay out?
+        why: A distribution can only be paid when the company's results and reserve allow it.
+        page: finance/cession.html
     pages:
       - href: finance/pnl.html
         name: Profit and loss by product
         why: Where earned premium went, product by product. The quarterly profit review starts here.
-      - href: finance/controls.html
-        name: Controls and the reserve bridge
-        why: Every total tied to the source, and why two reserve reports differ, step by step.
-      - href: finance/remittance.html
-        name: Payments and partner settlement
-        why: Cash received, late fees, and the monthly statement each partner checks before paying.
+      - href: finance/new-reserves.html
+        name: New reserves
+        why: Reserve set aside on new sales, by product family and term length.
+      - href: finance/experience.html
+        name: Experience
+        why: The same results cut by date, product, dealer or state, the way partners ask for them.
+      - href: actuarial.html
+        name: Actuarial
+        why: Earning curves, claims not yet reported and the loss ratio expected when all claims are in.
       - href: finance/cession.html
         name: Dealer-owned companies
         why: Results for dealers who share the risk. It decides whether a distribution can be paid.
+      - href: finance/controls.html
+        name: Controls and the reserve bridge
+        why: Why two reserve reports differ, step by step, and every total tied to the source.
+    terms: [earned_premium, earned_vs_written, upr, rule_of_78, loss_ratio, combined_ratio, ibnr, ultimate_losses]
+    if_wrong:
+      owner: Financial Analyst II
+      check: finance/controls.html
+      check_name: Close controls and the reserve bridge
+      runbook: Reconciliation
+  - id: legal
+    band: rules
+    button: "I'm in legal"
+    title: Legal hub
+    lede: >
+      Which approved form each contract was sold on, the definitions we stand behind, and who can see which rows.
+    audience: compliance
+    tiles: [contracts_in_force, reg_with_form_code, reg_missing_form_code, claims_denied]
+    questions:
+      - ask: Which approved form was each contract sold on?
+        why: A regulator can ask contract by contract. Legal is copied on the answer.
+        page: regulatory/inforce-list-tx.html
+      - ask: What exactly do we mean by in force, written or active dealer?
+        why: A word quoted in a filing or a dispute must mean what was signed off, every time.
+        page: definitions.html
+      - ask: Which company stands behind each contract?
+        why: The obligor is the one on the hook for the promise, and it differs by state and program.
+        page: regulatory/inforce-profile.html
+      - ask: Who can see a dealer's data?
+        why: Each dealer may see only its own rows. A leak is a contract breach.
+        page: semantic.html
+      - ask: Did a contract carry the right surcharge?
+        why: Pricing disputes and audits turn on whether the extra charge matched the rules.
+        page: dealer/surcharge-audit.html
+    pages:
+      - href: regulatory/inforce-list-tx.html
+        name: State in-force lists
+        why: Every active contract in a state with its approved form, ready when a regulator asks.
+      - href: definitions.html
+        name: Definitions decided
+        why: Each tricky word, the rule chosen and who signed it off. Quote these, not a chat.
+      - href: regulatory/report-definitions.html
+        name: Counting rules
+        why: Which contracts count as active or written, and on which money basis.
+      - href: regulatory/inforce-profile.html
+        name: In-force profile
+        why: Active contracts by obligor and product, and why each status counts or not.
+      - href: semantic.html
+        name: Who can see which rows
+        why: The row-level security rules behind every dashboard and dealer packet.
+      - href: dealer/surcharge-audit.html
+        name: Surcharge audit
+        why: Surcharges that were missing, unexpected or the wrong amount, contract by contract.
+    terms: [form_code, obligor, in_force, producer_vs_provider, co_buyer, surcharge, dealer_packet, tenant]
+    if_wrong:
+      owner: Senior Data Analyst (regulatory)
+      check: ops.html
+      check_name: Operations (diagnostics gate)
+      runbook: diag_form_code_coverage
   - id: compliance
+    band: rules
     button: "I'm in compliance"
-    title: For compliance
+    title: Compliance hub
     lede: >
       State reserve filings, the active book by state and form, and the definitions behind every filed number.
+    audience: compliance
     tiles: [reserve_shortfall, reg_states_filed, contracts_in_force, reg_missing_form_code]
+    questions:
+      - ask: Which states need a filing this year, and is each one ready?
+        why: A provider's registration renews every year. Filings fall due soon after the state's period ends.
+        page: regulatory/index.html
+      - ask: Is the funded reserve big enough?
+        why: A provider that backs contracts with its own reserve must prove it. A shortfall is funded first.
+        page: regulatory/index.html
+      - ask: How many contracts were active, sold, complained about and denied?
+        why: The state's business activity section asks for exactly these counts.
+        page: regulatory/market-survey-tx.html
+      - ask: Which contracts count as in force on the period end?
+        why: Status and dates both matter. The rule is settled before the first number is filed.
+        page: regulatory/inforce-profile.html
+      - ask: Does every active contract have its approved form code?
+        why: Blank form codes have to be filled before a state list goes out.
+        page: regulatory/inforce-list-tx.html
     pages:
       - href: regulatory/index.html
         name: Reserve filings
@@ -57,18 +208,235 @@ roles:
       - href: regulatory/report-definitions.html
         name: Counting rules
         why: Which contracts count as active or written, and on which money basis. Settled before filing.
+      - href: regulatory/inforce-profile.html
+        name: In-force profile
+        why: What counts as in force, by status and by year sold, before a list is filed.
       - href: regulatory/inforce-list-tx.html
         name: State in-force lists
         why: Every active contract in a state with its approved form, ready when a regulator asks.
+      - href: regulatory/market-survey-tx.html
+        name: State market survey
+        why: The yearly survey a state sends, answered from the same counting rules.
       - href: definitions.html
         name: Definitions decided
         why: Each tricky word, the rule chosen and who signed it off. Quote these in filings.
-  - id: executive
-    button: "I'm an executive"
-    title: For executives
+    terms: [funded_reserve, clip, obligor, in_force, form_code, denial, claims_reserve]
+    if_wrong:
+      owner: Senior Data Analyst (regulatory)
+      check: ops.html
+      check_name: Operations (diagnostics gate)
+      runbook: diag_filing_entity_true_zero
+  - id: dealer
+    band: field
+    button: "I'm in dealer operations"
+    title: Dealer operations hub
     lede: >
-      Is the book making money, which dealers need attention, and what the new platform fixed.
+      What each store sold, what is still unfinished, which dealers are on watch, and who looks after each store.
+    audience: dealer
+    tiles: [contracts_written, dlr_pending_contracts, late_remittances, dealers_on_watch]
+    questions:
+      - ask: Which store should we call today?
+        why: Production and stuck paperwork per dealer, this month, decide the call list.
+        page: dealer/production.html
+      - ask: Which contracts are not finished, and who still has to sign?
+        why: Until a contract is finished, the customer may not be covered. Dealers expect it next day.
+        page: dealer/pending.html
+      - ask: A rep left. Which stores need a new owner?
+        why: Every store that sold through that rep has to be handed over the same day.
+        page: dealer/agents.html
+      - ask: Which dealers are on watch, and why?
+        why: Every dealer is judged on the same rules, so the hard conversations are fair.
+        page: dealer/scorecard.html
+      - ask: What does each store charge for add-on products?
+        why: Stores in one group should price the same products the same way.
+        page: dealer/ancillary-pricing.html
+      - ask: Do RV contracts carry the real chassis VIN?
+        why: Claims and servicing need the chassis number, not a stand-in.
+        page: dealer/specialty-line.html
+    pages:
+      - href: dealer/production.html
+        name: Production
+        why: What each store sold this month and over the last 12, by product.
+      - href: dealer/pending.html
+        name: Pending contracts
+        why: Contracts sold but not finished, oldest first, with the store to call.
+      - href: dealer/scorecard.html
+        name: Dealer scorecard
+        why: Every dealer judged on the same rules, with the ones on watch at the top.
+      - href: dealer/agents.html
+        name: Agents and their stores
+        why: Which rep looks after which store, and the stores now with another rep.
+      - href: dealer/ancillary-pricing.html
+        name: Add-on pricing and markup
+        why: What each store charges for add-on products, store by store.
+      - href: dealer/specialty-line.html
+        name: Specialty line
+        why: RV and powersports contracts, and the RVs still missing a chassis VIN.
+    terms: [pending, remit, dealer_markup, ancillary, chassis_vin, dealer_packet, t12]
+    if_wrong:
+      owner: Senior Data Analyst (dealer & claims)
+      check: quality.html
+      check_name: Data quality and freshness
+      runbook: diag_agent_of_record
+  - id: claims
+    band: field
+    button: "I'm in claims"
+    title: Claims hub
+    lede: >
+      How often contracts claim, what repairs cost, which claims are open too long, and how many were denied.
+    audience: finance
+    tiles: [claim_paid_amount, denial_rate, open_claims_aged_30_plus, avg_claim_turnaround_days]
+    questions:
+      - ask: How often do contracts claim, and what does a repair cost?
+        why: How often times how much is what coverage costs. It drives the price.
+        page: claims/kpi.html
+      - ask: Which claims have been open too long?
+        why: Old open claims mean an unhappy customer and money not yet counted.
+        page: claims/kpi.html
+      - ask: How many claims were denied, and is the rate moving?
+        why: Denials are reported to states, and a jump can mean a rule or a dealer problem.
+        page: claims/kpi.html
+      - ask: Which parts cost the most?
+        why: A few repairs drive most of the dollars. That is where pricing and audits look first.
+        page: downloads/claims/claim_components.xlsx
+      - ask: How much is still to come on claims not yet reported?
+        why: Breakdowns happen before anyone calls. The reserve has to cover them.
+        page: claims.html
+    pages:
+      - href: claims/kpi.html
+        name: Claims KPIs
+        why: Frequency, average claim, denial rate, turnaround and open claims by age.
+      - href: claims.html
+        name: Claims and IBNR
+        why: Reported claims and the estimate for those not reported yet, by sale group.
+      - href: downloads/claims/claims_detail.xlsx
+        name: Claims detail (Excel)
+        why: One row per claim line, for lookups and audits.
+      - href: downloads/claims/claim_components.xlsx
+        name: Claim parts (Excel)
+        why: Claim cost by part, to see which repairs drive the dollars.
+      - href: dealer/scorecard.html
+        name: Dealer scorecard
+        why: Claims per dealer next to sales, cancels and late payments.
+    terms: [frequency, severity, denial, deductible, case_reserve, incurred, ibnr, early_claim]
+    if_wrong:
+      owner: Senior Data Analyst (dealer & claims)
+      check: ops.html
+      check_name: Operations (diagnostics gate)
+      runbook: diag_claim_contract_coverage
+  - id: customer-service
+    band: field
+    button: "I'm in customer service"
+    title: Customer service hub
+    lede: >
+      Is the customer covered yet, why a claim was denied, why a contract cost extra, and what a cancel returns.
+    audience: dealer
+    tiles: [dlr_pending_contracts, dlr_median_days_pending, avg_claim_turnaround_days, cancel_pct]
+    questions:
+      - ask: Is this customer covered yet?
+        why: A contract still pending may not cover a repair. The answer decides what you tell the caller.
+        page: dealer/pending.html
+      - ask: Why was the claim denied, and how long do claims take?
+        why: Callers want a reason and a date. Both have to match what the claims team sees.
+        page: claims/kpi.html
+      - ask: Why did this contract cost extra?
+        why: Surcharges for the vehicle's condition or use must be explained, or refunded if wrong.
+        page: dealer/surcharge-audit.html
+      - ask: What happens if the customer cancels?
+        why: The refund depends on time and miles used. Cancels near the mileage limit return little.
+        page: finance/cancel-mileage.html
+    pages:
+      - href: dealer/pending.html
+        name: Pending contracts
+        why: Contracts sold but not finished. Until they are, the customer may not be covered.
+      - href: claims/kpi.html
+        name: Claims KPIs
+        why: Denial rate and turnaround, the numbers behind "why" and "when".
+      - href: dealer/surcharge-audit.html
+        name: Surcharge audit
+        why: Surcharges that were missing, unexpected or the wrong amount.
+      - href: finance/cancel-mileage.html
+        name: Cancels near the mileage limit
+        why: Cancels by miles left, so a refund question has a real answer.
+      - href: glossary.html
+        name: Glossary
+        why: Every word on this site in plain English, ready to read out to a customer.
+    terms: [pending, co_buyer, cancel_rate, reinstatement, deductible, denial, surcharge, chargeback]
+    if_wrong:
+      owner: Senior Data Analyst (dealer & claims)
+      check: quality.html
+      check_name: Data quality and freshness
+      runbook: First five minutes (every failure)
+  - id: data-bi
+    band: platform
+    button: "I'm in data or BI"
+    title: Data and BI hub
+    lede: >
+      Did last night's run pass every gate, is the data fresh, do the dashboards match the warehouse.
+    audience: executive
+    tiles: [ops_tests_passing, ops_diagnostics, ops_recon_breaks, ops_source_freshness]
+    questions:
+      - ask: Did last night's run pass every gate?
+        why: A failed check stops publishing. Someone has to know before 7 in the morning.
+        page: ops.html
+      - ask: Is the data fresh, and were any rows held back?
+        why: Late or quarantined source rows change every number downstream.
+        page: quality.html
+      - ask: Do the dashboards and the warehouse agree?
+        why: The report model must show the same totals as the warehouse, or nobody trusts either.
+        page: ops.html
+      - ask: Which definition does each measure use?
+        why: One metric, one definition, used on every page and in every dashboard.
+        page: semantic.html
+      - ask: What did the new platform fix?
+        why: The old warehouse gave wrong answers to real questions. The fix is measured, not promised.
+        page: legacy.html
+    pages:
+      - href: ops.html
+        name: Operations
+        why: The 7 AM service level, the diagnostics gate, reconciliation and dealer packets.
+      - href: quality.html
+        name: Data quality and freshness
+        why: Last run, rebuild results, source freshness and rows held back at intake.
+      - href: semantic.html
+        name: Semantic model
+        why: Every measure, the dbt metric behind it, and who can see which rows.
+      - href: how-data-flows.html
+        name: How the data flows
+        why: Five steps from a dealer's sale to a report, and the check at each one.
+      - href: legacy.html
+        name: Legacy vs better
+        why: The old warehouse and the new one answering the same questions.
+      - href: definitions.html
+        name: Definitions decided
+        why: Each tricky word, the rule chosen and who signed it off.
+    terms: [diagnostics_gate, reconciliation, slo, posting_period, tenant, dealer_packet, sale_cohort]
+    if_wrong:
+      owner: Data Engineer (on call)
+      check: ops.html
+      check_name: Operations
+      runbook: First five minutes (every failure)
+  - id: executive
+    band: platform
+    button: "I'm an executive"
+    title: Executive hub
+    lede: >
+      Is the book making money, which dealers need attention, how big we are, and what the new platform fixed.
+    audience: executive
     tiles: [combined_ratio, posted_loss_ratio, contracts_in_force, dealers_on_loss_ratio_watch]
+    questions:
+      - ask: Is the book making money?
+        why: Over 100% combined means claims and costs took more than was earned.
+        page: index.html
+      - ask: Which dealers need attention?
+        why: A few dealers drive most of the losses. They get the first call.
+        page: dealer/scorecard.html
+      - ask: How big are we, and how often do contracts cancel?
+        why: A prospect scores a bid on size, product mix and how sticky the book is, and asks how it was counted.
+        page: finance/portfolio-facts.html
+      - ask: Can we trust these numbers?
+        why: Every page is rebuilt from checked data, and the old answers were measured against the new ones.
+        page: legacy.html
     pages:
       - href: index.html
         name: Executive overview
@@ -79,6 +447,15 @@ roles:
       - href: dealer/scorecard.html
         name: Dealer scorecard
         why: Every dealer judged on the same rules, with the ones on watch at the top.
+      - href: finance/portfolio-facts.html
+        name: Portfolio facts
+        why: Active dealers, groups, contracts and cancel rate, with how each one is counted.
       - href: legacy.html
         name: Legacy vs better
         why: The old warehouse and the new one, answering the same questions. Measured, not promised.
+    terms: [combined_ratio, loss_ratio, earned_premium, in_force, cancel_rate, participation]
+    if_wrong:
+      owner: Reporting Manager
+      check: ops.html
+      check_name: Operations
+      runbook: Stakeholder notice (copy, fill in, send by 07:30)

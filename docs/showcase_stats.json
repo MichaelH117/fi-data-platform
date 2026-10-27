@@ -1,0 +1,181 @@
+{
+  "generated_at": "2026-10-26T23:46:23Z",
+  "note": "Written by python -m reports (reports/showcase.py). Every value comes from the run artifacts named in its 'source'; compact tile labels are truncated, never rounded up.",
+  "stats": {
+    "run_id": "20261026T183720Z",
+    "rebuild": {
+      "seconds": 594.67,
+      "steps": 10,
+      "steps_ok": 10,
+      "started_at": "2026-10-26T18:37:20+00:00",
+      "finished_at": "2026-10-26T18:47:15+00:00",
+      "source": "data/runs/20261026T183720Z.json"
+    },
+    "dbt": {
+      "build_nodes_total": 929,
+      "build_nodes_ok": 928,
+      "build_nodes_warned": 1,
+      "build_nodes_failed": 0,
+      "build_nodes_skipped": 0,
+      "warnings": [
+        {
+          "test": "warn_rv_missing_chassis_vin",
+          "rows": 30
+        }
+      ],
+      "snapshots_built": 4,
+      "seeds_loaded": 26,
+      "data_tests_passed": 721,
+      "data_tests_warned": 1,
+      "data_tests_failed": 0,
+      "data_tests_total": 722,
+      "unit_tests_passed": 2,
+      "models_built": 175,
+      "build_seconds": 180.89,
+      "source": "data/runs/20261026T183720Z/dbt_build.json",
+      "gate_tests_passed": 11,
+      "gate_tests_total": 11
+    },
+    "warehouse": {
+      "engine": "DuckDB",
+      "measures": "rows stored in tables and snapshots, all layers; views excluded",
+      "rows": 14954790,
+      "relations": 166,
+      "view_rows": 9070028,
+      "view_relations": 59,
+      "by_layer": {
+        "raw": {
+          "relations": 60,
+          "rows": 882108,
+          "view_relations": 0,
+          "view_rows": 0
+        },
+        "marts": {
+          "relations": 83,
+          "rows": 11320528,
+          "view_relations": 1,
+          "view_rows": 43550
+        },
+        "snapshots": {
+          "relations": 4,
+          "rows": 74585,
+          "view_relations": 0,
+          "view_rows": 0
+        },
+        "intermediate": {
+          "relations": 19,
+          "rows": 2677569,
+          "view_relations": 5,
+          "view_rows": 8148177
+        },
+        "staging": {
+          "relations": 0,
+          "rows": 0,
+          "view_relations": 53,
+          "view_rows": 878301
+        }
+      },
+      "source": "audit.layer_row_count, run 20261026T183720Z"
+    },
+    "diagnostics": {
+      "passed": 16,
+      "total": 16,
+      "source": "audit.diagnostics_result, run 20261026T183720Z"
+    },
+    "reconciliation": {
+      "passed": 36,
+      "waived": 1,
+      "breaks": 0,
+      "total": 37,
+      "source": "audit.reconciliation, run 20261026T183720Z"
+    },
+    "gates": {
+      "ok": 3,
+      "total": 3,
+      "names": [
+        "dbt",
+        "diagnostics",
+        "reconcile"
+      ],
+      "source": "data/runs/_gates.json"
+    },
+    "pytest": {
+      "passed": 779,
+      "failed": 0,
+      "skipped": 2,
+      "errors": 0,
+      "deselected": 2,
+      "collected": 781,
+      "selection": "-q -m not slow -p no:cacheprovider",
+      "seconds": 2167.7,
+      "recorded_at": "2026-10-26T23:45:13Z",
+      "source": "data/runs/_pytest.json"
+    },
+    "legacy": {
+      "questions": 10,
+      "legacy_wrong_or_failed": 10,
+      "modern_errors_or_timeouts": 0,
+      "slow_query": {
+        "id": "q07",
+        "question": "Attributes for a provider-scoped population",
+        "observed_failure": "slow",
+        "legacy_ms": 961.9,
+        "modern_ms": 44.6,
+        "legacy_budget": "2s"
+      },
+      "legacy_timeouts": [
+        {
+          "id": "q10",
+          "question": "Stock number match rate by VIN",
+          "budget": "60s",
+          "modern_ms": 32.2
+        }
+      ],
+      "measured_at": "2026-10-26T19:04:06Z",
+      "source": "data/legacy/legacy_benchmark.json"
+    },
+    "dealer_packets": 150
+  },
+  "tiles": {
+    "proof_warehouse_rows": {
+      "label": "Rows stored in the warehouse",
+      "value": "14.9M",
+      "sub": "14,954,790 rows in 166 DuckDB tables and snapshots, all layers (11,320,528 in the marts reports read); 59 views not counted"
+    },
+    "proof_dbt_tests": {
+      "label": "dbt build nodes passed",
+      "value": "928 of 929",
+      "sub": "pipeline build: 175 models, 4 snapshots, 26 seeds, 722 data tests, 2 unit tests; 0 failed; 1 known data-quality warning (warn_rv_missing_chassis_vin, 30 rows); 11 of 11 gate tests after"
+    },
+    "proof_pytest": {
+      "label": "Python tests passed",
+      "value": "779",
+      "sub": "0 failed, 2 skipped of 781 run; 2 slow end-to-end tests not in this record; recorded 2026-10-26"
+    },
+    "proof_rebuild_time": {
+      "label": "Full rebuild time",
+      "value": "9 min 54 s",
+      "sub": "10 of 10 steps ok, source data to published site, one command (594.67 s)"
+    },
+    "proof_gates": {
+      "label": "Gate breaks",
+      "value": "0",
+      "sub": "16 of 16 diagnostics passed; 36 of 37 reconciliation checks tied out, 1 documented waiver; 3 of 3 publish gates ok"
+    },
+    "proof_legacy_wrong": {
+      "label": "Legacy answers wrong",
+      "value": "10/10 → 0",
+      "sub": "old warehouse wrong or failed on 10 of 10 business questions; new platform: 0 errors or timeouts"
+    },
+    "proof_legacy_speed": {
+      "label": "Slow legacy query",
+      "value": "961.9 ms → 44.6 ms",
+      "sub": "Q07 (Attributes for a provider-scoped population), the benchmark's slow query, legacy vs new, same server and rows; legacy Q10 timed out at 60 s (new: 32.2 ms)"
+    },
+    "proof_dealer_packets": {
+      "label": "Dealer packets",
+      "value": "150",
+      "sub": "one packet per reportable dealer, filtered to that dealer's rows only"
+    }
+  }
+}

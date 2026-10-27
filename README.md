@@ -1,20 +1,54 @@
+<p align="center"><img src="docs/img/banner.png" alt="F&amp;IP, F&amp;I Data Platform: 14.9M rows stored in the warehouse, 928 of 929 dbt build nodes passed, 0 gate breaks, legacy answers wrong 10/10 to 0" width="100%"></p>
+
 # F&IP
 
-![F&IP](docs/img/fip-banner.svg)
+**F&I Data Platform. One command turns the contracts dealers sell into reconciled, plain-English reports, and
+refuses to publish a number that does not tie out.**
 
-**F&I Data Platform.** The reporting platform of an F&I (finance and insurance) product administrator: it takes
-the contracts dealers sell in the finance office (vehicle service contracts, GAP, ancillary protection and
-prepaid maintenance), checks them, and turns them into the reports dealers, finance, compliance and executives
-use. That means an operational admin system, a daily dealer feed, a Snowflake-shaped warehouse,
-accounting-grade facts, a Power BI-ready semantic model, state reserve filings, dealer statements and
-per-dealer packets. One command rebuilds all of it every day, and it refuses to publish a number that does
-not reconcile. Every tile and chart on the site explains itself in three plain-English lines.
+<!-- badges:start -->
+[![CI](https://github.com/MichaelH117/fi-data-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/MichaelH117/fi-data-platform/actions/workflows/ci.yml)
+[![pytest: 779 passed](https://img.shields.io/badge/pytest-779%20passed-8ACE00?labelColor=0B0D0C)](#checks)
+[![dbt build: 928 of 929 passed, 1 warn](https://img.shields.io/badge/dbt%20build-928%20of%20929%20passed%2C%201%20warn-8ACE00?labelColor=0B0D0C)](#checks)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-2EC4D6?labelColor=0B0D0C)](#quickstart)
+[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-2EC4D6?labelColor=0B0D0C)](#real-power-bi-on-a-real-database)
+[![Power BI project (PBIP)](https://img.shields.io/badge/Power%20BI-PBIP-F2A93B?labelColor=0B0D0C)](powerbi/README.md)
+[![MIT license](https://img.shields.io/badge/license-MIT-8ACE00?labelColor=0B0D0C)](LICENSE)
+<!-- badges:end -->
+
+## Results at a glance
+
+<!-- results:start -->
+| Result | Value | What is behind it |
+|---|---|---|
+| Rows stored in the warehouse | **14.9M** | 14,954,790 rows in 166 DuckDB tables and snapshots, all layers (11,320,528 in the marts reports read); 59 views not counted |
+| dbt build nodes passed | **928 of 929** | pipeline build: 175 models, 4 snapshots, 26 seeds, 722 data tests, 2 unit tests; 0 failed; 1 known data-quality warning (warn_rv_missing_chassis_vin, 30 rows); 11 of 11 gate tests after |
+| Python tests passed | **779** | 0 failed, 2 skipped of 781 run; 2 slow end-to-end tests not in this record; recorded 2026-10-26 |
+| Full rebuild time | **9 min 54 s** | 10 of 10 steps ok, source data to published site, one command (594.67 s) |
+| Gate breaks | **0** | 16 of 16 diagnostics passed; 36 of 37 reconciliation checks tied out, 1 documented waiver; 3 of 3 publish gates ok |
+| Legacy answers wrong | **10/10 → 0** | old warehouse wrong or failed on 10 of 10 business questions; new platform: 0 errors or timeouts |
+| Slow legacy query | **961.9 ms → 44.6 ms** | Q07 (Attributes for a provider-scoped population), the benchmark's slow query, legacy vs new, same server and rows; legacy Q10 timed out at 60 s (new: 32.2 ms) |
+| Dealer packets | **150** | one packet per reportable dealer, filtered to that dealer's rows only |
+
+Read from pipeline run `20261026T183720Z` (finished 2026-10-26 18:47 UTC), its dbt results and audit tables, the pytest record of 2026-10-26 and the legacy benchmark of 2026-10-26, by `python -m reports` ([docs/showcase_stats.json](docs/showcase_stats.json)). Short values are truncated, never rounded up. Synthetic data.
+<!-- results:end -->
+
+**[Read the one-page case study](docs/CASE_STUDY.md)** ([print/PDF](docs/case_study.pdf)): the problem, what was
+built, the measured results and how it would run at a real company.
+
+![Walkthrough: Start here, a department hub, a KPI explain block, Legacy vs better](docs/img/walkthrough.gif)
+
+**What it is.** The reporting platform of an F&I (finance and insurance) product administrator: it takes the
+contracts dealers sell in the finance office (vehicle service contracts, GAP, ancillary protection and prepaid
+maintenance), checks them, and turns them into the reports dealers, finance, compliance and executives use: an
+operational admin system, a daily dealer feed, a Snowflake-shaped warehouse, accounting-grade facts, a Power
+BI-ready semantic model, state reserve filings, dealer statements and per-dealer packets. Every tile and chart
+on the site explains itself in three plain-English lines.
 
 **Measured against a rebuilt legacy warehouse** (same synthetic rows, same server; details in
 [Legacy vs better](#how-it-was-and-how-we-fixed-it)): on ten everyday business questions the legacy side
-got all ten wrong, slow or only half done. It lost 51% of one dealer's in-force book to duplicate dealer ids,
+got all ten wrong, slow or only half done. It lost 50.7% of one dealer's in-force book to duplicate dealer ids,
 dropped 9,614 of 59,985 contracts through a stale product table, reported paid claims as -$18,883 instead of
-$6,187,028, and timed out at 60 seconds on a vehicle lookup the modern key join answers in 32 ms.
+$6,187,027, and timed out at 60 seconds on a vehicle lookup the modern key join answers in 32 ms.
 
 - **Reliable.** `python -m pipeline.run` rebuilds everything from an empty folder in about 10 minutes, on a laptop,
   with no Docker, no servers and no paid accounts. Each step fails fast, and every run is logged.
@@ -36,39 +70,30 @@ $6,187,028, and timed out at 60 seconds on a vehicle lookup the modern key join 
 
 ## See it without running it
 
-The report site is build output (`site/` is not committed), so here are six of its pages from a real local run
-on synthetic data. Run `python -m pipeline.run` and open `site/start.html` (pick your role, or take the six-stop
-guided tour) or `site/index.html` for the rest; CI also keeps the built site as the `pipeline-output` artifact.
-`python tools/screenshots.py` re-takes these images after a run.
+Six pages of the report site from a real local run on synthetic data (`site/` is build output, not committed).
+Run `python -m pipeline.run` and open `site/start.html`; CI also keeps the built site as the `pipeline-output`
+artifact. `python tools/screenshots.py` re-takes these images after a run.
 
-**Start here**: pick your role (dealer, finance, compliance or executive) and land on the few pages you need.
+| | |
+|---|---|
+| ![Start here: nine department hubs and the results strip](docs/img/start-here.png) | ![Finance and FP&A hub: KPI tiles, the questions the team asks, the pages that answer them](docs/img/department-hub.png) |
+| **Start here.** Pick one of nine department hubs; the measured results sit underneath. | **A department hub.** Its numbers, the questions that team asks, the pages that answer them and who to ask when a number looks wrong. |
+| ![Experience page: written, earned and paid by date, product and dealer](docs/img/experience.png) | ![Legacy vs better: ten business questions answered both ways](docs/img/legacy-vs-better.png) |
+| **Experience.** What was written, earned and paid, cut by date, product, dealer or state, with an Excel copy. | **Legacy vs better.** The same ten questions on the old warehouse and the new one, wrong answers marked. |
+| ![How the data flows: six checks with this run's numbers](docs/img/how-data-flows.png) | ![Semantic model: four domain models generated from one metrics file](docs/img/semantic-model.png) |
+| **How the data flows.** Five steps from sale to report, then infographic 5 with what each check did in this run. | **Semantic model.** The Power BI-ready layer: four domain models from one `metrics.yml`, one calculation group, row-level security. |
 
-![Start here: role picker](docs/img/start-here.png)
+## Infographics
 
-**How the data flows**: five steps from the dealer's desk to the report, with what can go wrong at each step
-and the safety check that stops it.
+Six one-page pictures, drawn from the same run (`python -m reports.infographics`; each is an SVG plus a 1600 px
+PNG in dark and light, in [docs/img/infographics/](docs/img/infographics/), with every number and its source in
+[numbers.json](docs/img/infographics/numbers.json)). GitHub shows the version that matches your theme.
 
-![How the data flows](docs/img/how-data-flows.png)
-
-**Executive overview**: T12 premium, loss and combined ratio, in-force book, from the same P&L mart as Finance.
-
-![Executive overview](docs/img/executive-overview.png)
-
-**Operations**: the 7 AM SLO, the sixteen diagnostics gates and the source-to-raw-to-mart reconciliation. The
-first reconciliation row is the legacy in-force book that is not converted yet; it is a documented exclusion,
-not a hidden break (item 1 on the [roadmap](docs/ROADMAP.md)).
-
-![Operations page: gates and reconciliation](docs/img/ops-gates-reconciliation.png)
-
-**A state funded-reserve filing** with both bases side by side and a methodology-notes column, plus its Excel
-workbook.
-
-![Texas funded-reserve filing](docs/img/funded-reserve-filing.png)
-
-**A per-dealer packet**, filtered to one dealer, in the F&IP theme with a thin stripe in its program's colour.
-Every headline number has a status word, what it is compared with, and three plain-English lines.
-
-![Dealer packet](docs/img/dealer-packet.png)
+<table>
+<tr><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/infographics/01-contract-life-dark.png"><img src="docs/img/infographics/01-contract-life-light.png" alt="Life of a service contract: sold, pending, in force, then expired or cancelled" width="100%"></picture></td><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/infographics/02-contract-dollar-dark.png"><img src="docs/img/infographics/02-contract-dollar-light.png" alt="Where every dollar of a contract goes: dealer markup, reserve, commission, admin fee, insurer fee, profit-share reserve, premium tax" width="100%"></picture></td></tr>
+<tr><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/infographics/03-earned-vs-written-dark.png"><img src="docs/img/infographics/03-earned-vs-written-light.png" alt="Earned vs written premium over a contract's life: pro-rata vs Rule of 78" width="100%"></picture></td><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/infographics/04-dealer-participation-dark.png"><img src="docs/img/infographics/04-dealer-participation-light.png" alt="Dealer participation and reinsurance: who carries the risk, cession and profit share" width="100%"></picture></td></tr>
+<tr><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/infographics/05-data-flow-gates-dark.png"><img src="docs/img/infographics/05-data-flow-gates-light.png" alt="How the data flows, and where it is checked: six gates with this run's numbers" width="100%"></picture></td><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/infographics/06-legacy-vs-better-dark.png"><img src="docs/img/infographics/06-legacy-vs-better-light.png" alt="Legacy vs better at a glance: ten business questions answered both ways" width="100%"></picture></td></tr>
+</table>
 
 ## Legacy vs better
 
@@ -113,10 +138,10 @@ modern star schema (`python -m legacy demo`). Measured on synthetic data at abou
 |---|---|---|---|
 | Duplicate dealer ids (active, inactive copy, prefixed) | one dealer id finds 230 of 467 in-force contracts | 473 | dealer master + crosswalk |
 | Stale product dim, inner-joined | 50,371 of 59,985 contracts kept; latest plan year shows as 2025 | 59,749; 2026 | full dim + unknown member (-1) + build test |
-| Claim sign negative in one layer, positive in another | paid claims net to -$18,883 over 24 months | $6,187,028 | sign fixed once in staging |
+| Claim sign negative in one layer, positive in another | paid claims net to -$18,883 over 24 months | $6,187,027 | sign fixed once in staging |
 | "Producer" means dealer in one layer, provider in another | provider's book = 0 contracts | 9,936 | `producer_role` on `dim_producer` |
 | Test/API contracts, demo dealers, fan-out on a shared dealer number | filing pulls 36,383 rows (1,174 doubled, 32 test, 127 demo) | 35,175 | scope rules applied once |
-| Union-spine contract "dim" | 962 ms for a provider-scoped lookup of 6,135 contracts (22x slower) | 45 ms | one contract dim table with a key |
+| Union-spine contract "dim" | 961.9 ms for a provider-scoped lookup of 6,135 contracts (21.5x slower) | 44.6 ms | one contract dim table with a key |
 | Text-normalized VIN joins, no keys | correlated lookup timed out at 60 s; exact join loses 21% (8,897 of 41,537) | 100% on the key | enforced PK/FK, VIN normalized once |
 | Tenant B as a mirror schema | copied query errors; mirror lags (7,364 vs 7,433 in force) | one table + RLS | tenant column + row-level security |
 | Sentinel date in the earnings series | 2019 loss ratio 49.25% vs 48.89% with the dropped rows | no sentinel rows | NULL + flag in staging, date index |
@@ -229,12 +254,12 @@ admin rights, no Windows service, no Docker.
    `psql` also work). It listens on `127.0.0.1:5432` only. Start it again after a reboot.
 3. **Load the warehouse.** `pip install -r requirements-postgres.txt`, then
    `python -m pipeline.run --postgres`. After every gate passes, `python -m warehouse.postgres sync` copies 140
-   tables (about 13.2M rows) into the `vsc_analytics` database in one transaction, adds keys, indexes and
+   tables (13,175,252 rows in the last recorded sync) into the `vsc_analytics` database in one transaction, adds keys, indexes and
    row-level security, and ties out row counts and dollar totals against DuckDB before it commits. A mismatch
    rolls everything back. `python -m warehouse.postgres reconcile` re-checks at any time.
 4. **Open the report.** Double-click `powerbi\FI Data Platform.pbip` and click **Refresh now**. Sign in on the
    **Database** tab as `bi_reader` (password `PG_BI_READER_PASSWORD` in `.env`); if Desktop asks, connect
-   without encryption (the server is local only). The first refresh loads about 13.2M rows and takes a few
+   without encryption (the server is local only). The first refresh loads about 13.1M rows and takes a few
    minutes. Pages: executive overview, dealer scorecard, claims and IBNR, regulatory funded reserve, finance.
 5. **Test dealer security.** Modeling > View as > Other user, enter a `user_login` from
    `core.dim_user_dealer_access` and tick Dealer User: every page narrows to that user's dealers.
@@ -345,6 +370,7 @@ reports back what it built, how it checked it, and what is still open.
 | Power BI project in sync and valid | `python -m powerbi --check --validate` |
 | Postgres copy ties out (opt-in; its tests skip without a server) | `python -m warehouse.postgres reconcile` |
 | Brand scrub (needs the private term list) | `python tools/brand_scrub.py` |
+| README results strip, badges, case study, banner, social preview, walkthrough GIF (after `python -m reports`) | `python tools/showcase_assets.py` |
 
 ## Known limitations
 
@@ -364,7 +390,7 @@ The top items:
 6. The Snowflake scripts, the dbt `snowflake` target and the Airflow DAG are written but not executed here.
    Running them needs accounts or Docker. The Postgres target is real but opt-in: a local server, a
    reconciled copy of the marts and a Power BI model pointed at it ([warehouse/postgres](warehouse/postgres/README.md)).
-7. The full run takes about 10 minutes (595 s on the last verified run) against a 5-minute goal; dbt (about
+7. The full run takes about 10 minutes (594.67 s on the last verified run) against a 5-minute goal; dbt (about
    4 minutes) and generate plus ingest (about 2 minutes) are the largest steps.
 
 ## Author

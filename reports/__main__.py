@@ -20,6 +20,8 @@ from reports.build import render_site
 from reports.data import load
 
 log = logging.getLogger("reports")
+SHOWCASE_JSON = ROOT / "docs" / "showcase_stats.json"  # the README stat strip reads this (reports/showcase.py)
+SITE_BUILD_JSON = "_site_build.json"  # page count of the latest site/ build (reports/infographics.py reads it)
 
 
 class _Links(HTMLParser):
@@ -57,12 +59,30 @@ def run(warehouse: Path, publish_dir: Path, out: Path) -> list[Path]:
         # Excel downloads are written by a process pool while the pages render (pipeline/workpool.py);
         # leaving the block waits for every file, so the link check below sees them all.
         with jobs.workbook_pool():
-            pages = render_site(data, out, con=con, publish_dir=publish_dir)
+            pages = render_site(data, out, con=con, publish_dir=publish_dir, proof_root=ROOT,
+                                proof_json=SHOWCASE_JSON)
     bad = broken_links(out)
     if bad:
         raise SystemExit("broken links:\n  " + "\n  ".join(bad))
     log.info("built %d pages in %s (links ok); open %s", len(pages), out, (out / "index.html").as_uri())
+    if out.resolve() == SITE_DIR.resolve():  # the published site only, never a test or scratch build
+        record_site_build(len(pages))
     return pages
+
+
+def record_site_build(pages: int) -> Path:
+    """``data/runs/_site_build.json``: the page count of the latest build of ``site/``. Infographic 5 reads it,
+    so its "Live reports" count matches the site even when the site is rebuilt after the pipeline run."""
+    import json
+    from datetime import UTC, datetime
+
+    from reports.showcase import runs_dir
+
+    path = runs_dir(ROOT) / SITE_BUILD_JSON
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"pages": pages, "built_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")},
+                               indent=2) + "\n", encoding="utf-8")
+    return path
 
 
 def main(argv: list[str] | None = None) -> int:

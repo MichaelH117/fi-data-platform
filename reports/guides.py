@@ -1,9 +1,10 @@
 """Guide pages for non-technical readers (docs/V3_DESIGN.md 10.3): role start pages, glossary, how the data
 flows, and the definitions log.
 
-These pages compute no numbers. Role pages come from one file, ``reports/content/role_pages.yml`` (button,
-title, lede, tiles and pages); they reuse KPI tiles already built for other pages (the YAML tile list, refined
-by the ``audience_roles`` column of the explanation seed).
+These pages compute no numbers. The department hubs (the Start page "Who are you?" grid and every
+``roles/<id>.html``) come from one file, ``reports/content/role_pages.yml``: bands, questions, pages, glossary
+terms, owner and tiles. Tiles reuse KPI tiles already built for other pages (the YAML tile list, refined by the
+``audience_roles`` column of the explanation seed).
 Markup is built here from escaped text only; nothing comes from a mart.
 """
 
@@ -27,11 +28,20 @@ DEFINITIONS = "definitions.html"
 GUIDE_NAV = [(GLOSSARY, "Glossary"), (FLOW, "How the data flows"), (DEFINITIONS, "Definitions decided")]
 
 
-ROLE_PAGES_YML = ROOT / "reports" / "content" / "role_pages.yml"  # the one source for role pages (RM copy)
+ROLE_PAGES_YML = ROOT / "reports" / "content" / "role_pages.yml"  # THE one source for the hubs (RM copy)
+
+
+@dataclass(frozen=True)
+class Question:
+    ask: str
+    why: str
+    page: str  # the page (or download) that answers it; the link is dropped when that page is not built
 
 
 @dataclass(frozen=True)
 class Role:
+    """One department hub (roles/<key>.html), read from role_pages.yml."""
+
     key: str
     kicker: str  # "I'm a" / "I'm in" / "I'm an", split from the YAML button text
     name: str
@@ -39,55 +49,153 @@ class Role:
     what: str
     links: tuple[tuple[str, str, str], ...]  # (page, name, why you would open it); a page not built is skipped
     starter_tiles: tuple[str, ...]  # metric ids; the explanation seed's audience_roles can add or drop tiles
+    band: str = ""
+    audience: str = ""  # the audience_roles tag (metric_explanations.csv) that refines the tiles
+    questions: tuple[Question, ...] = ()
+    terms: tuple[str, ...] = ()  # glossary term ids
+    owner: str = ""
+    check: str = ""
+    check_name: str = ""
+    runbook: str = ""
+
+
+@dataclass(frozen=True)
+class Hubs:
+    intro: str
+    bands: tuple[tuple[str, str], ...]  # (id, name), in display order
+    runbook: str
+    correction_rule: str
+    roles: tuple[Role, ...]
 
 
 _BUTTON = re.compile(r"^(I'm (?:an|a|in))\s+(.+)$")
 
 
-def load_roles(path: Path = ROLE_PAGES_YML) -> list[Role]:
-    """Role start pages from reports/content/role_pages.yml (button, title, lede, tiles, pages)."""
+def _flat(text: str | None) -> str:
+    return " ".join((text or "").split())
+
+
+def load_hubs(path: Path = ROLE_PAGES_YML) -> Hubs:
+    """Department hubs from reports/content/role_pages.yml: bands, questions, pages, terms, owner, tiles."""
     import yaml
 
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
     roles = []
-    for r in yaml.safe_load(path.read_text(encoding="utf-8"))["roles"]:
+    for r in doc["roles"]:
         m = _BUTTON.match(r["button"].strip())
         kicker, name = (m.group(1), m.group(2)) if m else ("", r["button"].strip())
-        roles.append(Role(r["id"], kicker, name[:1].upper() + name[1:], r["title"], " ".join(r["lede"].split()),
-                          tuple((p["href"], p.get("name", ""), p["why"]) for p in r["pages"]),
-                          tuple(r.get("tiles", ()))))
-    return roles
+        wrong = r.get("if_wrong") or {}
+        roles.append(Role(
+            r["id"], kicker, name[:1].upper() + name[1:], r["title"], _flat(r["lede"]),
+            tuple((p["href"], p.get("name", ""), _flat(p["why"])) for p in r["pages"]),
+            tuple(r.get("tiles", ())), r.get("band", ""), r.get("audience", r["id"]),
+            tuple(Question(_flat(q["ask"]), _flat(q["why"]), q.get("page", "")) for q in r.get("questions", ())),
+            tuple(r.get("terms", ())), wrong.get("owner", ""), wrong.get("check", ""),
+            wrong.get("check_name", ""), wrong.get("runbook", "")))
+    bands = tuple((b["id"], b["name"]) for b in doc.get("bands", ()))
+    return Hubs(_flat(doc.get("intro")), bands, doc.get("runbook", ""), _flat(doc.get("correction_rule")),
+                tuple(roles))
 
 
-ROLES = load_roles()
+def load_roles(path: Path = ROLE_PAGES_YML) -> list[Role]:
+    return list(load_hubs(path).roles)
+
+
+HUBS = load_hubs()
+ROLES = list(HUBS.roles)  # the hubs, in YAML order (kept under this name for build.py and the tests)
 
 
 def role_path(role: Role) -> str:
     return f"roles/{role.key}.html"
 
 
+def _card(r: Role, prefix: str, band: str = "") -> str:
+    n_q, n_p = len(r.questions), len(r.links)
+    count = (f'<span class="hub-count">{n_q} question{"s" * (n_q != 1)} &middot; {n_p} '
+             f'page{"s" * (n_p != 1)}</span>') if n_q else ""
+    kicker = band or r.kicker
+    return (f'<a class="role-card" href="{prefix}{role_path(r)}"><span class="role-kicker">{escape(kicker)}</span>'
+            f'<span class="role-name">{escape(r.name)}</span><span class="role-what">{escape(r.what)}</span>'
+            f'<span class="role-go">{count}<span aria-hidden="true">Open the hub &rarr;</span></span></a>')
+
+
 def role_picker(prefix: str = "") -> str:
-    """Four big buttons, one per role (used on the Start here page)."""
-    return '<div class="roles">' + "".join(
-        f'<a class="role-card" href="{prefix}{role_path(r)}"><span class="role-kicker">{escape(r.kicker)}</span>'
-        f'<span class="role-name">{escape(r.name)}</span><span class="role-what">{escape(r.what)}</span>'
-        f'<span class="role-go" aria-hidden="true">Open my pages &rarr;</span></a>' for r in ROLES) + "</div>"
+    """The "Who are you?" grid on Start here: every hub in one grid, ordered by the YAML's bands; each card
+    carries its band name as the small kicker."""
+    names = dict(HUBS.bands)
+    rank = {b: i for i, (b, _) in enumerate(HUBS.bands)}
+    hubs = sorted(ROLES, key=lambda r: rank.get(r.band, len(rank)))  # stable: YAML order inside a band
+    return '<div class="roles hubs">' + "".join(_card(r, prefix, names.get(r.band, "")) for r in hubs) + "</div>"
 
 
-def role_pages(page_cls, section_cls, built: set[str], tiles: dict, cat: Catalog, start: str) -> list:
+def _href(h: str) -> str:
+    return h if h.startswith(("http:", "https:", "#")) else f"../{h}"
+
+
+def role_pages(page_cls, section_cls, built: set[str], tiles: dict, cat: Catalog, start: str,
+               out: Path | None = None) -> list:
+    """One hub page per role: tiles, questions, the pages that answer them, key words, and who to ask."""
+    def ok(h: str) -> bool:  # a report page that was built, or a file (an Excel download) that exists
+        return bool(h) and (h in built or (out is not None and (out / h).is_file()))
+
+    terms = {t.term_id: t for t in cat.terms}
     pages = []
     for r in ROLES:
-        links = [(h, n, why) for h, n, why in r.links if h in built or h in (FLOW, DEFINITIONS)][:4]
+        links = [(h, n, why) for h, n, why in r.links if ok(h)][:6]
+        names = {h: n or _title_of(h, tiles) for h, n, _ in r.links}
+        kpis = [copy.copy(tiles[m]) for m in cat.pick_for_role(r.audience, list(r.starter_tiles), set(tiles))]
+        sections = []
+        if r.questions:
+            qs = "".join(
+                f'<li class="hub-q"><span class="hub-q-num">Q{i:02d}</span><h3>{escape(q.ask)}</h3>'
+                f"<p>{escape(q.why)}</p>"
+                + (f'<p class="hub-q-ans"><a href="{escape(_href(q.page))}">Answered on: '
+                   f"{escape(names.get(q.page) or _title_of(q.page, tiles))}</a></p>" if ok(q.page) else "")
+                + "</li>" for i, q in enumerate(r.questions, 1))
+            sections.append(section_cls(
+                "Questions this team asks", "The questions that come up most, why they are asked, and where the "
+                "answer lives.", html=f'<ol class="hub-qs">{qs}</ol>', wide=True))
         cards = "".join(
-            f'<li><a class="role-card" href="../{escape(h)}"><span class="role-name">'
-            f"{escape(n or _title_of(h, tiles))}</span><span class=\"role-what\">{escape(why)}</span>"
-            f'<span class="role-go" aria-hidden="true">Open &rarr;</span></a></li>' for h, n, why in links)
-        kpis = [copy.copy(tiles[m]) for m in cat.pick_for_role(r.key, list(r.starter_tiles), set(tiles))]
-        pages.append(page_cls(
-            role_path(r), r.title, r.what, kpis,
-            [section_cls("Your pages", "Start with these. Each one opens in this site; the menu on the left has "
-                         "everything else.", html=f'<ul class="role-links">{cards}</ul>', wide=True)],
-            nav=start, crumb="Start here"))
+            f'<li><a class="role-card" href="{escape(_href(h))}"><span class="role-name">'
+            f'{escape(names[h])}</span><span class="role-what">{escape(why)}</span>'
+            f'<span class="role-go" aria-hidden="true">'
+            f'{"Download" if h.endswith((".xlsx", ".csv")) else "Open"} &rarr;</span></a></li>'
+            for h, n, why in links)
+        sections.append(section_cls(
+            "Pages that answer them", "Start with these. Pages open in this site; Excel files download. The menu "
+            "on the left has everything else.", html=f'<ul class="role-links">{cards}</ul>', wide=True))
+        words = [terms[t] for t in r.terms if t in terms]
+        if words:
+            items = "".join(
+                f'<li><a href="../{GLOSSARY}#{escape(t.term_id)}"><b>{escape(t.term)}</b>'
+                f"<span>{escape(_first_sentence(t.plain_definition))}</span></a></li>" for t in words)
+            sections.append(section_cls(
+                "Words this hub relies on", "Each one links to its plain-English entry in the glossary.",
+                html=f'<ul class="hub-terms">{items}</ul>', wide=True))
+        if r.owner:
+            check = (f'<a href="{escape(_href(r.check))}">{escape(r.check_name or _title_of(r.check, tiles))}</a>'
+                     if ok(r.check) else "")
+            steps = [
+                "<li><b>Check the date.</b> Every page says what day its data is as of. A number from "
+                "yesterday's site is old, not wrong.</li>",
+                *([f"<li><b>Look at the check.</b> {check} shows the tests that ran on this data and whether "
+                   "any of them failed.</li>"] if check else []),
+                f"<li><b>Ask the owner.</b> These numbers belong to the <b>{escape(r.owner)}</b>. Send the page, "
+                "the number and what you expected to see.</li>",
+                *([f"<li><b>The fix is written down.</b> The owner follows <code>{escape(HUBS.runbook)}</code>, "
+                   f"section <i>{escape(r.runbook)}</i>.</li>"] if r.runbook and HUBS.runbook else []),
+            ]
+            rule = f'<p class="hub-rule">{escape(HUBS.correction_rule)}</p>' if HUBS.correction_rule else ""
+            sections.append(section_cls(
+                "If a number looks wrong", f"{len(steps)} steps, in this order.",
+                html=f'<ol class="hub-wrong">{"".join(steps)}</ol>{rule}', wide=True))
+        pages.append(page_cls(role_path(r), r.title, r.what, kpis, sections, nav=start, crumb="Start here"))
     return pages
+
+
+def _first_sentence(text: str) -> str:
+    m = re.match(r"(.+?[.!?])(\s|$)", text or "")
+    return m.group(1) if m else (text or "")
 
 
 _TITLES: dict[str, str] = {}
@@ -176,12 +284,25 @@ def page_flow(page_cls, section_cls, built: set[str]):
     legacy = ('<p>The old warehouse skipped most of these checks, so mistakes reached the reports. '
               '<a href="legacy.html">Legacy vs better</a> shows the same questions answered both ways.</p>'
               if "legacy.html" in built else "")
+    from reports import infographics  # local: infographics is a leaf module, kept out of import time
+
+    figs = [(title, html) for title, html in (
+        ("The checks, with this run's numbers", infographics.figure(
+            "05-data-flow-gates", FLOW,
+            "The same journey as a picture. Each green diamond is a check. The numbers under it are what that "
+            "check did in the latest run. If checks 3, 4 or 5 fail, nothing new is published.")),
+        ("The life of one contract", infographics.figure(
+            "01-contract-life", FLOW,
+            "What happens to a contract after the sale: it waits for the dealer's money, is covered while "
+            "repairs are paid, then expires or is cancelled. The bar shows where every contract is today.")),
+    ) if html]
     return page_cls(
         FLOW, "How the data flows",
         "Five steps from a dealer's sale to the report you are reading, what can go wrong at each one, and how "
         "it is stopped.", [],
         [section_cls("From sale to report", "Read left to right. The moving light shows the direction the data "
                      "travels.", html=f'<ol class="flow">{"".join(steps)}</ol>', wide=True),
+         *[section_cls(title, "", html=html, wide=True) for title, html in figs],
          *([section_cls("Why this matters", "", html=legacy, wide=True)] if legacy else [])])
 
 

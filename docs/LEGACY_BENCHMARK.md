@@ -10,23 +10,23 @@ How to read it: each question is answered the way the old warehouse forced an an
 
 | Q | Business question | Headline | Legacy | Modern | Legacy time | Modern time | Failure |
 |---|---|---|---:|---:|---:|---:|---|
-| Q01 | In-force contracts and coverage cost for one dealer | in force contracts | 230 | 473 | 57 ms | 3 ms | lost |
-| Q02 | Contracts by product type, latest plan year | contracts counted | 50,371 | 59,749 | 34 ms | 17 ms | lost |
-| Q03 | Paid claims by month | paid claims appended layers | -18,883.27 | 6,187,027.54 | 10 ms | 4 ms | sign |
-| Q04 | Book for one provider entity | contracts | 0 | 9,936 | 7 ms | 1 ms | zeroed |
-| Q05 | Loss ratio by entered year from earnings | loss ratio pct | 49.25 | 49.53 | 116 ms | 460 ms | skewed |
-| Q06 | Reportable population for a compliance filing | filing rows | 36,383 | 35,175 | 26 ms | 16 ms | doubled |
-| Q07 | Attributes for a provider-scoped population | contracts | 6,135 | 9,936 | 962 ms | 45 ms | slow |
-| Q08 | Tenant B in-force count | in force contracts | 7,364 | 7,433 | 1 ms + 4 ms | 5 ms | stale |
-| Q09 | RV chassis make/model per contract | contracts with chassis make | 771 | 779 | 1 ms + 3 ms | 27 ms | extra step |
-| Q10 | Stock number match rate by VIN | match rate pct | 78.58 | 100 | timed out at 60 s + 51 ms | 32 ms | lost |
+| Q01 | In-force contracts and coverage cost for one dealer | in force contracts | 230 | 473 | 57.2 ms | 2.8 ms | lost |
+| Q02 | Contracts by product type, latest plan year | contracts counted | 50,371 | 59,749 | 34.3 ms | 17.3 ms | lost |
+| Q03 | Paid claims by month | paid claims appended layers | -18,883.27 | 6,187,027.54 | 10.4 ms | 4.3 ms | sign |
+| Q04 | Book for one provider entity | contracts | 0 | 9,936 | 7.2 ms | 1.2 ms | zeroed |
+| Q05 | Loss ratio by entered year from earnings | loss ratio pct | 49.25 | 49.53 | 116.2 ms | 460.5 ms | skewed |
+| Q06 | Reportable population for a compliance filing | filing rows | 36,383 | 35,175 | 26.1 ms | 15.8 ms | doubled |
+| Q07 | Attributes for a provider-scoped population | contracts | 6,135 | 9,936 | 961.9 ms | 44.6 ms | slow |
+| Q08 | Tenant B in-force count | in force contracts | 7,364 | 7,433 | 1.0 ms + 3.8 ms | 4.6 ms | stale |
+| Q09 | RV chassis make/model per contract | contracts with chassis make | 771 | 779 | 1.0 ms + 2.6 ms | 26.7 ms | extra step |
+| Q10 | Stock number match rate by VIN | match rate pct | 78.58 | 100 | timed out at 60 s + 50.6 ms | 32.2 ms | lost |
 
 ## Pain points
 
 ### 1. One semantic model per source schema, and a contract "dim" that is a query
 
 - **What it was:** Three source-named schemas each backed their own model; finance carried _gen2/_gen3 copies that disagreed mid-migration; the reporting contract dim was a UNION ALL spine of ids over four facts with a query-time DISTINCT and a full coverage-cost aggregate.
-- **Measured impact:** A provider-scoped lookup of 6,135 contracts took 962 ms on the union-spine view against a 2s interactive budget, vs 45 ms on the modern contract table (22x slower). The cost grows with the whole book, not with the population asked for.
+- **Measured impact:** A provider-scoped lookup of 6,135 contracts took 961.9 ms on the union-spine view against a 2s interactive budget, vs 44.6 ms on the modern contract table (21.5x slower). The cost grows with the whole book, not with the population asked for.
 - **Root cause in the foundation:** Schemas were organized by where data came from, not by business entity, and the dim was never materialized, so no filter could be pushed down.
 - **The fix:** One contract dim table with a declared primary key; one shared conformed semantic model feeding domain models and thin reports.
 - **Where it lives:** `dbt/models/marts/core/dim_contract.sql, _core_keys.yml`; `semantic/ (docs/SEMANTIC_STRATEGY.md)`
@@ -35,7 +35,7 @@ How to read it: each question is answered the way the old warehouse forced an an
 ### 2. No primary or foreign keys; joins on normalized text
 
 - **What it was:** No PK, FK or comment anywhere. Tables were held together by joins on upper(trim(VIN)) and on the dealer number instead of an id.
-- **Measured impact:** The text-normalized correlated VIN lookup timed out at 60 s. The fast exact-text join matched 78.58% of 41,537 stock rows (8,897 lost) in 51 ms. The modern key join finds 100.00% of contracts' vehicles in 32 ms.
+- **Measured impact:** The text-normalized correlated VIN lookup timed out at 60 s. The fast exact-text join matched 78.58% of 41,537 stock rows (8,897 lost) in 50.6 ms. The modern key join finds 100.00% of contracts' vehicles in 32.2 ms.
 - **Root cause in the foundation:** Keys were never modeled, so every consumer re-invented the join (and its normalization).
 - **The fix:** Surrogate keys, enforced PK/FK in Postgres, dbt contracts and a relationships test on every key; VINs normalized and hashed once in staging.
 - **Where it lives:** `dbt/models/marts/core/_core_keys.yml`; `warehouse/postgres/sync.py (FKs NOT VALID then VALIDATE)`
@@ -44,7 +44,7 @@ How to read it: each question is answered the way the old warehouse forced an an
 ### 3. Duplicate dealer identities
 
 - **What it was:** One dealer existed as an active row, an inactive upper-case copy and a prefixed re-onboarding, each with its own id; contracts landed on all three.
-- **Measured impact:** Filtering dealer id 37 found 230 in-force contracts; the same dealer under its 3 ids holds 467, so 237 were lost (51% of the book). Coverage cost shown: $262,801 vs $560,629 on the modern dealer key (473 in-force contracts).
+- **Measured impact:** Filtering dealer id 37 found 230 in-force contracts; the same dealer under its 3 ids holds 467, so 237 were lost (50.7% of the book). Coverage cost shown: $262,800.95 vs $560,628.67 on the modern dealer key (473 in-force contracts).
 - **Root cause in the foundation:** No dealer master: onboarding created new ids and nothing merged them.
 - **The fix:** Survivorship merges every identity into one dealer_key; a crosswalk maps each source id to it.
 - **Where it lives:** `dbt/models/intermediate/int_dealer_survivorship.sql, marts/core/dim_dealer_crosswalk.sql`
@@ -62,7 +62,7 @@ How to read it: each question is answered the way the old warehouse forced an an
 ### 5. Claim sign differs by layer
 
 - **What it was:** The ops layer showed claim amounts negative, the reporting layer positive.
-- **Measured impact:** Appending the ops layer ($-6,229,487) and the reporting layer ($6,210,604) gave $-18,883 of paid claims over 24 months. The modern claim fact says $6,187,028.
+- **Measured impact:** Appending the ops layer (-$6,229,486.93) and the reporting layer ($6,210,603.66) gave -$18,883.27 of paid claims over 24 months. The modern claim fact says $6,187,027.54.
 - **Root cause in the foundation:** Each layer applied its own presentation rule; no sign convention at the source boundary.
 - **The fix:** The sign is fixed once in staging (paid amounts positive everywhere) with a >= 0 test.
 - **Where it lives:** `dbt/models/staging/legacy_admin/ (claim staging)`; `gold.fct_claim.is_amount_sign_fixed`
@@ -80,7 +80,7 @@ How to read it: each question is answered the way the old warehouse forced an an
 ### 7. A huge earnings series with no date index and a sentinel date
 
 - **What it was:** Millions of monthly earnings rows keyed by an int YYYYMMDD with an index only on contract id; converted contracts carried 19000101 for pre-conversion months.
-- **Measured impact:** Entered-year 2019 loss ratio: 49.25% with the date-range filter, 48.89% once the $23,920 earned on the sentinel date is put back. Legacy plan: 4 Seq Scan, 2 Index Scan (116 ms); modern: 3 Seq Scan, 1 Index Scan (460 ms), loss ratio 49.53% on the modern earning pattern. At this scale the legacy query is the faster one: its cohort filter reaches the earnings rows through the contract-id index, while the modern fact is scanned in parallel. The date index pays off on date-range questions; the win here is the correct earned base, not speed.
+- **Measured impact:** Entered-year 2019 loss ratio: 49.25% with the date-range filter, 48.89% once the $23,920.18 earned on the sentinel date is put back. Legacy plan: 4 Seq Scan, 2 Index Scan (116.2 ms); modern: 3 Seq Scan, 1 Index Scan (460.5 ms), loss ratio 49.53% on the modern earning pattern. At this scale the legacy query is the faster one: its cohort filter reaches the earnings rows through the contract-id index, while the modern fact is scanned in parallel. The date index pays off on date-range questions; the win here is the correct earned base, not speed.
 - **Root cause in the foundation:** The date was stored as a code, not a date, and placeholder values were never cleaned at the source.
 - **The fix:** Sentinel dates mapped to NULL plus an is_sentinel_date flag once in staging; a BRIN index on month_start for the big facts (loaded in date order).
 - **Where it lives:** `dbt/macros/foundations.sql`; `warehouse/postgres/sync.py (BRIN on month_start)`
@@ -116,7 +116,7 @@ How to read it: each question is answered the way the old warehouse forced an an
 ### 11. Custom fields in a separate admin database (EAV)
 
 - **What it was:** RV chassis fields lived as text key-value rows in the admin system's own database; a blank field was a missing row.
-- **Measured impact:** The one-query join failed (cross-database references are not implemented: "vsc_legacy_admin.admin_eav.contract_field"). Step two, the pivot in the admin database, found 771 contracts with a chassis make (29 missing a field) in 3 ms, and still has to be exported and re-imported to meet the contract attributes. Modern: one query, 779 reportable contracts, 27 ms.
+- **Measured impact:** The one-query join failed (cross-database references are not implemented: "vsc_legacy_admin.admin_eav.contract_field"). Step two, the pivot in the admin database, found 771 contracts with a chassis make (29 missing a field) in 2.6 ms, and still has to be exported and re-imported to meet the contract attributes. Modern: one query, 779 reportable contracts, 26.7 ms.
 - **Root cause in the foundation:** The admin system's extension mechanism was exposed raw instead of being modeled.
 - **The fix:** The custom fields are pivoted in staging into typed columns on dim_contract_vehicle.
 - **Where it lives:** `dbt/models/staging/admin_core/stg_admin_core__contract_custom_field.sql`; `dim_contract_vehicle.sql`
@@ -155,56 +155,56 @@ Top plan nodes per question (legacy, then modern).
 
 **Q01 In-force contracts and coverage cost for one dealer**
 
-- legacy (`sql/playbook/benchmark/q01_legacy.sql`, analyze, 57 ms): Aggregate (rows=1, 49 ms) > Sort (rows=467, 49 ms) > Hash Join (rows=467, 49 ms) > Hash Join (rows=467, 49 ms) > Hash (rows=5, 0 ms) > Hash Join (rows=467, 49 ms)
-- modern (`sql/playbook/benchmark/q01_modern.sql`, analyze, 3 ms): Aggregate (rows=1, 2 ms) > Nested Loop (rows=473, 2 ms) > Nested Loop (rows=473, 1 ms) > Index Scan on dim_contract_finance using dim_contract_finance_pkey (rows=473, 0 ms) > Seq Scan on dim_dealer (rows=1, 0 ms) > Bitmap Heap Scan on dim_contract (rows=473, 1 ms)
+- legacy (`sql/playbook/benchmark/q01_legacy.sql`, analyze, 57.2 ms): Aggregate (rows=1, 49 ms) > Sort (rows=467, 49 ms) > Hash Join (rows=467, 49 ms) > Hash Join (rows=467, 49 ms) > Hash (rows=5, 0 ms) > Hash Join (rows=467, 49 ms)
+- modern (`sql/playbook/benchmark/q01_modern.sql`, analyze, 2.8 ms): Aggregate (rows=1, 2 ms) > Nested Loop (rows=473, 2 ms) > Nested Loop (rows=473, 1 ms) > Index Scan on dim_contract_finance using dim_contract_finance_pkey (rows=473, 0 ms) > Seq Scan on dim_dealer (rows=1, 0 ms) > Bitmap Heap Scan on dim_contract (rows=473, 1 ms)
 
 **Q02 Contracts by product type, latest plan year**
 
-- legacy (`sql/playbook/benchmark/q02_legacy.sql`, analyze, 34 ms): Aggregate (rows=1, 51 ms) > Aggregate (rows=1, 18 ms) > Sort (rows=50,371, 30 ms) > Hash Join (rows=59,985, 16 ms) > Hash Join (rows=50,371, 23 ms) > Hash Join (rows=59,985, 12 ms)
-- modern (`sql/playbook/benchmark/q02_modern.sql`, analyze, 17 ms): Aggregate (rows=1, 20 ms) > Sort (rows=59,749, 17 ms) > Hash Join (rows=59,749, 9 ms) > Index Only Scan on dim_contract using ix_dim_contract__product_key (rows=59,749, 2 ms) > Hash (rows=369, 0 ms) > Seq Scan on dim_product (rows=369, 0 ms)
+- legacy (`sql/playbook/benchmark/q02_legacy.sql`, analyze, 34.3 ms): Aggregate (rows=1, 51 ms) > Aggregate (rows=1, 18 ms) > Sort (rows=50,371, 30 ms) > Hash Join (rows=59,985, 16 ms) > Hash Join (rows=50,371, 23 ms) > Hash Join (rows=59,985, 12 ms)
+- modern (`sql/playbook/benchmark/q02_modern.sql`, analyze, 17.3 ms): Aggregate (rows=1, 20 ms) > Sort (rows=59,749, 17 ms) > Hash Join (rows=59,749, 9 ms) > Index Only Scan on dim_contract using ix_dim_contract__product_key (rows=59,749, 2 ms) > Hash (rows=369, 0 ms) > Seq Scan on dim_product (rows=369, 0 ms)
 
 **Q03 Paid claims by month**
 
-- legacy (`sql/playbook/benchmark/q03_legacy.sql`, analyze, 10 ms): Aggregate (rows=1, 10 ms) > Sort (rows=48, 10 ms) > Append (rows=48, 10 ms) > Subquery Scan (rows=24, 3 ms) > Subquery Scan (rows=24, 7 ms) > Aggregate (rows=24, 3 ms)
-- modern (`sql/playbook/benchmark/q03_modern.sql`, analyze, 4 ms): Aggregate (rows=1, 4 ms) > Sort (rows=6,509, 4 ms) > Seq Scan on fct_claim (rows=6,509, 3 ms)
+- legacy (`sql/playbook/benchmark/q03_legacy.sql`, analyze, 10.4 ms): Aggregate (rows=1, 10 ms) > Sort (rows=48, 10 ms) > Append (rows=48, 10 ms) > Subquery Scan (rows=24, 3 ms) > Subquery Scan (rows=24, 7 ms) > Aggregate (rows=24, 3 ms)
+- modern (`sql/playbook/benchmark/q03_modern.sql`, analyze, 4.3 ms): Aggregate (rows=1, 4 ms) > Sort (rows=6,509, 4 ms) > Seq Scan on fct_claim (rows=6,509, 3 ms)
 
 **Q04 Book for one provider entity**
 
-- legacy (`sql/playbook/benchmark/q04_legacy.sql`, analyze, 7 ms): Aggregate (rows=1, 9 ms) > Aggregate (rows=1, 9 ms) > Nested Loop (rows=0, 0 ms) > Hash Join (rows=6,135, 8 ms) > Hash Join (rows=0, 0 ms) > Materialize (rows=0, 0 ms)
-- modern (`sql/playbook/benchmark/q04_modern.sql`, analyze, 1 ms): Aggregate (rows=1, 1 ms) > Nested Loop (rows=9,936, 1 ms) > Seq Scan on dim_producer (rows=1, 0 ms) > Index Only Scan on dim_contract using ix_dim_contract__provider_entity_key (rows=9,936, 0 ms)
+- legacy (`sql/playbook/benchmark/q04_legacy.sql`, analyze, 7.2 ms): Aggregate (rows=1, 9 ms) > Aggregate (rows=1, 9 ms) > Nested Loop (rows=0, 0 ms) > Hash Join (rows=6,135, 8 ms) > Hash Join (rows=0, 0 ms) > Materialize (rows=0, 0 ms)
+- modern (`sql/playbook/benchmark/q04_modern.sql`, analyze, 1.2 ms): Aggregate (rows=1, 1 ms) > Nested Loop (rows=9,936, 1 ms) > Seq Scan on dim_producer (rows=1, 0 ms) > Index Only Scan on dim_contract using ix_dim_contract__provider_entity_key (rows=9,936, 0 ms)
 
 **Q05 Loss ratio by entered year from earnings**
 
-- legacy (`sql/playbook/benchmark/q05_legacy.sql`, analyze, 116 ms): Aggregate (rows=1, 122 ms) > Sort (rows=4,431, 121 ms) > Nested Loop (rows=4,431, 121 ms) > Nested Loop (rows=1, 51 ms) > Aggregate (rows=4,431, 69 ms) > Aggregate (rows=1, 38 ms)
-- modern (`sql/playbook/benchmark/q05_modern.sql`, analyze, 460 ms): Nested Loop (rows=1, 546 ms) > Aggregate (rows=1, 446 ms) > Aggregate (rows=1, 101 ms) > Gather (rows=3, 446 ms) > Hash Join (rows=1,311, 101 ms) > Aggregate (rows=3, 418 ms)
+- legacy (`sql/playbook/benchmark/q05_legacy.sql`, analyze, 116.2 ms): Aggregate (rows=1, 122 ms) > Sort (rows=4,431, 121 ms) > Nested Loop (rows=4,431, 121 ms) > Nested Loop (rows=1, 51 ms) > Aggregate (rows=4,431, 69 ms) > Aggregate (rows=1, 38 ms)
+- modern (`sql/playbook/benchmark/q05_modern.sql`, analyze, 460.5 ms): Nested Loop (rows=1, 546 ms) > Aggregate (rows=1, 446 ms) > Aggregate (rows=1, 101 ms) > Gather (rows=3, 446 ms) > Hash Join (rows=1,311, 101 ms) > Aggregate (rows=3, 418 ms)
 
 **Q06 Reportable population for a compliance filing**
 
-- legacy (`sql/playbook/benchmark/q06_legacy.sql`, analyze, 26 ms): Aggregate (rows=1, 33 ms) > Sort (rows=36,383, 31 ms) > Hash Join (rows=36,383, 24 ms) > Hash Join (rows=36,383, 22 ms) > Hash (rows=3, 0 ms) > Hash Join (rows=36,383, 19 ms)
-- modern (`sql/playbook/benchmark/q06_modern.sql`, analyze, 16 ms): Aggregate (rows=1, 18 ms) > Sort (rows=35,175, 15 ms) > Seq Scan on dim_contract (rows=35,175, 8 ms)
+- legacy (`sql/playbook/benchmark/q06_legacy.sql`, analyze, 26.1 ms): Aggregate (rows=1, 33 ms) > Sort (rows=36,383, 31 ms) > Hash Join (rows=36,383, 24 ms) > Hash Join (rows=36,383, 22 ms) > Hash (rows=3, 0 ms) > Hash Join (rows=36,383, 19 ms)
+- modern (`sql/playbook/benchmark/q06_modern.sql`, analyze, 15.8 ms): Aggregate (rows=1, 18 ms) > Sort (rows=35,175, 15 ms) > Seq Scan on dim_contract (rows=35,175, 8 ms)
 
 **Q07 Attributes for a provider-scoped population**
 
-- legacy (`sql/playbook/benchmark/q07_legacy.sql`, estimated, 962 ms): Aggregate > Hash Join > Append > Aggregate > Aggregate > Aggregate
-- modern (`sql/playbook/benchmark/q07_modern.sql`, analyze, 45 ms): Aggregate (rows=1, 41 ms) > Gather (rows=3, 41 ms) > Aggregate (rows=3, 16 ms) > Nested Loop (rows=9,936, 16 ms) > Hash Join (rows=9,936, 7 ms) > Index Scan on dim_contract_finance using dim_contract_finance_pkey (rows=9,936, 0 ms)
+- legacy (`sql/playbook/benchmark/q07_legacy.sql`, estimated, 961.9 ms): Aggregate > Hash Join > Append > Aggregate > Aggregate > Aggregate
+- modern (`sql/playbook/benchmark/q07_modern.sql`, analyze, 44.6 ms): Aggregate (rows=1, 41 ms) > Gather (rows=3, 41 ms) > Aggregate (rows=3, 16 ms) > Nested Loop (rows=9,936, 16 ms) > Hash Join (rows=9,936, 7 ms) > Index Scan on dim_contract_finance using dim_contract_finance_pkey (rows=9,936, 0 ms)
 
 **Q08 Tenant B in-force count**
 
-- legacy step 1 (`sql/playbook/benchmark/q08_legacy.sql`, no plan, 1 ms): expected error: column "CurrentContractStatus" does not exist
-- legacy step 2 (`sql/playbook/benchmark/q08_legacy_2.sql`, analyze, 4 ms): Aggregate (rows=1, 3 ms) > Hash Join (rows=7,364, 2 ms) > Seq Scan on tbl_contract (rows=7,364, 2 ms) > Hash (rows=35, 0 ms) > Seq Scan on tbl_dealer (rows=35, 0 ms)
-- modern (`sql/playbook/benchmark/q08_modern.sql`, analyze, 5 ms): Aggregate (rows=1, 4 ms) > Bitmap Heap Scan on dim_contract (rows=7,433, 3 ms) > Bitmap Index Scan using ix_dim_contract__tenant_key (rows=9,554, 0 ms)
+- legacy step 1 (`sql/playbook/benchmark/q08_legacy.sql`, no plan, 1.0 ms): expected error: column "CurrentContractStatus" does not exist
+- legacy step 2 (`sql/playbook/benchmark/q08_legacy_2.sql`, analyze, 3.8 ms): Aggregate (rows=1, 3 ms) > Hash Join (rows=7,364, 2 ms) > Seq Scan on tbl_contract (rows=7,364, 2 ms) > Hash (rows=35, 0 ms) > Seq Scan on tbl_dealer (rows=35, 0 ms)
+- modern (`sql/playbook/benchmark/q08_modern.sql`, analyze, 4.6 ms): Aggregate (rows=1, 4 ms) > Bitmap Heap Scan on dim_contract (rows=7,433, 3 ms) > Bitmap Index Scan using ix_dim_contract__tenant_key (rows=9,554, 0 ms)
 
 **Q09 RV chassis make/model per contract**
 
-- legacy step 1 (`sql/playbook/benchmark/q09_legacy.sql`, no plan, 1 ms): expected error: cross-database references are not implemented: "vsc_legacy_admin.admin_eav.contract_field"
-- legacy step 2 (`sql/playbook/benchmark/q09_legacy_2.sql`, analyze, 3 ms): Aggregate (rows=1, 2 ms) > Aggregate (rows=771, 2 ms) > Sort (rows=3,826, 2 ms) > Hash Join (rows=3,826, 1 ms) > Seq Scan on contract_field (rows=7,007, 0 ms) > Hash (rows=5, 0 ms)
-- modern (`sql/playbook/benchmark/q09_modern.sql`, analyze, 27 ms): Aggregate (rows=1, 25 ms) > Gather Merge (rows=779, 25 ms) > Sort (rows=780, 5 ms) > Nested Loop (rows=780, 5 ms) > Seq Scan on dim_contract_vehicle (rows=780, 3 ms) > Index Scan on dim_contract using dim_contract_pkey (rows=779, 0 ms)
+- legacy step 1 (`sql/playbook/benchmark/q09_legacy.sql`, no plan, 1.0 ms): expected error: cross-database references are not implemented: "vsc_legacy_admin.admin_eav.contract_field"
+- legacy step 2 (`sql/playbook/benchmark/q09_legacy_2.sql`, analyze, 2.6 ms): Aggregate (rows=1, 2 ms) > Aggregate (rows=771, 2 ms) > Sort (rows=3,826, 2 ms) > Hash Join (rows=3,826, 1 ms) > Seq Scan on contract_field (rows=7,007, 0 ms) > Hash (rows=5, 0 ms)
+- modern (`sql/playbook/benchmark/q09_modern.sql`, analyze, 26.7 ms): Aggregate (rows=1, 25 ms) > Gather Merge (rows=779, 25 ms) > Sort (rows=780, 5 ms) > Nested Loop (rows=780, 5 ms) > Seq Scan on dim_contract_vehicle (rows=780, 3 ms) > Index Scan on dim_contract using dim_contract_pkey (rows=779, 0 ms)
 
 **Q10 Stock number match rate by VIN**
 
 - legacy step 1 (`sql/playbook/benchmark/q10_legacy.sql`, estimated (no ANALYZE: the query hit its timeout), timed out at 60 s): Aggregate > Seq Scan on tbl_stock_number > Nested Loop > Seq Scan on tbl_contract > Materialize > Seq Scan on tbl_dealer
-- legacy step 2 (`sql/playbook/benchmark/q10_legacy_2.sql`, analyze, 51 ms): Aggregate (rows=1, 57 ms) > Sort (rows=41,537, 53 ms) > Hash Join (rows=41,537, 39 ms) > Seq Scan on tbl_stock_number (rows=41,537, 2 ms) > Hash (rows=59,916, 29 ms) > Aggregate (rows=59,916, 24 ms)
-- modern (`sql/playbook/benchmark/q10_modern.sql`, analyze, 32 ms): Aggregate (rows=1, 32 ms) > Gather (rows=2, 32 ms) > Aggregate (rows=2, 18 ms) > Hash Join (rows=59,748, 17 ms) > Seq Scan on dim_contract_vehicle (rows=59,748, 2 ms) > Hash (rows=59,748, 5 ms)
+- legacy step 2 (`sql/playbook/benchmark/q10_legacy_2.sql`, analyze, 50.6 ms): Aggregate (rows=1, 57 ms) > Sort (rows=41,537, 53 ms) > Hash Join (rows=41,537, 39 ms) > Seq Scan on tbl_stock_number (rows=41,537, 2 ms) > Hash (rows=59,916, 29 ms) > Aggregate (rows=59,916, 24 ms)
+- modern (`sql/playbook/benchmark/q10_modern.sql`, analyze, 32.2 ms): Aggregate (rows=1, 32 ms) > Gather (rows=2, 32 ms) > Aggregate (rows=2, 18 ms) > Hash Join (rows=59,748, 17 ms) > Seq Scan on dim_contract_vehicle (rows=59,748, 2 ms) > Hash (rows=59,748, 5 ms)
 
 ## Clutter findings (legacy database)
 
@@ -234,4 +234,4 @@ Top plan nodes per question (legacy, then modern).
 ## Not measured here
 
 - Timings are at synthetic scale (about 60k contracts, 3.3M earnings rows). The legacy costs grow with the whole book, so the gaps widen with real volumes; the row-level differences do not depend on scale.
-- Q7 finished inside its 2s budget at this scale (962 ms); the plan shows the whole spine is rebuilt for every lookup, which is what times out on a production-sized book.
+- Q7 finished inside its 2s budget at this scale (961.9 ms); the plan shows the whole spine is rebuilt for every lookup, which is what times out on a production-sized book.

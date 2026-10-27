@@ -142,7 +142,8 @@ def test_site_page_renders_one_card_per_pain_point(tmp_path: Path, monkeypatch):
     cards = [s for s in p.sections if "pain-point" in s.html]
     assert len(cards) == len(report.PAIN_POINTS)
     assert all("Root cause in the foundation" in s.html and "Where it lives" in s.html for s in cards)
-    assert p.sections[0].rows and p.sections[0].rows[0][0] == "Q01"
+    [bench] = [s for s in p.sections if s.title == "The benchmark"]  # after the optional "At a glance" figure
+    assert bench.rows and bench.rows[0][0] == "Q01"
     assert page.NAV_GROUP == "Platform"
 
 
