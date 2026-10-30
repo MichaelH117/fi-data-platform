@@ -102,7 +102,7 @@ How the dynamic map works:
 | Refresh | On demand | Daily after the pipeline's gates pass (by 7 AM), with incremental refresh on large facts |
 | Who can edit | `sg-bi-developers`, `sg-bi-analysts` | Nobody by hand. Deployment pipeline only |
 | RLS testing | "View as" each role with test logins from `core.dim_user_dealer_access` | Quarterly access review of group membership |
-| Data | Synthetic or cloned | Production marts (synthetic in this portfolio) |
+| Data | Synthetic or cloned | Production marts (synthetic in this demo) |
 
 ## 7. Controls checklist (every release)
 

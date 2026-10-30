@@ -1,30 +1,30 @@
 # Orchestration research spike: Airflow vs Dagster vs Prefect vs GitHub Actions cron
 
-*Date: 2026-10-22. Scope: a daily batch pipeline (ingest -> transform -> test -> publish reports) for a solo or small-team portfolio project. It runs locally in Docker, with CI as an option.*
+*Date: 2026-10-22. Scope: a daily batch pipeline (ingest -> transform -> test -> publish reports) for a solo or small-team project. It runs locally in Docker, with CI as an option.*
 
 ## RECOMMENDATION
 
 **Use Apache Airflow 3.x (LocalExecutor, Docker Compose) as the orchestrator. Use GitHub Actions only for CI** (lint, unit tests, `dbt build` against a throwaway Postgres on each PR). Do not use Actions as the production scheduler.
 
 Reasons:
-1. **Job-market signal.** Airflow is still the orchestrator that job postings name most often. It has the largest ecosystem, about 30M monthly downloads and roughly 80k organizations according to Astronomer. Estimates of its share of postings vary widely (15.8% to 48%, depending on the dataset), and UK posting counts fell year over year. Even so, it is still the orchestrator recruiters search for by name.
+1. **Market adoption.** Airflow is still the orchestrator that job postings name most often. It has the largest ecosystem, about 30M monthly downloads and roughly 80k organizations according to Astronomer. Estimates of its share of postings vary widely (15.8% to 48%, depending on the dataset), and UK posting counts fell year over year.
 2. **The asset gap has narrowed.** Airflow 3.0 (April 2025) made **assets** first-class, so you can still show asset-aware, data-driven scheduling. Dagster's lineage is still richer.
 3. **dbt lineage.** Running dbt through `astronomer-cosmos` turns each dbt model and test into its own Airflow task, so the graph shows lineage at the model level.
 4. **Ecosystem stability.** Prefect agreed to acquire Dagster Labs (announced July 2026). Dagster OSS is promised to continue, but its roadmap is uncertain for now. Airflow is an Apache project with no single vendor behind it.
 
-**Runner-up: Dagster.** It is technically the best fit for "warehouse + dbt + lineage + data quality" (asset graph, asset checks, `dagster-dbt`), and its local developer experience is the best of the four. Choose it if the portfolio story is "modern asset-centric data platform" rather than "what most job descriptions list." The DAG code stays small either way, so switching later is cheap.
+**Runner-up: Dagster.** It is technically the best fit for "warehouse + dbt + lineage + data quality" (asset graph, asset checks, `dagster-dbt`), and its local developer experience is the best of the four. Choose it if the priority is a modern asset-centric data platform rather than the most widely adopted tool. The DAG code stays small either way, so switching later is cheap.
 
 ## Comparison
 
 | | Airflow 3 | Dagster | Prefect 3 | GitHub Actions cron |
 |---|---|---|---|---|
 | Mental model | DAGs of tasks (+ assets in 3.x) | Software-defined assets | Plain Python `@flow`/`@task` | YAML jobs on a cron |
-| Job-market value | **Highest** | Growing, niche | Moderate | Low (CI skill, not orchestration) |
+| Market adoption | **Highest** | Growing, niche | Moderate | Low (CI tool, not orchestration) |
 | Local Docker setup | Heaviest: api-server, scheduler, dag-processor, Postgres (`airflow standalone` for dev) | Moderate: webserver, daemon, code location, Postgres (official compose example) | Lightest: `prefect server start` + worker | None, but not local |
 | Observability | Good UI, task logs, retries, SLAs/callbacks | Best: asset catalog, materialization history, checks | Good UI, logs, retries | Basic run logs only |
 | Asset lineage | Assets + Cosmos dbt graph; OpenLineage provider | **Native, first-class** | Limited (artifacts/events) | None |
 | Daily scheduling reliability | Reliable | Reliable | Reliable | Can be delayed at peak times; **auto-disabled after 60 days without activity** on public repos |
-| Risk | Operational weight | Vendor change (Prefect acquisition) | Less resume pull than Airflow | Not a real orchestrator |
+| Risk | Operational weight | Vendor change (Prefect acquisition) | Smaller adoption than Airflow | Not a real orchestrator |
 
 ## Tradeoffs to accept with Airflow
 - More containers and more memory. Mitigate with LocalExecutor (no Celery or Redis) and one Postgres container shared with the warehouse in dev.

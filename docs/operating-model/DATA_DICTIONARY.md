@@ -2251,7 +2251,7 @@ Named status sets. A report line names one set instead of listing statuses inlin
 
 ### `seeds.state_reserve_method`
 
-State -> funded-reserve method matrix: all 50 states + DC, one row each. States with has_requirement = false are skipped by the filing. Rates are illustrative synthetic values for the portfolio demo, not legal guidance. method_code NET_OF_CLAIMS: reserve = reserve_rate x (gross consideration - claims paid); GROSS_CONSIDERATION: reserve = reserve_rate x gross consideration; both floored at zero. The regulatory year starts on period_start_month (9 = Sep-Aug). market_survey = the state asked for the market survey.
+State -> funded-reserve method matrix: all 50 states + DC, one row each. States with has_requirement = false are skipped by the filing. Rates are illustrative synthetic values for the demo, not legal guidance. method_code NET_OF_CLAIMS: reserve = reserve_rate x (gross consideration - claims paid); GROSS_CONSIDERATION: reserve = reserve_rate x gross consideration; both floored at zero. The regulatory year starts on period_start_month (9 = Sep-Aug). market_survey = the state asked for the market survey.
 
 | Column | Type | Description | Tests |
 |---|---|---|---|

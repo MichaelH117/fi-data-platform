@@ -1,6 +1,6 @@
 # Case study: F&IP, an F&I data platform
 
-Michael Hanson · portfolio project · all data synthetic · numbers from pipeline run `20261026T183720Z`
+Michael Hanson · demonstration project · all data synthetic · numbers from pipeline run `20261026T183720Z`
 
 ## The problem
 

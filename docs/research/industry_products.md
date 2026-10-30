@@ -207,7 +207,7 @@ Build these marts so each report is one query:
 Synthesized from public job postings and careers pages of mid-size F&I product administrators (generic, no company named).
 
 - **Where it sits:** usually a "Business Intelligence / Data Analytics & Reporting" group that is separate from IT. IT owns infrastructure, cloud, application developers and the DBA. BI owns pipelines, the warehouse, models and reports. Finance (FP&A, reinsurance accounting) and claims leadership are the main internal customers. Actuarial work is often done by finance, outside consultants or insurer partners, not by the BI team.
-- **Levels:** Senior Director or Director of data/BI, then a BI/reporting manager, then senior individual contributors (analytics developer or analytics engineer, BI developer, senior data analyst, data engineer). Postings commonly ask for 5-8+ years of experience, and a mid-size shop often hires seniors rather than juniors.
+- **Levels:** Senior Director or Director of data/BI, then a BI/reporting manager, then senior individual contributors (analytics developer or analytics engineer, BI developer, senior data analyst, data engineer).
 - **Typical stack:** Python and SQL for ingest, an orchestrator (often Apache Airflow) for ETL/ELT, a cloud data warehouse plus an operational PostgreSQL or SQL database, SQL-based modeling inside the warehouse, and a self-service BI tool with a governed workspace and semantic model (DAX-style measures, Power Query-style shaping). Sources are the policy/claims admin system, dealer and agent master data, insurer and reinsurer statements, and call-center/IVR data.
 - **Recurring work:**
   - Migrate data from the admin system into the warehouse and reconcile it (row counts and dollar totals).
@@ -217,4 +217,4 @@ Synthesized from public job postings and careers pages of mid-size F&I product a
   - Report product performance and loss ratio by product, term, dealer and vehicle class.
   - Report cancellations and chargebacks.
   - Support F&I performance and ROI tools (PVR, penetration).
-- **What this means for a portfolio pipeline:** show an incremental, orchestrated ELT pipeline with data contracts and reconciliation, a star-schema gold layer with one metric definition shared by every report, dealer-level row security or suppression, and cession/experience and claims-KPI marts. Those are the deliverables these teams are hired to build.
+- **What this means for the platform:** provide an incremental, orchestrated ELT pipeline with data contracts and reconciliation, a star-schema gold layer with one metric definition shared by every report, dealer-level row security or suppression, and cession/experience and claims-KPI marts. Those are the deliverables these teams need.

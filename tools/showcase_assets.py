@@ -154,7 +154,7 @@ def case_study_md(stats: dict, bench: dict) -> str:
     lines = [
         "# Case study: F&IP, an F&I data platform",
         "",
-        "Michael Hanson · portfolio project · all data synthetic · "
+        "Michael Hanson · demonstration project · all data synthetic · "
         f"numbers from pipeline run `{s['run_id']}`",
         "",
         "## The problem",

@@ -54,5 +54,5 @@ work from the open postmortem actions.
 | `data/runs/_gates.json` (last gate results; blocks `--from` / `--only` past a failed gate) | `pipeline/run.py` |
 | `site/ops.html` (SLA calendar, gate and reconciliation tables, dealer packet list) | `reports/ops.py` |
 
-This is a portfolio build with no scheduler running every morning, so the Operations page marks
+This is a demo build with no scheduler running every morning, so the Operations page marks
 business days before the first recorded run as *untracked* and leaves them out of the SLO rate.

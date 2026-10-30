@@ -37,7 +37,7 @@ Use a data-product model. Every dataset has a **product owner**, a **producer** 
 **Anonymization and aggregation**
 - Never sell rows at the contract or VIN level. Publish aggregates only.
 - **Minimum cell size:** suppress any cell under **11** contracts, and also any cell from which a small value could be worked out (complementary suppression), following the [CMS Cell Suppression Policy](https://resdac.org/node/1506). Also require **at least 5 contributing dealers in each peer group, with no single dealer above about 25% of the cell**, so a competitor's numbers cannot be reverse-engineered.
-- Remove direct identifiers (name, address, VIN, phone) at the staging step. Synthetic data is used for the portfolio version.
+- Remove direct identifiers (name, address, VIN, phone) at the staging step. Synthetic data is used for the demo version.
 
 **Legal risk (have counsel verify)**
 - **GLBA:** VSC finance data at dealers is typically treated as nonpublic personal information (NPI). Auto dealers fall under the FTC Safeguards Rule. Treat the source data as GLBA data.
@@ -50,7 +50,7 @@ Use a data-product model. Every dataset has a **product owner**, a **producer** 
 
 ## RECOMMENDATION
 
-1. Build the portfolio as a **one-person "team"**: each role from section 1 maps to a folder or artifact, which shows recruiters that you understand the whole operating model.
+1. Build the project as a **one-person "team"**: each role from section 1 maps to a folder or artifact, so the whole operating model is covered.
 2. Use **synthetic data only**. No real company records go anywhere.
 3. Ship a `metrics.yml` contract, a data contract on the raw feed, freshness SLOs (daily 7 AM refresh), and tests in CI.
 4. Add a **`publish` layer** that enforces k ≥ 11 contracts, at least 5 dealers per cell and complementary suppression. This is the step that makes a "data broker" product credible.

@@ -130,7 +130,7 @@ def index_page(d: RegulatoryData, files: dict[str, str], inforce: pd.DataFrame |
                 cols=["State", "Method", "Rate", "Period end", "Status", "In force", "Gross consideration",
                       "Calculated reserve", "Current reserve", "Basis", "Shortfall", "Shortfall cause", "Workbook"],
                 rows=rows, wide=True, table_open=True,
-                note="Rates are illustrative synthetic values for this portfolio demo, not legal guidance."),
+                note="Rates are illustrative synthetic values for this demo, not legal guidance."),
         Section("Shortfall by basis",
                 "Current reserve held is the claims reserve funded at sale on coverage cost, minus claims paid. "
                 "Coverage-cost states measure the requirement on that same basis. Retail-basis states measure "
@@ -294,7 +294,7 @@ def definitions_page(d: RegulatoryData) -> Page:
                             cols=["State", "Name", "Requirement", "Method", "Reserve rate", "Deposit rate",
                                   "Default basis", "Year starts (month)", "Market survey"],
                             rows=meth, wide=True, table_open=True,
-                            note="Illustrative synthetic rules for a portfolio project, not legal guidance."),
+                            note="Illustrative synthetic rules for a demonstration project, not legal guidance."),
                 ], nav=INDEX, crumb=CRUMB)
 
 

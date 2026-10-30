@@ -7,7 +7,7 @@
 | **A. SQL Server -> Postgres mirror** (mirrors the real setup) | Shows you know the real-world hop; both engines are free in Docker (SQL Server 2022 Developer, `mcr.microsoft.com/mssql/server:2022-latest`) | Two engines to run (SQL Server needs about 2 GB RAM). Real CDC (Debezium + Kafka) adds heavy infrastructure; `tds_fdw` reads SQL Server live and doesn't keep a copy | Good, if the hop is kept **simple** (a batch Python/dbt copy, not Kafka) |
 | **B. Postgres-only medallion + dbt** | One engine, free, industry-standard dbt layering, tests, docs, lineage | Doesn't mirror the SQL Server step | Strong core |
 | **C. DuckDB** | No server, very fast, great for CI/tests | Single-writer file, so it's awkward as a shared "server" for daily stakeholder refresh | Use for unit tests/CI only |
-| **D. Snowflake trial** | Recognizable on a resume | 30 days / $400 credits, then it expires, so the repo stops working | Optional dbt target, not the core |
+| **D. Snowflake trial** | Widely recognized | 30 days / $400 credits, then it expires, so the repo stops working | Optional dbt target, not the core |
 
 ## RECOMMENDATION
 
@@ -17,7 +17,7 @@
 2. **Ingestion (Python + SQLAlchemy/pyodbc):** incremental extract by `updated_at` watermark into **Postgres `bronze`** (raw, append-only, with `_loaded_at` and `_source_file`). Explain in the README that this replaces Debezium for simplicity.
 3. **Transform (dbt Core + dbt-postgres, Apache 2.0):** `bronze` (sources) -> `silver` (`stg_`/`int_`: typed, deduped, conformed) -> `gold` (`dim_`/`fct_` marts).
 4. **Orchestration:** **Dagster** (asset lineage UI looks great in screenshots), or cron/APScheduler if you want it smaller. Runs daily: extract -> dbt build -> tests -> refresh BI.
-5. **BI:** **Metabase** or **Apache Superset** containers (free) pointed at `gold`; Power BI Desktop can connect to the same Postgres for a resume screenshot.
+5. **BI:** **Metabase** or **Apache Superset** containers (free) pointed at `gold`; Power BI Desktop can connect to the same Postgres as well.
 6. **CI:** GitHub Actions running `dbt build` against DuckDB or a Postgres service container.
 
 ## Star schema (gold)
